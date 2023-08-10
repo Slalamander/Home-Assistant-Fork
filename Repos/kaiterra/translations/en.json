@@ -1,0 +1,57 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Device is already configured"
+        },
+        "error": {
+            "cannot_connect": "Failed to connect",
+            "invalid_auth": "Invalid authentication",
+            "unknown": "Unexpected error",
+            "invalid_token": "Invalid JWT Token"
+        },
+        "step": {
+            "user": {
+                "title": "Setup Kaiterra Device",
+                "data": {
+                    "api_key": "API Key",
+                    "device_id": "Device ID",
+                    "device_type": "Device Type",
+                    "device_name": "Frontend Device Name"
+                }
+            },
+            "options": {
+                "data": {
+                    "show_balance": "Show User Balance",
+                    "custom_pictures": "Custom Entity Pictures",
+                    "resident_units": "Resident names as unit of measurement",
+                    "use_external_url": "Use External URL for entity pictures"
+                }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "data": {
+                    "show_balance": "Show User Balance",
+                    "custom_pictures": "Custom Entity Pictures",
+                    "resident_units": "Resident names as unit of measurement",
+                    "use_external_url": "Use External URL for entity pictures"
+                }
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "eetlijst_user": {
+                "state": {
+                    "eat_only": "Eating",
+                    "not_attending": "Not Eating",
+                    "not_set": "Not Set",
+                    "got_groceries": "Shopping",
+                    "cook": "Cooking"
+                }
+            }
+        }
+    }
+}

@@ -580,7 +580,7 @@ omit =
     homeassistant/components/justnimbus/coordinator.py
     homeassistant/components/justnimbus/entity.py
     homeassistant/components/justnimbus/sensor.py
-    homeassistant/components/kaiterra/*
+
     homeassistant/components/kankun/switch.py
     homeassistant/components/keba/*
     homeassistant/components/keenetic_ndms2/__init__.py

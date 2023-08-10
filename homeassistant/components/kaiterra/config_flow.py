@@ -1,0 +1,200 @@
+"""Config flow for Hello World integration."""
+from __future__ import annotations
+
+import logging
+from typing import Any
+import voluptuous as vol
+from homeassistant import config_entries, exceptions, data_entry_flow
+from homeassistant.helpers import config_validation as cv
+from homeassistant.core import HomeAssistant, callback  # pylint:disable=unused-import
+from homeassistant.const import (
+    CONF_API_KEY,
+    CONF_DEVICE_ID,
+    CONF_DEVICES,
+    CONF_NAME,
+    CONF_SCAN_INTERVAL,
+    CONF_TYPE,
+)
+from .api_data import KaiterraApiData, test_api_connection
+from .const import (
+    AVAILABLE_AQI_STANDARDS,
+    AVAILABLE_DEVICE_TYPES,
+    AVAILABLE_UNITS,
+    CONF_AQI_STANDARD,
+    CONF_PREFERRED_UNITS,
+    DEFAULT_AQI_STANDARD,
+    DEFAULT_PREFERRED_UNIT,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    PLATFORMS,
+)
+
+_LOGGER = logging.getLogger(__name__)
+
+# KAITERRA_DEVICE_SCHEMA = vol.Schema(
+#     {
+#         vol.Required(CONF_API_KEY): cv.string,
+#         vol.Required(CONF_DEVICE_ID): cv.string,
+#         vol.Required(CONF_TYPE): vol.In(AVAILABLE_DEVICE_TYPES),
+#         vol.Optional(CONF_NAME): cv.string,
+#     }
+# )
+
+KAITERRA_DEVICE_SCHEMA = vol.Schema(
+    {
+        vol.Required("api_key"): cv.string,
+        vol.Required("device_id"): cv.string,
+        vol.Required("device_type"): vol.In(AVAILABLE_DEVICE_TYPES),
+        vol.Optional("device_name"): cv.string,
+    }
+)
+
+KAITERRA_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_DEVICES): vol.All(cv.ensure_list, [KAITERRA_DEVICE_SCHEMA]),
+        vol.Optional(CONF_AQI_STANDARD, default=DEFAULT_AQI_STANDARD): vol.In(
+            AVAILABLE_AQI_STANDARDS
+        ),
+        vol.Optional(CONF_PREFERRED_UNITS, default=DEFAULT_PREFERRED_UNIT): vol.All(
+            cv.ensure_list, [vol.In(AVAILABLE_UNITS)]
+        ),
+        vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): cv.time_period,
+    }
+)
+
+CONFIG_SCHEMA = vol.Schema({DOMAIN: KAITERRA_SCHEMA}, extra=vol.ALLOW_EXTRA)
+
+
+async def validate_input(hass: HomeAssistant, data: dict) -> dict[str, Any]:
+    """Validate the user input allows us to connect.
+
+    Data has the keys from DATA_SCHEMA with values provided by the user.
+    """
+    logging.warning(data)
+    await test_api_connection(hass, data)
+
+    # (result, info) = await test_token(data["token"])
+    # if not result:
+    #     if info is not None:
+    #         if (
+    #             info["errors"][0]["extensions"]["code"] == "invalid-jwt"
+    #             or info["errors"][0]["extensions"]["code"] == "invalid-headers"
+    #         ):
+    #             _LOGGER.exception("Invalid JWT Token or Headers")
+    #             raise InvalidToken
+    #         else:
+    #             raise CannotConnect
+    #     else:
+    #         raise CannotConnect
+
+    return {"title": "test"}
+
+
+class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for Hello World."""
+
+    VERSION = 1
+    CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
+
+    async def async_step_user(self, user_input=None):
+        """Handle the initial step."""
+        logging.warning("Starting Kaiterra Config Flow")
+        errors = {}
+        self.data = {}
+        if user_input is not None:
+            try:
+                info = await validate_input(self.hass, user_input)
+                for input_key in user_input:
+                    self.data[input_key] = user_input[input_key]
+                self.data["title"] = info["title"]
+
+                self.async_create_entry(title=info["title"], data=user_input)
+                return await self.async_step_options(title=info["title"])
+
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidHost:
+                errors["base"] = "cannot_connect"
+            except InvalidToken:
+                errors["base"] = "invalid_token"
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "unknown"
+
+        # If there is no user input or there were errors, show the form again, including any errors that were found with the input.
+        return self.async_show_form(
+            step_id="user", data_schema=KAITERRA_DEVICE_SCHEMA, errors=errors
+        )
+
+    async def async_step_options(self, user_input=None, title=None):
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            for input_key in user_input:
+                self.data[input_key] = user_input[input_key]
+
+            return self.async_create_entry(
+                title="Eetlijst {}".format(self.data["title"]), data=self.data
+            )
+
+        return self.async_show_form(
+            step_id="options", data_schema=KAITERRA_SCHEMA, errors=errors
+        )
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        """Create the options flow."""
+        return OptionsFlowHandler(config_entry)
+
+
+class OptionsFlowHandler(config_entries.OptionsFlow):
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+        print(KAITERRA_SCHEMA.schema)
+        opt_set = {}
+        for opt in KAITERRA_SCHEMA.schema:
+            if opt in config_entry.data:
+                opt_set[opt] = config_entry.data[opt]
+            else:
+                opt_set[opt] = False
+
+        self.options_schema = vol.Schema(
+            {
+                vol.Required("show_balance", default=opt_set["show_balance"]): bool,
+                vol.Required(
+                    "custom_pictures", default=opt_set["custom_pictures"]
+                ): bool,
+                vol.Required("resident_units", default=opt_set["resident_units"]): bool,
+                vol.Required(
+                    "use_external_url", default=opt_set["use_external_url"]
+                ): bool,
+            }
+        )
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> data_entry_flow.FlowResult:
+        """Manage the options."""
+        errors = {}
+
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        return self.async_show_form(
+            step_id="init", data_schema=self.options_schema, errors=errors
+        )
+
+
+class CannotConnect(exceptions.HomeAssistantError):
+    """Error to indicate we cannot connect."""
+
+
+class InvalidHost(exceptions.HomeAssistantError):
+    """Error to indicate there is an invalid hostname."""
+
+
+class InvalidToken(exceptions.HomeAssistantError):
+    """Error to indicate there is an invalid hostname."""
