@@ -4,6 +4,8 @@ from collections.abc import Callable
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
+from pytest_homeassistant.components.bluetooth import inject_bluetooth_service_info
 
 from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
 from homeassistant.components.vacuum import (
@@ -21,10 +23,8 @@ from . import (
     K11_PLUS_VACUUM_SERVICE_INFO,
     K20_VACUUM_SERVICE_INFO,
     S10_VACUUM_SERVICE_INFO,
+    S20_VACUUM_SERVICE_INFO,
 )
-
-from tests.common import MockConfigEntry
-from tests.components.bluetooth import inject_bluetooth_service_info
 
 
 @pytest.mark.parametrize(
@@ -36,6 +36,7 @@ from tests.components.bluetooth import inject_bluetooth_service_info
         ("k10_vacuum", K10_VACUUM_SERVICE_INFO),
         ("k10_pro_vacuum", K10_PRO_VACUUM_SERVICE_INFO),
         ("k11+_vacuum", K11_PLUS_VACUUM_SERVICE_INFO),
+        ("s20_vacuum", S20_VACUUM_SERVICE_INFO),
     ],
 )
 @pytest.mark.parametrize(
@@ -65,7 +66,7 @@ async def test_vacuum_controlling(
         **{mock_method: mocked_instance},
     ):
         assert await hass.config_entries.async_setup(entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entity_id = "vacuum.test_name"
 

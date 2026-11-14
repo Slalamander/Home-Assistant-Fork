@@ -4,6 +4,7 @@ from typing import Any
 
 from pypck.lcn_addr import LcnAddr
 import pytest
+from pytest_homeassistant.typing import WebSocketGenerator
 
 from homeassistant.components.lcn import AddressType
 from homeassistant.components.lcn.const import CONF_DOMAIN_DATA
@@ -19,8 +20,6 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 
 from .conftest import MockConfigEntry, init_integration
-
-from tests.typing import WebSocketGenerator
 
 DEVICES_PAYLOAD = {CONF_TYPE: "lcn/devices", "entry_id": ""}
 ENTITIES_PAYLOAD = {
@@ -118,7 +117,7 @@ async def test_lcn_devices_scan_command(
     """Test lcn/devices/scan command."""
     # add new module which is not stored in config_entry
     lcn_connection = await init_integration(hass, entry)
-    lcn_connection.get_address_conn(LcnAddr(0, 10, False))
+    lcn_connection.get_device_connection(LcnAddr(0, 10, False))
 
     client = await hass_ws_client(hass)
     await client.send_json_auto_id({**SCAN_PAYLOAD, "entry_id": entry.entry_id})

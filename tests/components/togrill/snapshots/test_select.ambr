@@ -1,11 +1,12 @@
 # serializer version: 1
-# name: test_setup[no_data][select.probe_1_grill_type-entry]
+# name: test_setup[no_data][select.pro_05_probe_1_grill_type-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'options': list([
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'beef',
         'veal',
@@ -25,13 +26,13 @@
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <ChildDeviceEntry identifiers=[('togrill', '00000000-0000-0000-0000-000000000001_1')]>,
     'disabled_by': None,
     'domain': 'select',
     'entity_category': None,
-    'entity_id': 'select.probe_1_grill_type',
+    'entity_id': 'select.pro_05_probe_1_grill_type',
     'has_entity_name': True,
     'hidden_by': None,
     'icon': None,
@@ -39,6 +40,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Grill type',
     'options': dict({
     }),
     'original_device_class': None,
@@ -53,11 +55,11 @@
     'unit_of_measurement': None,
   })
 # ---
-# name: test_setup[no_data][select.probe_1_grill_type-state]
+# name: test_setup[no_data][select.pro_05_probe_1_grill_type-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'Probe 1 Grill type',
-      'options': list([
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Probe 1 Grill type',
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'beef',
         'veal',
@@ -77,20 +79,21 @@
       ]),
     }),
     'context': <ANY>,
-    'entity_id': 'select.probe_1_grill_type',
+    'entity_id': 'select.pro_05_probe_1_grill_type',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,
     'state': 'none',
   })
 # ---
-# name: test_setup[no_data][select.probe_1_taste-entry]
+# name: test_setup[no_data][select.pro_05_probe_1_taste-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'options': list([
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'rare',
         'medium_rare',
@@ -100,13 +103,13 @@
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <ChildDeviceEntry identifiers=[('togrill', '00000000-0000-0000-0000-000000000001_1')]>,
     'disabled_by': None,
     'domain': 'select',
     'entity_category': None,
-    'entity_id': 'select.probe_1_taste',
+    'entity_id': 'select.pro_05_probe_1_taste',
     'has_entity_name': True,
     'hidden_by': None,
     'icon': None,
@@ -114,6 +117,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Taste',
     'options': dict({
     }),
     'original_device_class': None,
@@ -128,11 +132,11 @@
     'unit_of_measurement': None,
   })
 # ---
-# name: test_setup[no_data][select.probe_1_taste-state]
+# name: test_setup[no_data][select.pro_05_probe_1_taste-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'Probe 1 Taste',
-      'options': list([
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Probe 1 Taste',
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'rare',
         'medium_rare',
@@ -142,20 +146,21 @@
       ]),
     }),
     'context': <ANY>,
-    'entity_id': 'select.probe_1_taste',
+    'entity_id': 'select.pro_05_probe_1_taste',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,
     'state': 'none',
   })
 # ---
-# name: test_setup[no_data][select.probe_2_grill_type-entry]
+# name: test_setup[no_data][select.pro_05_probe_2_grill_type-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'options': list([
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'beef',
         'veal',
@@ -175,13 +180,13 @@
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <ChildDeviceEntry identifiers=[('togrill', '00000000-0000-0000-0000-000000000001_2')]>,
     'disabled_by': None,
     'domain': 'select',
     'entity_category': None,
-    'entity_id': 'select.probe_2_grill_type',
+    'entity_id': 'select.pro_05_probe_2_grill_type',
     'has_entity_name': True,
     'hidden_by': None,
     'icon': None,
@@ -189,6 +194,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Grill type',
     'options': dict({
     }),
     'original_device_class': None,
@@ -203,11 +209,11 @@
     'unit_of_measurement': None,
   })
 # ---
-# name: test_setup[no_data][select.probe_2_grill_type-state]
+# name: test_setup[no_data][select.pro_05_probe_2_grill_type-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'Probe 2 Grill type',
-      'options': list([
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Probe 2 Grill type',
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'beef',
         'veal',
@@ -227,20 +233,21 @@
       ]),
     }),
     'context': <ANY>,
-    'entity_id': 'select.probe_2_grill_type',
+    'entity_id': 'select.pro_05_probe_2_grill_type',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,
     'state': 'none',
   })
 # ---
-# name: test_setup[no_data][select.probe_2_taste-entry]
+# name: test_setup[no_data][select.pro_05_probe_2_taste-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'options': list([
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'rare',
         'medium_rare',
@@ -250,13 +257,13 @@
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <ChildDeviceEntry identifiers=[('togrill', '00000000-0000-0000-0000-000000000001_2')]>,
     'disabled_by': None,
     'domain': 'select',
     'entity_category': None,
-    'entity_id': 'select.probe_2_taste',
+    'entity_id': 'select.pro_05_probe_2_taste',
     'has_entity_name': True,
     'hidden_by': None,
     'icon': None,
@@ -264,6 +271,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Taste',
     'options': dict({
     }),
     'original_device_class': None,
@@ -278,11 +286,11 @@
     'unit_of_measurement': None,
   })
 # ---
-# name: test_setup[no_data][select.probe_2_taste-state]
+# name: test_setup[no_data][select.pro_05_probe_2_taste-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'Probe 2 Taste',
-      'options': list([
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Probe 2 Taste',
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'rare',
         'medium_rare',
@@ -292,20 +300,21 @@
       ]),
     }),
     'context': <ANY>,
-    'entity_id': 'select.probe_2_taste',
+    'entity_id': 'select.pro_05_probe_2_taste',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,
     'state': 'none',
   })
 # ---
-# name: test_setup[probes_with_different_data][select.probe_1_grill_type-entry]
+# name: test_setup[probes_with_different_data][select.pro_05_probe_1_grill_type-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'options': list([
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'beef',
         'veal',
@@ -325,13 +334,13 @@
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <ChildDeviceEntry identifiers=[('togrill', '00000000-0000-0000-0000-000000000001_1')]>,
     'disabled_by': None,
     'domain': 'select',
     'entity_category': None,
-    'entity_id': 'select.probe_1_grill_type',
+    'entity_id': 'select.pro_05_probe_1_grill_type',
     'has_entity_name': True,
     'hidden_by': None,
     'icon': None,
@@ -339,6 +348,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Grill type',
     'options': dict({
     }),
     'original_device_class': None,
@@ -353,11 +363,11 @@
     'unit_of_measurement': None,
   })
 # ---
-# name: test_setup[probes_with_different_data][select.probe_1_grill_type-state]
+# name: test_setup[probes_with_different_data][select.pro_05_probe_1_grill_type-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'Probe 1 Grill type',
-      'options': list([
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Probe 1 Grill type',
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'beef',
         'veal',
@@ -377,20 +387,21 @@
       ]),
     }),
     'context': <ANY>,
-    'entity_id': 'select.probe_1_grill_type',
+    'entity_id': 'select.pro_05_probe_1_grill_type',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,
     'state': 'beef',
   })
 # ---
-# name: test_setup[probes_with_different_data][select.probe_1_taste-entry]
+# name: test_setup[probes_with_different_data][select.pro_05_probe_1_taste-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'options': list([
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'rare',
         'medium_rare',
@@ -400,13 +411,13 @@
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <ChildDeviceEntry identifiers=[('togrill', '00000000-0000-0000-0000-000000000001_1')]>,
     'disabled_by': None,
     'domain': 'select',
     'entity_category': None,
-    'entity_id': 'select.probe_1_taste',
+    'entity_id': 'select.pro_05_probe_1_taste',
     'has_entity_name': True,
     'hidden_by': None,
     'icon': None,
@@ -414,6 +425,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Taste',
     'options': dict({
     }),
     'original_device_class': None,
@@ -428,11 +440,11 @@
     'unit_of_measurement': None,
   })
 # ---
-# name: test_setup[probes_with_different_data][select.probe_1_taste-state]
+# name: test_setup[probes_with_different_data][select.pro_05_probe_1_taste-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'Probe 1 Taste',
-      'options': list([
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Probe 1 Taste',
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'rare',
         'medium_rare',
@@ -442,20 +454,21 @@
       ]),
     }),
     'context': <ANY>,
-    'entity_id': 'select.probe_1_taste',
+    'entity_id': 'select.pro_05_probe_1_taste',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,
     'state': 'none',
   })
 # ---
-# name: test_setup[probes_with_different_data][select.probe_2_grill_type-entry]
+# name: test_setup[probes_with_different_data][select.pro_05_probe_2_grill_type-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'options': list([
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'beef',
         'veal',
@@ -475,13 +488,13 @@
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <ChildDeviceEntry identifiers=[('togrill', '00000000-0000-0000-0000-000000000001_2')]>,
     'disabled_by': None,
     'domain': 'select',
     'entity_category': None,
-    'entity_id': 'select.probe_2_grill_type',
+    'entity_id': 'select.pro_05_probe_2_grill_type',
     'has_entity_name': True,
     'hidden_by': None,
     'icon': None,
@@ -489,6 +502,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Grill type',
     'options': dict({
     }),
     'original_device_class': None,
@@ -503,11 +517,11 @@
     'unit_of_measurement': None,
   })
 # ---
-# name: test_setup[probes_with_different_data][select.probe_2_grill_type-state]
+# name: test_setup[probes_with_different_data][select.pro_05_probe_2_grill_type-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'Probe 2 Grill type',
-      'options': list([
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Probe 2 Grill type',
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'beef',
         'veal',
@@ -527,20 +541,21 @@
       ]),
     }),
     'context': <ANY>,
-    'entity_id': 'select.probe_2_grill_type',
+    'entity_id': 'select.pro_05_probe_2_grill_type',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,
     'state': 'none',
   })
 # ---
-# name: test_setup[probes_with_different_data][select.probe_2_taste-entry]
+# name: test_setup[probes_with_different_data][select.pro_05_probe_2_taste-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'options': list([
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'rare',
         'medium_rare',
@@ -550,13 +565,13 @@
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <ChildDeviceEntry identifiers=[('togrill', '00000000-0000-0000-0000-000000000001_2')]>,
     'disabled_by': None,
     'domain': 'select',
     'entity_category': None,
-    'entity_id': 'select.probe_2_taste',
+    'entity_id': 'select.pro_05_probe_2_taste',
     'has_entity_name': True,
     'hidden_by': None,
     'icon': None,
@@ -564,6 +579,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Taste',
     'options': dict({
     }),
     'original_device_class': None,
@@ -578,11 +594,11 @@
     'unit_of_measurement': None,
   })
 # ---
-# name: test_setup[probes_with_different_data][select.probe_2_taste-state]
+# name: test_setup[probes_with_different_data][select.pro_05_probe_2_taste-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'Probe 2 Taste',
-      'options': list([
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Probe 2 Taste',
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'rare',
         'medium_rare',
@@ -592,20 +608,21 @@
       ]),
     }),
     'context': <ANY>,
-    'entity_id': 'select.probe_2_taste',
+    'entity_id': 'select.pro_05_probe_2_taste',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,
     'state': 'none',
   })
 # ---
-# name: test_setup[probes_with_unknown_data][select.probe_1_grill_type-entry]
+# name: test_setup[probes_with_unknown_data][select.pro_05_probe_1_grill_type-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'options': list([
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'beef',
         'veal',
@@ -625,13 +642,13 @@
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <ChildDeviceEntry identifiers=[('togrill', '00000000-0000-0000-0000-000000000001_1')]>,
     'disabled_by': None,
     'domain': 'select',
     'entity_category': None,
-    'entity_id': 'select.probe_1_grill_type',
+    'entity_id': 'select.pro_05_probe_1_grill_type',
     'has_entity_name': True,
     'hidden_by': None,
     'icon': None,
@@ -639,6 +656,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Grill type',
     'options': dict({
     }),
     'original_device_class': None,
@@ -653,11 +671,11 @@
     'unit_of_measurement': None,
   })
 # ---
-# name: test_setup[probes_with_unknown_data][select.probe_1_grill_type-state]
+# name: test_setup[probes_with_unknown_data][select.pro_05_probe_1_grill_type-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'Probe 1 Grill type',
-      'options': list([
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Probe 1 Grill type',
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'beef',
         'veal',
@@ -677,20 +695,21 @@
       ]),
     }),
     'context': <ANY>,
-    'entity_id': 'select.probe_1_grill_type',
+    'entity_id': 'select.pro_05_probe_1_grill_type',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,
     'state': 'none',
   })
 # ---
-# name: test_setup[probes_with_unknown_data][select.probe_1_taste-entry]
+# name: test_setup[probes_with_unknown_data][select.pro_05_probe_1_taste-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'options': list([
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'rare',
         'medium_rare',
@@ -700,13 +719,13 @@
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <ChildDeviceEntry identifiers=[('togrill', '00000000-0000-0000-0000-000000000001_1')]>,
     'disabled_by': None,
     'domain': 'select',
     'entity_category': None,
-    'entity_id': 'select.probe_1_taste',
+    'entity_id': 'select.pro_05_probe_1_taste',
     'has_entity_name': True,
     'hidden_by': None,
     'icon': None,
@@ -714,6 +733,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Taste',
     'options': dict({
     }),
     'original_device_class': None,
@@ -728,11 +748,11 @@
     'unit_of_measurement': None,
   })
 # ---
-# name: test_setup[probes_with_unknown_data][select.probe_1_taste-state]
+# name: test_setup[probes_with_unknown_data][select.pro_05_probe_1_taste-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'Probe 1 Taste',
-      'options': list([
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Probe 1 Taste',
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'rare',
         'medium_rare',
@@ -742,20 +762,21 @@
       ]),
     }),
     'context': <ANY>,
-    'entity_id': 'select.probe_1_taste',
+    'entity_id': 'select.pro_05_probe_1_taste',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,
     'state': 'none',
   })
 # ---
-# name: test_setup[probes_with_unknown_data][select.probe_2_grill_type-entry]
+# name: test_setup[probes_with_unknown_data][select.pro_05_probe_2_grill_type-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'options': list([
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'beef',
         'veal',
@@ -775,13 +796,13 @@
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <ChildDeviceEntry identifiers=[('togrill', '00000000-0000-0000-0000-000000000001_2')]>,
     'disabled_by': None,
     'domain': 'select',
     'entity_category': None,
-    'entity_id': 'select.probe_2_grill_type',
+    'entity_id': 'select.pro_05_probe_2_grill_type',
     'has_entity_name': True,
     'hidden_by': None,
     'icon': None,
@@ -789,6 +810,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Grill type',
     'options': dict({
     }),
     'original_device_class': None,
@@ -803,11 +825,11 @@
     'unit_of_measurement': None,
   })
 # ---
-# name: test_setup[probes_with_unknown_data][select.probe_2_grill_type-state]
+# name: test_setup[probes_with_unknown_data][select.pro_05_probe_2_grill_type-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'Probe 2 Grill type',
-      'options': list([
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Probe 2 Grill type',
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'beef',
         'veal',
@@ -827,20 +849,21 @@
       ]),
     }),
     'context': <ANY>,
-    'entity_id': 'select.probe_2_grill_type',
+    'entity_id': 'select.pro_05_probe_2_grill_type',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,
     'state': 'none',
   })
 # ---
-# name: test_setup[probes_with_unknown_data][select.probe_2_taste-entry]
+# name: test_setup[probes_with_unknown_data][select.pro_05_probe_2_taste-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'options': list([
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'rare',
         'medium_rare',
@@ -850,13 +873,13 @@
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <ChildDeviceEntry identifiers=[('togrill', '00000000-0000-0000-0000-000000000001_2')]>,
     'disabled_by': None,
     'domain': 'select',
     'entity_category': None,
-    'entity_id': 'select.probe_2_taste',
+    'entity_id': 'select.pro_05_probe_2_taste',
     'has_entity_name': True,
     'hidden_by': None,
     'icon': None,
@@ -864,6 +887,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Taste',
     'options': dict({
     }),
     'original_device_class': None,
@@ -878,11 +902,11 @@
     'unit_of_measurement': None,
   })
 # ---
-# name: test_setup[probes_with_unknown_data][select.probe_2_taste-state]
+# name: test_setup[probes_with_unknown_data][select.pro_05_probe_2_taste-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'Probe 2 Taste',
-      'options': list([
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Probe 2 Taste',
+      <SelectEntityCapabilityAttribute.OPTIONS: 'options'>: list([
         'none',
         'rare',
         'medium_rare',
@@ -892,7 +916,7 @@
       ]),
     }),
     'context': <ANY>,
-    'entity_id': 'select.probe_2_taste',
+    'entity_id': 'select.pro_05_probe_2_taste',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,

@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import aiohttp
 from doorbirdpy import DoorBird
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant import config_entries
 from homeassistant.components.doorbird.const import (
@@ -26,8 +27,6 @@ from . import (
     mock_unauthorized_exception,
 )
 
-from tests.common import MockConfigEntry
-
 
 async def test_user_form(hass: HomeAssistant, doorbird_api: DoorBird) -> None:
     """Test we get the user form."""
@@ -44,7 +43,7 @@ async def test_user_form(hass: HomeAssistant, doorbird_api: DoorBird) -> None:
         ) as mock_setup,
         patch(
             "homeassistant.components.doorbird.async_setup_entry",
-            return_value=True,
+            return_value=None,
         ) as mock_setup_entry,
     ):
         result2 = await hass.config_entries.flow.async_configure(
@@ -64,6 +63,7 @@ async def test_user_form(hass: HomeAssistant, doorbird_api: DoorBird) -> None:
     assert result2["options"] == {
         CONF_EVENTS: [DEFAULT_DOORBELL_EVENT, DEFAULT_MOTION_EVENT]
     }
+    assert result2["result"].unique_id == "1234ABCD"
     assert len(mock_setup.mock_calls) == 1
     assert len(mock_setup_entry.mock_calls) == 1
 
@@ -143,6 +143,37 @@ async def test_form_zeroconf_ipv4_address(
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
     assert config_entry.data[CONF_HOST] == "4.4.4.4"
+
+
+async def test_form_zeroconf_ignored_entry(
+    hass: HomeAssistant, doorbird_api: DoorBird
+) -> None:
+    """Test we abort when the entry was ignored, without attempting to connect."""
+
+    config_entry = MockConfigEntry(
+        source=config_entries.SOURCE_IGNORE,
+        domain=DOMAIN,
+        unique_id="1CCAE3AAAAAA",
+        data={},
+        options={},
+    )
+    config_entry.add_to_hass(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_ZEROCONF},
+        data=ZeroconfServiceInfo(
+            ip_address=ip_address("4.4.4.4"),
+            ip_addresses=[ip_address("4.4.4.4")],
+            hostname="mock_hostname",
+            name="Doorstation - abc123._axis-video._tcp.local.",
+            port=None,
+            properties={"macaddress": "1CCAE3AAAAAA"},
+            type="mock_type",
+        ),
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
 
 
 async def test_form_zeroconf_ipv4_address_wrong_device(
@@ -268,7 +299,7 @@ async def test_form_zeroconf_correct_oui(
         ) as mock_setup,
         patch(
             "homeassistant.components.doorbird.async_setup_entry",
-            return_value=True,
+            return_value=None,
         ) as mock_setup_entry,
     ):
         result2 = await hass.config_entries.flow.async_configure(
@@ -284,6 +315,7 @@ async def test_form_zeroconf_correct_oui(
         "password": "password",
         "username": "friend",
     }
+    assert result2["result"].unique_id == "1234ABCD"
     assert len(mock_setup.mock_calls) == 1
     assert len(mock_setup_entry.mock_calls) == 1
 
@@ -301,7 +333,7 @@ async def test_form_zeroconf_correct_oui_wrong_device(
     doorbird_api: DoorBird,
     doorbell_state_side_effect: Exception | None,
 ) -> None:
-    """Test we can setup from zeroconf with the correct OUI source but not a doorstation."""
+    """Test setup from zeroconf with the correct OUI source but not a doorstation."""
     doorbirdapi = get_mock_doorbird_api(info={"WIFI_MAC_ADDR": "macaddr"})
     type(doorbirdapi).doorbell_state = AsyncMock(side_effect=doorbell_state_side_effect)
 
@@ -327,6 +359,7 @@ async def test_form_zeroconf_correct_oui_wrong_device(
     assert result["reason"] == "not_doorbird_device"
 
 
+@pytest.mark.usefixtures("doorbird_api")
 async def test_form_user_cannot_connect(hass: HomeAssistant) -> None:
     """Test we handle cannot connect error."""
     result = await hass.config_entries.flow.async_init(
@@ -346,7 +379,22 @@ async def test_form_user_cannot_connect(hass: HomeAssistant) -> None:
     assert result2["type"] is FlowResultType.FORM
     assert result2["errors"] == {"base": "cannot_connect"}
 
+    with (
+        patch("homeassistant.components.doorbird.async_setup", return_value=True),
+        patch(
+            "homeassistant.components.doorbird.async_setup_entry",
+            return_value=None,
+        ),
+    ):
+        result3 = await hass.config_entries.flow.async_configure(
+            result2["flow_id"], VALID_CONFIG
+        )
+        await hass.async_block_till_done()
 
+    assert result3["type"] is FlowResultType.CREATE_ENTRY
+
+
+@pytest.mark.usefixtures("doorbird_api")
 async def test_form_user_invalid_auth(hass: HomeAssistant) -> None:
     """Test we handle cannot invalid auth error."""
     result = await hass.config_entries.flow.async_init(
@@ -366,6 +414,20 @@ async def test_form_user_invalid_auth(hass: HomeAssistant) -> None:
 
     assert result2["type"] is FlowResultType.FORM
     assert result2["errors"] == {"base": "invalid_auth"}
+
+    with (
+        patch("homeassistant.components.doorbird.async_setup", return_value=True),
+        patch(
+            "homeassistant.components.doorbird.async_setup_entry",
+            return_value=None,
+        ),
+    ):
+        result3 = await hass.config_entries.flow.async_configure(
+            result2["flow_id"], VALID_CONFIG
+        )
+        await hass.async_block_till_done()
+
+    assert result3["type"] is FlowResultType.CREATE_ENTRY
 
 
 async def test_form_user_doorbird_not_found(
@@ -396,7 +458,7 @@ async def test_form_user_doorbird_not_found(
         ) as mock_setup,
         patch(
             "homeassistant.components.doorbird.async_setup_entry",
-            return_value=True,
+            return_value=None,
         ) as mock_setup_entry,
     ):
         result3 = await hass.config_entries.flow.async_configure(
@@ -442,7 +504,7 @@ async def test_form_user_doorbird_unknown_exception(
         ) as mock_setup,
         patch(
             "homeassistant.components.doorbird.async_setup_entry",
-            return_value=True,
+            return_value=None,
         ) as mock_setup_entry,
     ):
         result3 = await hass.config_entries.flow.async_configure(
@@ -462,7 +524,19 @@ async def test_form_user_doorbird_unknown_exception(
     assert len(mock_setup_entry.mock_calls) == 1
 
 
-async def test_options_flow(hass: HomeAssistant) -> None:
+@pytest.mark.parametrize(
+    ("user_input", "expected_events"),
+    [
+        pytest.param(
+            "eventa,   eventc,    eventq", ["eventa", "eventc", "eventq"], id="events"
+        ),
+        pytest.param("", [], id="cleared"),
+        pytest.param("eventa, ,eventc,", ["eventa", "eventc"], id="empty_entries"),
+    ],
+)
+async def test_options_flow(
+    hass: HomeAssistant, user_input: str, expected_events: list[str]
+) -> None:
     """Test config flow options."""
 
     config_entry = MockConfigEntry(
@@ -474,7 +548,7 @@ async def test_options_flow(hass: HomeAssistant) -> None:
     config_entry.add_to_hass(hass)
 
     with patch(
-        "homeassistant.components.doorbird.async_setup_entry", return_value=True
+        "homeassistant.components.doorbird.async_setup_entry", return_value=None
     ):
         result = await hass.config_entries.options.async_init(config_entry.entry_id)
 
@@ -482,11 +556,11 @@ async def test_options_flow(hass: HomeAssistant) -> None:
         assert result["step_id"] == "init"
 
         result = await hass.config_entries.options.async_configure(
-            result["flow_id"], user_input={CONF_EVENTS: "eventa,   eventc,    eventq"}
+            result["flow_id"], user_input={CONF_EVENTS: user_input}
         )
 
         assert result["type"] is FlowResultType.CREATE_ENTRY
-        assert config_entry.options == {CONF_EVENTS: ["eventa", "eventc", "eventq"]}
+        assert config_entry.options == {CONF_EVENTS: expected_events}
 
 
 async def test_reauth(hass: HomeAssistant) -> None:
@@ -535,7 +609,7 @@ async def test_reauth(hass: HomeAssistant) -> None:
         ) as mock_setup,
         patch(
             "homeassistant.components.doorbird.async_setup_entry",
-            return_value=True,
+            return_value=None,
         ) as mock_setup_entry,
     ):
         result2 = await hass.config_entries.flow.async_configure(

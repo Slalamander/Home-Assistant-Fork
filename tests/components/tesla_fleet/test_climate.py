@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 from freezegun.api import FrozenDateTimeFactory
 import pytest
+from pytest_homeassistant.common import MockConfigEntry, async_fire_time_changed
 from syrupy.assertion import SnapshotAssertion
 from tesla_fleet_api.exceptions import InvalidCommand, VehicleOffline
 
@@ -40,8 +41,6 @@ from .const import (
     VEHICLE_DATA_ALT,
     VEHICLE_ONLINE,
 )
-
-from tests.common import MockConfigEntry, async_fire_time_changed
 
 
 @pytest.mark.usefixtures("entity_registry_enabled_by_default")
@@ -348,7 +347,8 @@ async def test_asleep_or_offline(
     # Run a command but fail trying to wake up the vehicle
     mock_wake_up.side_effect = InvalidCommand
     with pytest.raises(
-        HomeAssistantError, match="The data request or command is unknown."
+        HomeAssistantError,
+        match="Failed to wake up vehicle",
     ):
         await hass.services.async_call(
             CLIMATE_DOMAIN,
@@ -445,7 +445,11 @@ async def test_climate_notemp(
 
     with pytest.raises(
         ServiceValidationError,
-        match="Set temperature action was used with the 'Lower/Upper target temperature' parameter but the entity does not support it",
+        match=(
+            "Set temperature action was used with the"
+            " 'Lower/Upper target temperature' parameter but the"
+            " entity does not support it"
+        ),
     ):
         await hass.services.async_call(
             CLIMATE_DOMAIN,

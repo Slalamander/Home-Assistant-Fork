@@ -29,17 +29,18 @@ set_chime_paired_doorbells:
       selector:
         device:
           integration: unifiprotect
-          entity:
-            device_class: unifiprotect__chime_button
     doorbells:
-      example: "binary_sensor.front_doorbell_doorbell"
+      example: "event.front_doorbell_doorbell"
       required: false
       selector:
         target:
           entity:
-            integration: unifiprotect
-            domain: binary_sensor
-            device_class: occupancy
+            - integration: unifiprotect
+              domain: event
+              device_class: doorbell
+            - integration: unifiprotect
+              domain: binary_sensor
+              device_class: occupancy
 remove_privacy_zone:
   fields:
     device_id:
@@ -60,3 +61,30 @@ get_user_keyring_info:
       selector:
         device:
           integration: unifiprotect
+
+ptz_goto_preset:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: unifiprotect
+          entity:
+            domain: camera
+    preset:
+      required: true
+      selector:
+        text:
+
+trigger_alarm_webhook:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: unifiprotect
+    trigger_id:
+      example: 0b6c5a2e-9d3f-4c1a-8e7b-2f4d6a8c1e3b
+      required: true
+      selector:
+        text:

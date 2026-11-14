@@ -6,6 +6,11 @@ from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
+from pytest_homeassistant.test_util.aiohttp import (
+    AiohttpClientMocker,
+    AiohttpClientMockResponse,
+)
 
 from homeassistant import config_entries
 from homeassistant.components.rainbird import DOMAIN
@@ -19,6 +24,7 @@ from .conftest import (
     CONFIG_ENTRY_DATA,
     HOST,
     MAC_ADDRESS_UNIQUE_ID,
+    MODEL_AND_VERSION_RESPONSE,
     PASSWORD,
     SERIAL_NUMBER,
     SERIAL_RESPONSE,
@@ -29,14 +35,15 @@ from .conftest import (
     mock_response,
 )
 
-from tests.common import MockConfigEntry
-from tests.test_util.aiohttp import AiohttpClientMocker, AiohttpClientMockResponse
-
 
 @pytest.fixture(name="responses")
 def mock_responses() -> list[AiohttpClientMockResponse]:
     """Set up fake serial number response when testing the connection."""
-    return [mock_response(SERIAL_RESPONSE), mock_json_response(WIFI_PARAMS_RESPONSE)]
+    return [
+        mock_response(MODEL_AND_VERSION_RESPONSE),
+        mock_response(SERIAL_RESPONSE),
+        mock_json_response(WIFI_PARAMS_RESPONSE),
+    ]
 
 
 @pytest.fixture(autouse=True)
@@ -51,7 +58,7 @@ async def mock_setup() -> AsyncGenerator[AsyncMock]:
 
     with patch(
         "homeassistant.components.rainbird.async_setup_entry",
-        return_value=True,
+        return_value=None,
     ) as mock_setup:
         yield mock_setup
 
@@ -77,6 +84,7 @@ async def complete_flow(hass: HomeAssistant, password: str = PASSWORD) -> FlowRe
     [
         (
             [
+                mock_response(MODEL_AND_VERSION_RESPONSE),
                 mock_response(SERIAL_RESPONSE),
                 mock_json_response(WIFI_PARAMS_RESPONSE),
             ],
@@ -85,6 +93,7 @@ async def complete_flow(hass: HomeAssistant, password: str = PASSWORD) -> FlowRe
         ),
         (
             [
+                mock_response(MODEL_AND_VERSION_RESPONSE),
                 mock_response(ZERO_SERIAL_RESPONSE),
                 mock_json_response(WIFI_PARAMS_RESPONSE),
             ],
@@ -123,7 +132,11 @@ async def test_controller_flow(
         (
             "other-serial-number",
             {**CONFIG_ENTRY_DATA, "host": "other-host"},
-            [mock_response(SERIAL_RESPONSE), mock_json_response(WIFI_PARAMS_RESPONSE)],
+            [
+                mock_response(MODEL_AND_VERSION_RESPONSE),
+                mock_response(SERIAL_RESPONSE),
+                mock_json_response(WIFI_PARAMS_RESPONSE),
+            ],
             CONFIG_ENTRY_DATA,
         ),
         (
@@ -133,6 +146,7 @@ async def test_controller_flow(
                 "host": "other-host",
             },
             [
+                mock_response(MODEL_AND_VERSION_RESPONSE),
                 mock_response(SERIAL_RESPONSE),
                 mock_json_response(WIFI_PARAMS_RESPONSE),
             ],
@@ -142,6 +156,7 @@ async def test_controller_flow(
             None,
             {**CONFIG_ENTRY_DATA, "serial_number": 0, "host": "other-host"},
             [
+                mock_response(MODEL_AND_VERSION_RESPONSE),
                 mock_response(ZERO_SERIAL_RESPONSE),
                 mock_json_response(WIFI_PARAMS_RESPONSE),
             ],
@@ -167,6 +182,7 @@ async def test_multiple_config_entries(
     result = await complete_flow(hass)
     assert result.get("type") is FlowResultType.CREATE_ENTRY
     assert dict(result.get("result").data) == expected_config_entry
+    assert result["result"].unique_id == MAC_ADDRESS_UNIQUE_ID
 
     entries = hass.config_entries.async_entries(DOMAIN)
     assert len(entries) == 2
@@ -185,6 +201,7 @@ async def test_multiple_config_entries(
             MAC_ADDRESS_UNIQUE_ID,
             CONFIG_ENTRY_DATA,
             [
+                mock_response(MODEL_AND_VERSION_RESPONSE),
                 mock_response(SERIAL_RESPONSE),
                 mock_json_response(WIFI_PARAMS_RESPONSE),
             ],
@@ -194,7 +211,11 @@ async def test_multiple_config_entries(
         (
             SERIAL_NUMBER,
             CONFIG_ENTRY_DATA,
-            [mock_response(SERIAL_RESPONSE), mock_json_response(WIFI_PARAMS_RESPONSE)],
+            [
+                mock_response(MODEL_AND_VERSION_RESPONSE),
+                mock_response(SERIAL_RESPONSE),
+                mock_json_response(WIFI_PARAMS_RESPONSE),
+            ],
             CONFIG_ENTRY_DATA,
         ),
         # Old unique id with no serial, but same host
@@ -202,6 +223,7 @@ async def test_multiple_config_entries(
             None,
             {**CONFIG_ENTRY_DATA, "serial_number": 0},
             [
+                mock_response(MODEL_AND_VERSION_RESPONSE),
                 mock_response(ZERO_SERIAL_RESPONSE),
                 mock_json_response(WIFI_PARAMS_RESPONSE),
             ],
@@ -214,7 +236,11 @@ async def test_multiple_config_entries(
                 **CONFIG_ENTRY_DATA,
                 "host": f"other-{HOST}",
             },
-            [mock_response(SERIAL_RESPONSE), mock_json_response(WIFI_PARAMS_RESPONSE)],
+            [
+                mock_response(MODEL_AND_VERSION_RESPONSE),
+                mock_response(SERIAL_RESPONSE),
+                mock_json_response(WIFI_PARAMS_RESPONSE),
+            ],
             CONFIG_ENTRY_DATA,  # Updated the host
         ),
     ],
@@ -254,10 +280,17 @@ async def test_controller_cannot_connect(
 ) -> None:
     """Test an error talking to the controller."""
 
-    # Controller response with a failure
+    # Controller response with a failure, followed by successful responses
     responses.clear()
-    responses.append(
-        AiohttpClientMockResponse("POST", URL, status=HTTPStatus.SERVICE_UNAVAILABLE)
+    responses.extend(
+        [
+            AiohttpClientMockResponse(
+                "POST", URL, status=HTTPStatus.SERVICE_UNAVAILABLE
+            ),
+            mock_response(MODEL_AND_VERSION_RESPONSE),
+            mock_response(SERIAL_RESPONSE),
+            mock_json_response(WIFI_PARAMS_RESPONSE),
+        ]
     )
 
     result = await complete_flow(hass)
@@ -266,6 +299,19 @@ async def test_controller_cannot_connect(
     assert result.get("errors") == {"base": "cannot_connect"}
 
     assert not mock_setup.mock_calls
+
+    # Correct the form and enter the password again and setup completes
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_HOST: HOST, CONF_PASSWORD: PASSWORD},
+    )
+    assert result.get("type") is FlowResultType.CREATE_ENTRY
+    assert result.get("title") == HOST
+    assert "result" in result
+    assert dict(result["result"].data) == CONFIG_ENTRY_DATA
+    assert result["result"].unique_id == MAC_ADDRESS_UNIQUE_ID
+
+    assert len(mock_setup.mock_calls) == 1
 
 
 async def test_controller_invalid_auth(
@@ -281,8 +327,8 @@ async def test_controller_invalid_auth(
         [
             # Incorrect password response
             AiohttpClientMockResponse("POST", URL, status=HTTPStatus.FORBIDDEN),
-            AiohttpClientMockResponse("POST", URL, status=HTTPStatus.FORBIDDEN),
             # Second attempt with the correct password
+            mock_response(MODEL_AND_VERSION_RESPONSE),
             mock_response(SERIAL_RESPONSE),
             mock_json_response(WIFI_PARAMS_RESPONSE),
         ]
@@ -324,19 +370,44 @@ async def test_controller_invalid_auth(
 async def test_controller_timeout(
     hass: HomeAssistant,
     mock_setup: Mock,
+    responses: list[AiohttpClientMockResponse],
 ) -> None:
     """Test an error talking to the controller."""
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    assert result.get("type") is FlowResultType.FORM
+    assert result.get("step_id") == "user"
+    assert not result.get("errors")
+    assert "flow_id" in result
 
     with patch(
         "homeassistant.components.rainbird.config_flow.asyncio.timeout",
         side_effect=TimeoutError,
     ):
-        result = await complete_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_HOST: HOST, CONF_PASSWORD: PASSWORD},
+        )
         assert result.get("type") is FlowResultType.FORM
         assert result.get("step_id") == "user"
         assert result.get("errors") == {"base": "timeout_connect"}
 
     assert not mock_setup.mock_calls
+
+    # Enter the password again and setup completes
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_HOST: HOST, CONF_PASSWORD: PASSWORD},
+    )
+    assert result.get("type") is FlowResultType.CREATE_ENTRY
+    assert result.get("title") == HOST
+    assert "result" in result
+    assert dict(result["result"].data) == CONFIG_ENTRY_DATA
+    assert result["result"].unique_id == MAC_ADDRESS_UNIQUE_ID
+
+    assert len(mock_setup.mock_calls) == 1
 
 
 @pytest.mark.parametrize(
@@ -346,8 +417,8 @@ async def test_controller_timeout(
             [
                 # First attempt simulate the wrong password
                 AiohttpClientMockResponse("POST", URL, status=HTTPStatus.FORBIDDEN),
-                AiohttpClientMockResponse("POST", URL, status=HTTPStatus.FORBIDDEN),
                 # Second attempt simulate the correct password
+                mock_response(MODEL_AND_VERSION_RESPONSE),
                 mock_response(SERIAL_RESPONSE),
                 mock_json_response(WIFI_PARAMS_RESPONSE),
             ],
@@ -379,7 +450,7 @@ async def test_reauth_flow(
         result["flow_id"],
         {CONF_PASSWORD: "incorrect_password"},
     )
-    assert result.get("type") == FlowResultType.FORM
+    assert result.get("type") is FlowResultType.FORM
     assert result.get("step_id") == "reauth_confirm"
     assert result.get("errors") == {"base": "invalid_auth"}
 
@@ -388,7 +459,7 @@ async def test_reauth_flow(
         result["flow_id"],
         {CONF_PASSWORD: PASSWORD},
     )
-    assert result.get("type") == FlowResultType.ABORT
+    assert result.get("type") is FlowResultType.ABORT
     assert result.get("reason") == "reauth_successful"
 
     entries = hass.config_entries.async_entries(DOMAIN)

@@ -1,23 +1,17 @@
 """Viessmann ViCare sensor device."""
 
-from __future__ import annotations
-
 from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
 import logging
+from typing import override
 
 from PyViCare.PyViCareDevice import Device as PyViCareDevice
 from PyViCare.PyViCareDeviceConfig import PyViCareDeviceConfig
 from PyViCare.PyViCareHeatingDevice import (
     HeatingDeviceWithComponent as PyViCareHeatingDeviceComponent,
 )
-from PyViCare.PyViCareUtils import (
-    PyViCareInvalidDataError,
-    PyViCareNotSupportedFeatureError,
-    PyViCareRateLimitError,
-)
-import requests
+from PyViCare.PyViCareUtils import PyViCareNotSupportedFeatureError
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -30,13 +24,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .entity import ViCareEntity
 from .types import ViCareConfigEntry, ViCareDevice, ViCareRequiredKeysMixin
-from .utils import (
-    get_burners,
-    get_circuits,
-    get_compressors,
-    get_device_serial,
-    is_supported,
-)
+from .utils import get_burners, get_circuits, get_compressors, get_rooms, is_supported
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -82,6 +70,20 @@ COMPRESSOR_SENSORS: tuple[ViCareBinarySensorEntityDescription, ...] = (
     ),
 )
 
+ROOM_SENSORS: tuple[ViCareBinarySensorEntityDescription, ...] = (
+    ViCareBinarySensorEntityDescription(
+        key="room_window_open",
+        device_class=BinarySensorDeviceClass.WINDOW,
+        value_getter=lambda api: api.room_control.getRoomWindowOpen(api.id),
+    ),
+    ViCareBinarySensorEntityDescription(
+        key="room_condensation_risk",
+        translation_key="condensation_risk",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        value_getter=lambda api: api.getCondensationRisk(),
+    ),
+)
+
 GLOBAL_SENSORS: tuple[ViCareBinarySensorEntityDescription, ...] = (
     ViCareBinarySensorEntityDescription(
         key="solar_pump_active",
@@ -114,6 +116,16 @@ GLOBAL_SENSORS: tuple[ViCareBinarySensorEntityDescription, ...] = (
         value_getter=lambda api: api.getOneTimeCharge(),
     ),
     ViCareBinarySensorEntityDescription(
+        key="holiday_active",
+        translation_key="holiday",
+        value_getter=lambda api: api.getHolidayActive(),
+    ),
+    ViCareBinarySensorEntityDescription(
+        key="holiday_at_home_active",
+        translation_key="holiday_at_home",
+        value_getter=lambda api: api.getHolidayAtHomeActive(),
+    ),
+    ViCareBinarySensorEntityDescription(
         key="device_error",
         device_class=BinarySensorDeviceClass.PROBLEM,
         value_getter=lambda api: len(api.getDeviceErrors()) > 0,
@@ -144,6 +156,11 @@ GLOBAL_SENSORS: tuple[ViCareBinarySensorEntityDescription, ...] = (
         device_class=BinarySensorDeviceClass.DOOR,
         value_getter=lambda api: api.isValveOpen(),
     ),
+    ViCareBinarySensorEntityDescription(
+        key="ventilation_frost_protection",
+        translation_key="ventilation_frost_protection",
+        value_getter=lambda api: api.getHeatExchangerFrostProtectionActive(),
+    ),
 )
 
 
@@ -158,7 +175,7 @@ def _build_entities(
         entities.extend(
             ViCareBinarySensor(
                 description,
-                get_device_serial(device.api),
+                device.serial,
                 device.config,
                 device.api,
             )
@@ -170,11 +187,12 @@ def _build_entities(
             (get_circuits(device.api), CIRCUIT_SENSORS),
             (get_burners(device.api), BURNER_SENSORS),
             (get_compressors(device.api), COMPRESSOR_SENSORS),
+            (get_rooms(device.api), ROOM_SENSORS),
         ):
             entities.extend(
                 ViCareBinarySensor(
                     description,
-                    get_device_serial(device.api),
+                    device.serial,
                     device.config,
                     device.api,
                     component,
@@ -220,20 +238,12 @@ class ViCareBinarySensor(ViCareEntity, BinarySensorEntity):
         self.entity_description = description
 
     @property
+    @override
     def available(self) -> bool:
         """Return True if entity is available."""
         return self._attr_is_on is not None
 
     def update(self) -> None:
         """Update state of sensor."""
-        try:
-            with suppress(PyViCareNotSupportedFeatureError):
-                self._attr_is_on = self.entity_description.value_getter(self._api)
-        except requests.exceptions.ConnectionError:
-            _LOGGER.error("Unable to retrieve data from ViCare server")
-        except ValueError:
-            _LOGGER.error("Unable to decode data from ViCare server")
-        except PyViCareRateLimitError as limit_exception:
-            _LOGGER.error("Vicare API rate limit exceeded: %s", limit_exception)
-        except PyViCareInvalidDataError as invalid_data_exception:
-            _LOGGER.error("Invalid data from Vicare server: %s", invalid_data_exception)
+        with self.vicare_api_handler(), suppress(PyViCareNotSupportedFeatureError):
+            self._attr_is_on = self.entity_description.value_getter(self._api)

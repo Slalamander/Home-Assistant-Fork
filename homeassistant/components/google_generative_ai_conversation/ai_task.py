@@ -1,21 +1,24 @@
 """AI Task integration for Google Generative AI Conversation."""
 
-from __future__ import annotations
-
 from json import JSONDecodeError
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, override
 
 from google.genai.errors import APIError
 from google.genai.types import GenerateContentConfig, Part, PartUnionDict
 
 from homeassistant.components import ai_task, conversation
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util.json import json_loads
 
-from .const import CONF_CHAT_MODEL, CONF_RECOMMENDED, LOGGER, RECOMMENDED_IMAGE_MODEL
+from .const import (
+    CONF_CHAT_MODEL,
+    CONF_RECOMMENDED,
+    LOGGER,
+    RECOMMENDED_AI_TASK_MAX_TOKENS,
+    RECOMMENDED_IMAGE_MODEL,
+)
 from .entity import (
     ERROR_GETTING_RESPONSE,
     GoogleGenerativeAILLMBaseEntity,
@@ -30,7 +33,7 @@ if TYPE_CHECKING:
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: GoogleGenerativeAIConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up AI Task entities."""
@@ -62,22 +65,32 @@ class GoogleGenerativeAITaskEntity(
             | ai_task.AITaskEntityFeature.SUPPORT_ATTACHMENTS
         )
 
-        if subentry.data.get(CONF_RECOMMENDED) or "-image" in subentry.data.get(
-            CONF_CHAT_MODEL, ""
+        if (
+            subentry.data.get(CONF_RECOMMENDED)
+            or "-image" in subentry.data.get(CONF_CHAT_MODEL, "")
+            or "-nano-banana" in subentry.data.get(CONF_CHAT_MODEL, "")
         ):
             self._attr_supported_features |= ai_task.AITaskEntityFeature.GENERATE_IMAGE
 
+    @override
     async def _async_generate_data(
         self,
         task: ai_task.GenDataTask,
         chat_log: conversation.ChatLog,
     ) -> ai_task.GenDataTaskResult:
         """Handle a generate data task."""
-        await self._async_handle_chat_log(chat_log, task.structure)
+        await self._async_handle_chat_log(
+            chat_log,
+            task.structure,
+            default_max_tokens=RECOMMENDED_AI_TASK_MAX_TOKENS,
+            max_iterations=1000,
+        )
 
         if not isinstance(chat_log.content[-1], conversation.AssistantContent):
+            # pylint: disable-next=home-assistant-log-and-raise
             LOGGER.error(
-                "Last content in chat log is not an AssistantContent: %s. This could be due to the model not returning a valid response",
+                "Last content in chat log is not an AssistantContent: %s."
+                " This could be due to the model not returning a valid response",
                 chat_log.content[-1],
             )
             raise HomeAssistantError(ERROR_GETTING_RESPONSE)
@@ -93,6 +106,7 @@ class GoogleGenerativeAITaskEntity(
         try:
             data = json_loads(text)
         except JSONDecodeError as err:
+            # pylint: disable-next=home-assistant-log-and-raise
             LOGGER.error(
                 "Failed to parse JSON response: %s. Response: %s",
                 err,
@@ -105,6 +119,7 @@ class GoogleGenerativeAITaskEntity(
             data=data,
         )
 
+    @override
     async def _async_generate_image(
         self,
         task: ai_task.GenImageTask,
@@ -135,12 +150,13 @@ class GoogleGenerativeAITaskEntity(
                 ),
             )
         except (APIError, ValueError) as err:
-            LOGGER.error("Error generating image: %s", err)
             raise HomeAssistantError(f"Error generating image: {err}") from err
 
         if response.prompt_feedback:
             raise HomeAssistantError(
-                f"Error generating content due to content violations, reason: {response.prompt_feedback.block_reason_message}"
+                "Error generating content due to content"
+                " violations, reason:"
+                f" {response.prompt_feedback.block_reason_message}"
             )
 
         if (

@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 from devolo_home_control_api.exceptions.gateway import GatewayOfflineError
+from pytest_homeassistant.typing import WebSocketGenerator
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.devolo_home_control.const import DOMAIN
@@ -14,8 +15,6 @@ from homeassistant.setup import async_setup_component
 
 from . import configure_integration
 from .mocks import HomeControlMock, HomeControlMockBinarySensor
-
-from tests.typing import WebSocketGenerator
 
 
 async def test_setup_entry(hass: HomeAssistant) -> None:
@@ -47,7 +46,19 @@ async def test_setup_entry_maintenance(
 
 
 async def test_setup_gateway_offline(hass: HomeAssistant) -> None:
-    """Test setup entry fails on gateway offline."""
+    """Test setup entry with one gateway online and one gateway offline."""
+    entry = configure_integration(hass)
+    test_gateway = HomeControlMock()
+    with patch(
+        "homeassistant.components.devolo_home_control.HomeControl",
+        side_effect=[test_gateway, GatewayOfflineError],
+    ):
+        await hass.config_entries.async_setup(entry.entry_id)
+        assert entry.state is ConfigEntryState.LOADED
+
+
+async def test_setup_all_gateways_offline(hass: HomeAssistant) -> None:
+    """Test setup entry fails on all gateways offline."""
     entry = configure_integration(hass)
     with patch(
         "homeassistant.components.devolo_home_control.HomeControl",
@@ -100,11 +111,18 @@ async def test_remove_device(
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-        device_entry = device_registry.async_get_device(identifiers={(DOMAIN, "Test")})
+        device_entry = device_registry.async_get_device_by_identifier(
+            (DOMAIN, "Test"), entry.entry_id
+        )
         assert device_entry
 
         client = await hass_ws_client(hass)
-        response = await client.remove_device(device_entry.id, entry.entry_id)
+        response = await client.remove_device(device_entry.id)
         assert response["success"]
-        assert device_registry.async_get_device(identifiers={(DOMAIN, "Test")}) is None
+        assert (
+            device_registry.async_get_device_by_identifier(
+                (DOMAIN, "Test"), entry.entry_id
+            )
+            is None
+        )
         assert hass.states.get(f"{BINARY_SENSOR_DOMAIN}.test") is None

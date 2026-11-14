@@ -1,7 +1,5 @@
 """Support for DoorBird devices."""
 
-from __future__ import annotations
-
 from collections import defaultdict
 from dataclasses import dataclass
 from http import HTTPStatus
@@ -102,6 +100,12 @@ class ConfiguredDoorBird:
         """Get token for device."""
         return self._token
 
+    def _get_hass_url(self) -> str:
+        """Get the Home Assistant URL for this device."""
+        if custom_url := self.custom_url:
+            return custom_url
+        return get_url(self._hass, prefer_external=False)
+
     async def async_register_events(self) -> None:
         """Register events on device."""
         if not self.door_station_events:
@@ -146,13 +150,7 @@ class ConfiguredDoorBird:
 
     async def _async_register_events(self) -> dict[str, Any]:
         """Register events on device."""
-        # Override url if another is specified in the configuration
-        if custom_url := self.custom_url:
-            hass_url = custom_url
-        else:
-            # Get the URL of this server
-            hass_url = get_url(self._hass, prefer_external=False)
-
+        hass_url = self._get_hass_url()
         http_fav = await self._async_get_http_favorites()
         if any(
             # Note that a list comp is used here to ensure all
@@ -191,10 +189,14 @@ class ConfiguredDoorBird:
             self._get_event_name(event): event_type
             for event, event_type in DEFAULT_EVENT_TYPES
         }
+        hass_url = self._get_hass_url()
         for identifier, data in http_fav.items():
             title: str | None = data.get("title")
             if not title or not title.startswith("Home Assistant"):
                 continue
+            value: str | None = data.get("value")
+            if not value or not value.startswith(hass_url):
+                continue  # Not our favorite - different HA instance or stale
             event = title.partition("(")[2].strip(")")
             if input_type := favorite_input_type.get(identifier):
                 events.append(DoorbirdEvent(event, input_type))
@@ -207,6 +209,22 @@ class ConfiguredDoorBird:
     def slug(self) -> str:
         """Get device slug."""
         return slugify(self._name)
+
+    def event_names_of_type(self, event_type: str) -> list[str]:
+        """Return the configured event names of an event type.
+
+        Models without the schedule API have no descriptions, so fall back to
+        the type a default event name implies.
+        """
+        described = {event.event: event.event_type for event in self.event_descriptions}
+        default_types = dict(DEFAULT_EVENT_TYPES)
+        return [
+            event_name
+            for event, event_name in zip(
+                self.events, self.door_station_events, strict=True
+            )
+            if (described.get(event_name) or default_types.get(event)) == event_type
+        ]
 
     def _get_event_name(self, event: str) -> str:
         return f"{self.slug}_{event}"

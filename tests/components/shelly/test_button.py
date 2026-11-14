@@ -1,29 +1,56 @@
 """Tests for Shelly button platform."""
 
 from copy import deepcopy
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock, patch
 
-from aioshelly.const import MODEL_BLU_GATEWAY_G3
+from aioshelly.const import (
+    MODEL_BLU_GATEWAY_G3,
+    MODEL_PLUS_2PM,
+    MODEL_PLUS_SMOKE,
+    MODEL_WALL_DISPLAY,
+)
 from aioshelly.exceptions import DeviceConnectionError, InvalidAuthError, RpcCallError
 import pytest
 from syrupy.assertion import SnapshotAssertion
 
-from homeassistant.components.button import DOMAIN as BUTTON_DOMAIN, SERVICE_PRESS
-from homeassistant.components.shelly.const import DOMAIN, MODEL_FRANKEVER_WATER_VALVE
+from homeassistant.components.button import DOMAIN as BUTTON_DOMAIN, ButtonService
+from homeassistant.components.shelly.const import DOMAIN
 from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
-from homeassistant.const import ATTR_ENTITY_ID, STATE_UNKNOWN, Platform
+from homeassistant.const import (
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
+    CommonServiceArgument,
+    Platform,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceRegistry
 from homeassistant.helpers.entity_registry import EntityRegistry
 
 from . import (
-    MOCK_MAC,
     init_integration,
+    mutate_rpc_device_status,
     patch_platforms,
     register_device,
     register_entity,
 )
+
+IRCODE_CONFIG = {
+    "ircode:200": {"id": 200, "name": "Speed 1", "device_id": 200},
+    "ircode:201": {"id": 201, "name": "Turn On", "device_id": 201},
+    "ircode:202": {"id": 202, "name": "Turn Off", "device_id": 201},
+    "ircode:203": {"id": 203, "name": "Turn Off", "device_id": 200},
+    "irdevice:200": {"id": 200, "name": "Fan"},
+    "irdevice:201": {"id": 201, "name": "Light"},
+}
+IRCODE_STATUS = {
+    "ircode:200": {"id": 200},
+    "ircode:201": {"id": 201},
+    "ircode:202": {"id": 202},
+    "ircode:203": {"id": 203},
+    "irdevice:200": {"id": 200},
+    "irdevice:201": {"id": 201},
+}
 
 
 @pytest.fixture(autouse=True)
@@ -50,8 +77,8 @@ async def test_block_button(
 
     await hass.services.async_call(
         BUTTON_DOMAIN,
-        SERVICE_PRESS,
-        {ATTR_ENTITY_ID: entity_id},
+        ButtonService.PRESS,
+        {CommonServiceArgument.ENTITY_ID: entity_id},
         blocking=True,
     )
     assert mock_block_device.trigger_reboot.call_count == 1
@@ -77,8 +104,8 @@ async def test_rpc_button(
 
     await hass.services.async_call(
         BUTTON_DOMAIN,
-        SERVICE_PRESS,
-        {ATTR_ENTITY_ID: entity_id},
+        ButtonService.PRESS,
+        {CommonServiceArgument.ENTITY_ID: entity_id},
         blocking=True,
     )
     assert mock_rpc_device.trigger_reboot.call_count == 1
@@ -89,11 +116,13 @@ async def test_rpc_button(
     [
         (
             DeviceConnectionError,
-            "Device communication error occurred while calling action for button.test_name_restart of Test name",
+            "Device communication error occurred while calling action"
+            " for button.test_name_restart of Test name",
         ),
         (
             RpcCallError(999),
-            "RPC call error occurred while calling action for button.test_name_restart of Test name",
+            "RPC call error occurred while calling action"
+            " for button.test_name_restart of Test name",
         ),
     ],
 )
@@ -111,8 +140,8 @@ async def test_rpc_button_exc(
     with pytest.raises(HomeAssistantError, match=error):
         await hass.services.async_call(
             BUTTON_DOMAIN,
-            SERVICE_PRESS,
-            {ATTR_ENTITY_ID: "button.test_name_restart"},
+            ButtonService.PRESS,
+            {CommonServiceArgument.ENTITY_ID: "button.test_name_restart"},
             blocking=True,
         )
 
@@ -127,8 +156,8 @@ async def test_rpc_button_reauth_error(
 
     await hass.services.async_call(
         BUTTON_DOMAIN,
-        SERVICE_PRESS,
-        {ATTR_ENTITY_ID: "button.test_name_restart"},
+        ButtonService.PRESS,
+        {CommonServiceArgument.ENTITY_ID: "button.test_name_restart"},
         blocking=True,
     )
 
@@ -146,64 +175,21 @@ async def test_rpc_button_reauth_error(
     assert flow["context"].get("entry_id") == entry.entry_id
 
 
-@pytest.mark.parametrize(
-    ("gen", "old_unique_id", "new_unique_id", "migration"),
-    [
-        (2, "123456789ABC_reboot", "123456789ABC-reboot", True),
-        (1, "123456789ABC_reboot", "123456789ABC-reboot", True),
-        (2, "123456789ABC-reboot", "123456789ABC-reboot", False),
-    ],
-)
-async def test_migrate_unique_id(
-    hass: HomeAssistant,
-    mock_block_device: Mock,
-    mock_rpc_device: Mock,
-    entity_registry: EntityRegistry,
-    caplog: pytest.LogCaptureFixture,
-    gen: int,
-    old_unique_id: str,
-    new_unique_id: str,
-    migration: bool,
-) -> None:
-    """Test migration of unique_id."""
-    entry = await init_integration(hass, gen, skip_setup=True)
-
-    entity = entity_registry.async_get_or_create(
-        suggested_object_id="test_name_restart",
-        disabled_by=None,
-        domain=BUTTON_DOMAIN,
-        platform=DOMAIN,
-        unique_id=old_unique_id,
-        config_entry=entry,
-    )
-    assert entity.unique_id == old_unique_id
-
-    await hass.config_entries.async_setup(entry.entry_id)
-    await hass.async_block_till_done()
-
-    entity_entry = entity_registry.async_get("button.test_name_restart")
-    assert entity_entry
-    assert entity_entry.unique_id == new_unique_id
-
-    assert (
-        bool("Migrating unique_id for button.test_name_restart" in caplog.text)
-        == migration
-    )
-
-
+@pytest.mark.parametrize("model", [MODEL_BLU_GATEWAY_G3, MODEL_PLUS_2PM])
 async def test_rpc_blu_trv_button(
     hass: HomeAssistant,
     mock_blu_trv: Mock,
     entity_registry: EntityRegistry,
     monkeypatch: pytest.MonkeyPatch,
     snapshot: SnapshotAssertion,
+    model: str,
 ) -> None:
     """Test RPC BLU TRV button."""
     monkeypatch.delitem(mock_blu_trv.status, "script:1")
     monkeypatch.delitem(mock_blu_trv.status, "script:2")
     monkeypatch.delitem(mock_blu_trv.status, "script:3")
 
-    await init_integration(hass, 3, model=MODEL_BLU_GATEWAY_G3)
+    await init_integration(hass, 3, model=model)
 
     entity_id = "button.trv_name_calibrate"
 
@@ -215,8 +201,8 @@ async def test_rpc_blu_trv_button(
 
     await hass.services.async_call(
         BUTTON_DOMAIN,
-        SERVICE_PRESS,
-        {ATTR_ENTITY_ID: entity_id},
+        ButtonService.PRESS,
+        {CommonServiceArgument.ENTITY_ID: entity_id},
         blocking=True,
     )
     mock_blu_trv.trigger_blu_trv_calibration.assert_called_once_with(200)
@@ -227,11 +213,13 @@ async def test_rpc_blu_trv_button(
     [
         (
             DeviceConnectionError,
-            "Device communication error occurred while calling action for button.trv_name_calibrate of Test name",
+            "Device communication error occurred while calling action"
+            " for button.trv_name_calibrate of Test name",
         ),
         (
             RpcCallError(999),
-            "RPC call error occurred while calling action for button.trv_name_calibrate of Test name",
+            "RPC call error occurred while calling action"
+            " for button.trv_name_calibrate of Test name",
         ),
     ],
 )
@@ -254,8 +242,8 @@ async def test_rpc_blu_trv_button_exc(
     with pytest.raises(HomeAssistantError, match=error):
         await hass.services.async_call(
             BUTTON_DOMAIN,
-            SERVICE_PRESS,
-            {ATTR_ENTITY_ID: "button.trv_name_calibrate"},
+            ButtonService.PRESS,
+            {CommonServiceArgument.ENTITY_ID: "button.trv_name_calibrate"},
             blocking=True,
         )
 
@@ -276,8 +264,8 @@ async def test_rpc_blu_trv_button_auth_error(
 
     await hass.services.async_call(
         BUTTON_DOMAIN,
-        SERVICE_PRESS,
-        {ATTR_ENTITY_ID: "button.trv_name_calibrate"},
+        ButtonService.PRESS,
+        {CommonServiceArgument.ENTITY_ID: "button.trv_name_calibrate"},
         blocking=True,
     )
 
@@ -325,8 +313,8 @@ async def test_rpc_device_virtual_button(
 
     await hass.services.async_call(
         BUTTON_DOMAIN,
-        SERVICE_PRESS,
-        {ATTR_ENTITY_ID: entity_id},
+        ButtonService.PRESS,
+        {CommonServiceArgument.ENTITY_ID: entity_id},
         blocking=True,
     )
     mock_rpc_device.button_trigger.assert_called_once_with(200, "single_push")
@@ -338,7 +326,7 @@ async def test_rpc_remove_virtual_button_when_orphaned(
     device_registry: DeviceRegistry,
     mock_rpc_device: Mock,
 ) -> None:
-    """Check whether the virtual button will be removed if it has been removed from the device configuration."""
+    """Test virtual button removal from device configuration."""
     config_entry = await init_integration(hass, 3, skip_setup=True)
     device_entry = register_device(device_registry, config_entry)
     entity_id = register_entity(
@@ -387,92 +375,207 @@ async def test_wall_display_virtual_button(
 
     await hass.services.async_call(
         BUTTON_DOMAIN,
-        SERVICE_PRESS,
-        {ATTR_ENTITY_ID: entity_id},
+        ButtonService.PRESS,
+        {CommonServiceArgument.ENTITY_ID: entity_id},
         blocking=True,
     )
     mock_rpc_device.button_trigger.assert_called_once_with(200, "single_push")
 
 
-async def test_migrate_unique_id_blu_trv(
+async def test_rpc_smoke_mute_alarm_button(
     hass: HomeAssistant,
-    mock_blu_trv: Mock,
-    entity_registry: EntityRegistry,
-    caplog: pytest.LogCaptureFixture,
+    mock_rpc_device: Mock,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test migration of unique_id for BLU TRV button."""
-    entry = await init_integration(hass, 3, model=MODEL_BLU_GATEWAY_G3, skip_setup=True)
+    """Test RPC smoke mute alarm button."""
+    entity_id = f"{BUTTON_DOMAIN}.test_name_mute_alarm"
+    monkeypatch.setitem(mock_rpc_device.status["sys"], "wakeup_period", 1000)
+    monkeypatch.setattr(mock_rpc_device, "config", {"smoke:0": {"id": 0, "name": None}})
+    monkeypatch.setattr(mock_rpc_device, "connected", False)
+    with patch.object(
+        mock_rpc_device,
+        "initialize",
+        new_callable=AsyncMock,
+        side_effect=DeviceConnectionError,
+    ):
+        await init_integration(hass, 2, sleep_period=1000, model=MODEL_PLUS_SMOKE)
 
-    old_unique_id = "f8:44:77:25:f0:dd_calibrate"
+    # Sensor should be created when device is online
+    assert hass.states.get(entity_id) is None
 
-    entity = entity_registry.async_get_or_create(
-        suggested_object_id="trv_name_calibrate",
-        disabled_by=None,
-        domain=BUTTON_DOMAIN,
-        platform=DOMAIN,
-        unique_id=old_unique_id,
-        config_entry=entry,
+    # Make device online
+    mock_rpc_device.mock_online()
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+    assert (state := hass.states.get(entity_id))
+    assert state.state == STATE_UNAVAILABLE
+
+    mutate_rpc_device_status(monkeypatch, mock_rpc_device, "smoke:0", "alarm", True)
+    mock_rpc_device.mock_update()
+
+    assert (state := hass.states.get(entity_id))
+    assert state.state == STATE_UNKNOWN
+
+    await hass.services.async_call(
+        BUTTON_DOMAIN,
+        ButtonService.PRESS,
+        {CommonServiceArgument.ENTITY_ID: entity_id},
+        blocking=True,
     )
-    assert entity.unique_id == old_unique_id
+    mock_rpc_device.mock_update()
+    mock_rpc_device.smoke_mute_alarm.assert_called_once_with(0)
 
-    await hass.config_entries.async_setup(entry.entry_id)
+    monkeypatch.setattr(mock_rpc_device, "initialized", False)
+    mock_rpc_device.mock_update()
+
+    assert (state := hass.states.get(entity_id))
+    assert state.state == STATE_UNAVAILABLE
+
+
+@pytest.mark.parametrize(("action", "value"), [("turn_on", True), ("turn_off", False)])
+async def test_wall_display_screen_buttons(
+    hass: HomeAssistant,
+    entity_registry: EntityRegistry,
+    mock_rpc_device: Mock,
+    snapshot: SnapshotAssertion,
+    action: str,
+    value: bool,
+) -> None:
+    """Test a Wall Display screen buttons."""
+    await init_integration(hass, 2, model=MODEL_WALL_DISPLAY)
+    entity_id = f"button.test_name_{action}_the_screen"
+
+    assert (state := hass.states.get(entity_id))
+    assert state == snapshot(name=f"{entity_id}-state")
+
+    assert (entry := entity_registry.async_get(entity_id))
+    assert entry == snapshot(name=f"{entity_id}-entry")
+
+    await hass.services.async_call(
+        BUTTON_DOMAIN,
+        ButtonService.PRESS,
+        {CommonServiceArgument.ENTITY_ID: entity_id},
+        blocking=True,
+    )
+    mock_rpc_device.wall_display_set_screen.assert_called_once_with(value=value)
+
+
+async def test_rpc_remove_restart_button_for_sleeping_devices(
+    hass: HomeAssistant,
+    mock_rpc_device: Mock,
+    monkeypatch: pytest.MonkeyPatch,
+    device_registry: DeviceRegistry,
+    entity_registry: EntityRegistry,
+) -> None:
+    """Test RPC remove restart button for sleeping devices."""
+    config_entry = await init_integration(hass, 2, sleep_period=1000, skip_setup=True)
+    device_entry = register_device(device_registry, config_entry)
+    entity_id = register_entity(
+        hass,
+        BUTTON_DOMAIN,
+        "test_name_restart",
+        "reboot",
+        config_entry,
+        device_id=device_entry.id,
+    )
+
+    assert entity_registry.async_get(entity_id) is not None
+
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
-    entity_entry = entity_registry.async_get("button.trv_name_calibrate")
-    assert entity_entry
-    assert entity_entry.unique_id == "F8447725F0DD-blutrv:200-calibrate"
-
-    assert "Migrating unique_id for button.trv_name_calibrate" in caplog.text
+    assert entity_registry.async_get(entity_id) is None
 
 
-@pytest.mark.parametrize(
-    ("old_id", "new_id", "role"),
-    [
-        ("button", "button_generic", None),
-        ("button", "button_open", "open"),
-        ("button", "button_close", "close"),
-    ],
-)
-async def test_migrate_unique_id_virtual_components_roles(
+async def test_rpc_ircode_buttons(
     hass: HomeAssistant,
     mock_rpc_device: Mock,
     entity_registry: EntityRegistry,
-    caplog: pytest.LogCaptureFixture,
     monkeypatch: pytest.MonkeyPatch,
-    old_id: str,
-    new_id: str,
-    role: str | None,
+    snapshot: SnapshotAssertion,
 ) -> None:
-    """Test migration of unique_id for virtual components to include role."""
-    entry = await init_integration(
-        hass, 3, model=MODEL_FRANKEVER_WATER_VALVE, skip_setup=True
+    """Test RPC IR code buttons."""
+    monkeypatch.setattr(mock_rpc_device, "config", IRCODE_CONFIG)
+    monkeypatch.setattr(mock_rpc_device, "status", IRCODE_STATUS)
+
+    await init_integration(hass, 4)
+
+    for entity_id in (
+        "button.test_name_fan_speed_1",
+        "button.test_name_light_turn_on",
+        "button.test_name_light_turn_off",
+        "button.test_name_fan_turn_off",
+    ):
+        assert (state := hass.states.get(entity_id))
+        assert state == snapshot(name=f"{entity_id}-state")
+
+        assert (entry := entity_registry.async_get(entity_id))
+        assert entry == snapshot(name=f"{entity_id}-entry")
+
+        await hass.services.async_call(
+            BUTTON_DOMAIN,
+            ButtonService.PRESS,
+            {CommonServiceArgument.ENTITY_ID: entity_id},
+            blocking=True,
+        )
+
+        assert (state := hass.states.get(entity_id))
+        assert state.state != STATE_UNKNOWN
+
+    assert mock_rpc_device.ircode_emit.call_count == 4
+
+
+async def test_rpc_ircode_button_no_custom_name(
+    hass: HomeAssistant,
+    mock_rpc_device: Mock,
+    entity_registry: EntityRegistry,
+    device_registry: DeviceRegistry,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test RPC IR code button with no custom name in config."""
+    monkeypatch.setattr(
+        mock_rpc_device,
+        "config",
+        {
+            "ircode:20": {"id": 20, "device_id": 30},
+            "irdevice:30": {"id": 30},
+        },
     )
-    old_unique_id = f"{MOCK_MAC}-{old_id}:200"
-    new_unique_id = f"{old_unique_id}-{new_id}"
-    config = deepcopy(mock_rpc_device.config)
-    if role:
-        config[f"{old_id}:200"] = {
-            "role": role,
-        }
-    else:
-        config[f"{old_id}:200"] = {}
-    monkeypatch.setattr(mock_rpc_device, "config", config)
-
-    entity = entity_registry.async_get_or_create(
-        suggested_object_id="test_name_test_button",
-        disabled_by=None,
-        domain=BUTTON_DOMAIN,
-        platform=DOMAIN,
-        unique_id=old_unique_id,
-        config_entry=entry,
+    monkeypatch.setattr(
+        mock_rpc_device,
+        "status",
+        {
+            "ircode:20": {"id": 20},
+            "irdevice:30": {"id": 30},
+        },
     )
-    assert entity.unique_id == old_unique_id
 
-    await hass.config_entries.async_setup(entry.entry_id)
-    await hass.async_block_till_done()
+    config_entry = await init_integration(hass, 4)
 
-    entity_entry = entity_registry.async_get("button.test_name_test_button")
-    assert entity_entry
-    assert entity_entry.unique_id == new_unique_id
+    # With no custom name:
+    # translated name -> IR code 20
+    # device fallback name -> IR Device 30
+    entity_id = "button.test_name_ir_device_30_ir_code_20"
 
-    assert "Migrating unique_id for button.test_name_test_button" in caplog.text
+    assert (state := hass.states.get(entity_id))
+    assert state.state == STATE_UNKNOWN
+
+    assert (entry := entity_registry.async_get(entity_id))
+    assert entry.unique_id == "123456789ABC-ircode:20-ircode"
+
+    # Verify IR device with fallback name
+    ir_device = device_registry.async_get_child_device_by_identifier(
+        (DOMAIN, "123456789ABC-irdevice:30"), config_entry.entry_id
+    )
+    assert ir_device is not None
+    assert ir_device.name == "IR Device 30"
+
+    # Verify entity belongs to the IR device
+    assert entry.device_id == ir_device.id
+
+    # Verify the IR device is a child of the main device
+    main_device = device_registry.async_get_device_by_identifier(
+        (DOMAIN, "123456789ABC"), config_entry.entry_id
+    )
+    assert main_device is not None
+    assert ir_device.parent_device_id == main_device.id

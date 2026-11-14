@@ -4,11 +4,10 @@ from typing import Any
 from unittest.mock import AsyncMock
 
 from pyHomee.model import HomeeAttribute, HomeeNode
+from pytest_homeassistant.common import MockConfigEntry, load_json_object_fixture
 
 from homeassistant.components.homee.const import DOMAIN
 from homeassistant.core import HomeAssistant
-
-from tests.common import MockConfigEntry, load_json_object_fixture
 
 
 async def setup_integration(hass: HomeAssistant, config_entry: MockConfigEntry) -> None:
@@ -31,8 +30,8 @@ def build_mock_node(file: str) -> AsyncMock:
             for key, value in attribute.items():
                 setattr(att, key, value)
             att.is_reversed = False
-            att.get_value = (
-                lambda att=att: att.data if att.unit == "text" else att.current_value
+            att.get_value = lambda att=att: (
+                att.data if att.unit == "text" else att.current_value
             )
             mock_attributes.append(att)
         return mock_attributes

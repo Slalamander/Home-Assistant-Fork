@@ -10,6 +10,7 @@ from letpot.models import (
     LetPotDeviceStatus,
 )
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.letpot.const import (
     CONF_ACCESS_TOKEN_EXPIRES,
@@ -21,8 +22,6 @@ from homeassistant.components.letpot.const import (
 from homeassistant.const import CONF_ACCESS_TOKEN, CONF_EMAIL
 
 from . import AUTHENTICATION, MAX_STATUS, SE_STATUS
-
-from tests.common import MockConfigEntry
 
 
 @pytest.fixture
@@ -94,7 +93,7 @@ def _mock_light_brightness_levels(device_type: str) -> list[int]:
 def mock_setup_entry() -> Generator[AsyncMock]:
     """Override async_setup_entry."""
     with patch(
-        "homeassistant.components.letpot.async_setup_entry", return_value=True
+        "homeassistant.components.letpot.async_setup_entry", return_value=None
     ) as mock_setup_entry:
         yield mock_setup_entry
 
@@ -153,8 +152,8 @@ def mock_device_client() -> Generator[AsyncMock]:
         device_client.device_info.side_effect = lambda serial: _mock_device_info(
             serial[:5]
         )
-        device_client.get_light_brightness_levels.side_effect = (
-            lambda serial: _mock_light_brightness_levels(serial[:5])
+        device_client.get_light_brightness_levels.side_effect = lambda serial: (
+            _mock_light_brightness_levels(serial[:5])
         )
         device_client.get_current_status.side_effect = get_current_status_side_effect
         device_client.request_status_update.side_effect = request_status_side_effect

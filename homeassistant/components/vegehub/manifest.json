@@ -1,12 +1,15 @@
 {
   "domain": "vegehub",
   "name": "Vegetronix VegeHub",
-  "codeowners": ["@ghowevege"],
+  "categories": ["garden_plants"],
+  "codeowners": ["@thulrus"],
   "config_flow": true,
+  "connectivity": ["network"],
   "dependencies": ["http", "webhook"],
   "documentation": "https://www.home-assistant.io/integrations/vegehub",
+  "integration_type": "hub",
   "iot_class": "local_push",
   "quality_scale": "bronze",
-  "requirements": ["vegehub==0.1.24"],
+  "requirements": ["vegehub==0.1.26"],
   "zeroconf": ["_vege._tcp.local."]
 }

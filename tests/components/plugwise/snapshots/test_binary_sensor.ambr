@@ -1,14 +1,15 @@
 # serializer version: 1
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.adam_plugwise_notification-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', 'fe799307f1624099878210aa0b9f1475')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -20,6 +21,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Plugwise notification',
     'options': dict({
     }),
     'original_device_class': None,
@@ -39,7 +41,7 @@
     'attributes': ReadOnlyDict({
       'error_msg': list([
       ]),
-      'friendly_name': 'Adam Plugwise notification',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Adam Plugwise notification',
       'info_msg': list([
       ]),
       'other_msg': list([
@@ -58,14 +60,15 @@
 # ---
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.bios_cv_thermostatic_radiator_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', 'a2c3583e0a6349358998b760cea82d2a')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -77,6 +80,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -94,8 +98,8 @@
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.bios_cv_thermostatic_radiator_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Bios Cv Thermostatic Radiator  Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Bios Cv Thermostatic Radiator  Battery',
     }),
     'context': <ANY>,
     'entity_id': 'binary_sensor.bios_cv_thermostatic_radiator_battery',
@@ -107,14 +111,15 @@
 # ---
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.cv_kraan_garage_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', 'e7693eb9582644e5b865dba8d4447cf1')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -126,6 +131,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -143,8 +149,8 @@
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.cv_kraan_garage_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'CV Kraan Garage Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'CV Kraan Garage Battery',
     }),
     'context': <ANY>,
     'entity_id': 'binary_sensor.cv_kraan_garage_battery',
@@ -156,14 +162,15 @@
 # ---
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.onoff_heating-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', '90986d591dcd426cae3ec3e8111ff730')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -175,6 +182,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Heating',
     'options': dict({
     }),
     'original_device_class': None,
@@ -192,7 +200,7 @@
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.onoff_heating-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'OnOff Heating',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'OnOff Heating',
     }),
     'context': <ANY>,
     'entity_id': 'binary_sensor.onoff_heating',
@@ -204,14 +212,15 @@
 # ---
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.thermostatic_radiator_badkamer_1_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', '680423ff840043738f42cc7f1ff97a36')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -223,6 +232,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -240,8 +250,8 @@
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.thermostatic_radiator_badkamer_1_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Thermostatic Radiator Badkamer 1 Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Thermostatic Radiator Badkamer 1 Battery',
     }),
     'context': <ANY>,
     'entity_id': 'binary_sensor.thermostatic_radiator_badkamer_1_battery',
@@ -253,14 +263,15 @@
 # ---
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.thermostatic_radiator_badkamer_2_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', 'f1fee6043d3642a9b0a65297455f008e')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -272,6 +283,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -289,8 +301,8 @@
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.thermostatic_radiator_badkamer_2_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Thermostatic Radiator Badkamer 2 Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Thermostatic Radiator Badkamer 2 Battery',
     }),
     'context': <ANY>,
     'entity_id': 'binary_sensor.thermostatic_radiator_badkamer_2_battery',
@@ -302,14 +314,15 @@
 # ---
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.thermostatic_radiator_jessie_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', 'd3da73bde12a47d5a6b8f9dad971f2ec')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -321,6 +334,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -338,8 +352,8 @@
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.thermostatic_radiator_jessie_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Thermostatic Radiator Jessie Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Thermostatic Radiator Jessie Battery',
     }),
     'context': <ANY>,
     'entity_id': 'binary_sensor.thermostatic_radiator_jessie_battery',
@@ -351,14 +365,15 @@
 # ---
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.zone_lisa_bios_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', 'df4a4a8169904cdb9c03d61a21f42140')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -370,6 +385,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -387,8 +403,8 @@
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.zone_lisa_bios_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Zone Lisa Bios Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone Lisa Bios Battery',
     }),
     'context': <ANY>,
     'entity_id': 'binary_sensor.zone_lisa_bios_battery',
@@ -400,14 +416,15 @@
 # ---
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.zone_lisa_wk_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', 'b59bcebaf94b499ea7d46e4a66fb62d8')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -419,6 +436,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -436,8 +454,8 @@
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.zone_lisa_wk_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Zone Lisa WK Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone Lisa WK Battery',
     }),
     'context': <ANY>,
     'entity_id': 'binary_sensor.zone_lisa_wk_battery',
@@ -449,14 +467,15 @@
 # ---
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.zone_thermostat_jessie_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', '6a3bf693d05e48e0b460c815a4fdd09d')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -468,6 +487,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -485,8 +505,8 @@
 # name: test_adam_binary_sensor_snapshot[platforms0][binary_sensor.zone_thermostat_jessie_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Zone Thermostat Jessie Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone Thermostat Jessie Battery',
     }),
     'context': <ANY>,
     'entity_id': 'binary_sensor.zone_thermostat_jessie_battery',
@@ -498,14 +518,15 @@
 # ---
 # name: test_anna_binary_sensor_snapshot[platforms0-True-anna_heatpump_heating][binary_sensor.opentherm_compressor_state-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', '1cbf783bb11e4a7c8a6843dee3a86927')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -517,6 +538,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Compressor state',
     'options': dict({
     }),
     'original_device_class': None,
@@ -534,7 +556,7 @@
 # name: test_anna_binary_sensor_snapshot[platforms0-True-anna_heatpump_heating][binary_sensor.opentherm_compressor_state-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'OpenTherm Compressor state',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'OpenTherm Compressor state',
     }),
     'context': <ANY>,
     'entity_id': 'binary_sensor.opentherm_compressor_state',
@@ -546,14 +568,15 @@
 # ---
 # name: test_anna_binary_sensor_snapshot[platforms0-True-anna_heatpump_heating][binary_sensor.opentherm_cooling-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', '1cbf783bb11e4a7c8a6843dee3a86927')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -565,6 +588,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Cooling',
     'options': dict({
     }),
     'original_device_class': None,
@@ -582,7 +606,7 @@
 # name: test_anna_binary_sensor_snapshot[platforms0-True-anna_heatpump_heating][binary_sensor.opentherm_cooling-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'OpenTherm Cooling',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'OpenTherm Cooling',
     }),
     'context': <ANY>,
     'entity_id': 'binary_sensor.opentherm_cooling',
@@ -594,14 +618,15 @@
 # ---
 # name: test_anna_binary_sensor_snapshot[platforms0-True-anna_heatpump_heating][binary_sensor.opentherm_cooling_enabled-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', '1cbf783bb11e4a7c8a6843dee3a86927')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -613,6 +638,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Cooling enabled',
     'options': dict({
     }),
     'original_device_class': None,
@@ -630,7 +656,7 @@
 # name: test_anna_binary_sensor_snapshot[platforms0-True-anna_heatpump_heating][binary_sensor.opentherm_cooling_enabled-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'OpenTherm Cooling enabled',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'OpenTherm Cooling enabled',
     }),
     'context': <ANY>,
     'entity_id': 'binary_sensor.opentherm_cooling_enabled',
@@ -642,14 +668,15 @@
 # ---
 # name: test_anna_binary_sensor_snapshot[platforms0-True-anna_heatpump_heating][binary_sensor.opentherm_dhw_state-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', '1cbf783bb11e4a7c8a6843dee3a86927')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -661,6 +688,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'DHW state',
     'options': dict({
     }),
     'original_device_class': None,
@@ -678,7 +706,7 @@
 # name: test_anna_binary_sensor_snapshot[platforms0-True-anna_heatpump_heating][binary_sensor.opentherm_dhw_state-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'OpenTherm DHW state',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'OpenTherm DHW state',
     }),
     'context': <ANY>,
     'entity_id': 'binary_sensor.opentherm_dhw_state',
@@ -690,14 +718,15 @@
 # ---
 # name: test_anna_binary_sensor_snapshot[platforms0-True-anna_heatpump_heating][binary_sensor.opentherm_flame_state-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', '1cbf783bb11e4a7c8a6843dee3a86927')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -709,6 +738,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Flame state',
     'options': dict({
     }),
     'original_device_class': None,
@@ -726,7 +756,7 @@
 # name: test_anna_binary_sensor_snapshot[platforms0-True-anna_heatpump_heating][binary_sensor.opentherm_flame_state-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'OpenTherm Flame state',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'OpenTherm Flame state',
     }),
     'context': <ANY>,
     'entity_id': 'binary_sensor.opentherm_flame_state',
@@ -738,14 +768,15 @@
 # ---
 # name: test_anna_binary_sensor_snapshot[platforms0-True-anna_heatpump_heating][binary_sensor.opentherm_heating-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', '1cbf783bb11e4a7c8a6843dee3a86927')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -757,6 +788,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Heating',
     'options': dict({
     }),
     'original_device_class': None,
@@ -774,7 +806,7 @@
 # name: test_anna_binary_sensor_snapshot[platforms0-True-anna_heatpump_heating][binary_sensor.opentherm_heating-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'OpenTherm Heating',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'OpenTherm Heating',
     }),
     'context': <ANY>,
     'entity_id': 'binary_sensor.opentherm_heating',
@@ -786,14 +818,15 @@
 # ---
 # name: test_anna_binary_sensor_snapshot[platforms0-True-anna_heatpump_heating][binary_sensor.opentherm_secondary_boiler_state-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', '1cbf783bb11e4a7c8a6843dee3a86927')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -805,6 +838,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Secondary boiler state',
     'options': dict({
     }),
     'original_device_class': None,
@@ -822,7 +856,7 @@
 # name: test_anna_binary_sensor_snapshot[platforms0-True-anna_heatpump_heating][binary_sensor.opentherm_secondary_boiler_state-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'OpenTherm Secondary boiler state',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'OpenTherm Secondary boiler state',
     }),
     'context': <ANY>,
     'entity_id': 'binary_sensor.opentherm_secondary_boiler_state',
@@ -834,14 +868,15 @@
 # ---
 # name: test_anna_binary_sensor_snapshot[platforms0-True-anna_heatpump_heating][binary_sensor.smile_anna_plugwise_notification-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', '015ae9ea3f964e668e490fa39da3870b')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -853,6 +888,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Plugwise notification',
     'options': dict({
     }),
     'original_device_class': None,
@@ -872,7 +908,7 @@
     'attributes': ReadOnlyDict({
       'error_msg': list([
       ]),
-      'friendly_name': 'Smile Anna Plugwise notification',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Smile Anna Plugwise notification',
       'info_msg': list([
       ]),
       'other_msg': list([
@@ -890,14 +926,15 @@
 # ---
 # name: test_p1_v4_binary_sensor_snapshot[platforms0-03e65b16e4b247a29ae0d75a78cb492e-p1v4_442_triple][binary_sensor.smile_p1_plugwise_notification-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('plugwise', '03e65b16e4b247a29ae0d75a78cb492e')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -909,6 +946,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Plugwise notification',
     'options': dict({
     }),
     'original_device_class': None,
@@ -928,7 +966,7 @@
     'attributes': ReadOnlyDict({
       'error_msg': list([
       ]),
-      'friendly_name': 'Smile P1 Plugwise notification',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Smile P1 Plugwise notification',
       'info_msg': list([
       ]),
       'other_msg': list([

@@ -2,25 +2,23 @@
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from eheimdigital.types import FilterMode
+from eheimdigital.types import FilterMode, FilterModeProf, ReeflexMode
 import pytest
+from pytest_homeassistant.common import MockConfigEntry, snapshot_platform
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components.select import (
-    ATTR_OPTION,
     DOMAIN as SELECT_DOMAIN,
-    SERVICE_SELECT_OPTION,
+    SelectService,
+    SelectServiceArgument,
 )
-from homeassistant.const import ATTR_ENTITY_ID, Platform
+from homeassistant.const import CommonServiceArgument, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from .conftest import init_integration
 
-from tests.common import MockConfigEntry, snapshot_platform
 
-
-@pytest.mark.usefixtures("classic_vario_mock")
 async def test_setup(
     hass: HomeAssistant,
     eheimdigital_hub_mock: MagicMock,
@@ -49,7 +47,6 @@ async def test_setup(
     await snapshot_platform(hass, entity_registry, snapshot, mock_config_entry.entry_id)
 
 
-@pytest.mark.usefixtures("classic_vario_mock")
 @pytest.mark.parametrize(
     ("device_name", "entity_list"),
     [
@@ -57,10 +54,68 @@ async def test_setup(
             "classic_vario_mock",
             [
                 (
-                    "select.mock_classicvario_filter_mode",
+                    "select.mock_aquarium_mock_classicvario_filter_mode",
                     "manual",
                     "pumpMode",
                     int(FilterMode.MANUAL),
+                ),
+            ],
+        ),
+        (
+            "filter_mock",
+            [
+                (
+                    "select.mock_aquarium_mock_filter_filter_mode",
+                    "constant_flow",
+                    "title",
+                    "START_FILTER_NORMAL_MODE_WITH_COMP",
+                ),
+                (
+                    "select.mock_aquarium_mock_filter_manual_speed",
+                    "61.5",
+                    "frequency",
+                    int(61.5 * 100),
+                ),
+                (
+                    "select.mock_aquarium_mock_filter_constant_flow_speed",
+                    "440",
+                    "flow_rate",
+                    1,
+                ),
+                (
+                    "select.mock_aquarium_mock_filter_day_speed",
+                    "480",
+                    "dfs_soll_day",
+                    2,
+                ),
+                (
+                    "select.mock_aquarium_mock_filter_night_speed",
+                    "860",
+                    "dfs_soll_night",
+                    14,
+                ),
+                (
+                    "select.mock_aquarium_mock_filter_high_pulse_speed",
+                    "620",
+                    "dfs_soll_high",
+                    6,
+                ),
+                (
+                    "select.mock_aquarium_mock_filter_low_pulse_speed",
+                    "770",
+                    "dfs_soll_low",
+                    11,
+                ),
+            ],
+        ),
+        (
+            "reeflex_mock",
+            [
+                (
+                    "select.mock_aquarium_mock_reeflex_operation_mode",
+                    "constant",
+                    "mode",
+                    int(ReeflexMode.CONSTANT),
                 ),
             ],
         ),
@@ -87,8 +142,11 @@ async def test_set_value(
     for item in entity_list:
         await hass.services.async_call(
             SELECT_DOMAIN,
-            SERVICE_SELECT_OPTION,
-            {ATTR_ENTITY_ID: item[0], ATTR_OPTION: item[1]},
+            SelectService.SELECT_OPTION,
+            {
+                CommonServiceArgument.ENTITY_ID: item[0],
+                SelectServiceArgument.OPTION: item[1],
+            },
             blocking=True,
         )
         calls = [call for call in device.hub.mock_calls if call[0] == "send_packet"]
@@ -103,11 +161,77 @@ async def test_set_value(
             "classic_vario_mock",
             [
                 (
-                    "select.mock_classicvario_filter_mode",
+                    "select.mock_aquarium_mock_classicvario_filter_mode",
                     "classic_vario_data",
                     "pumpMode",
                     int(FilterMode.BIO),
                     "bio",
+                ),
+            ],
+        ),
+        (
+            "filter_mock",
+            [
+                (
+                    "select.mock_aquarium_mock_filter_filter_mode",
+                    "filter_data",
+                    "pumpMode",
+                    int(FilterModeProf.CONSTANT_FLOW),
+                    "constant_flow",
+                ),
+                (
+                    "select.mock_aquarium_mock_filter_manual_speed",
+                    "filter_data",
+                    "freqSoll",
+                    int(61.5 * 100),
+                    "61.5",
+                ),
+                (
+                    "select.mock_aquarium_mock_filter_constant_flow_speed",
+                    "filter_data",
+                    "sollStep",
+                    1,
+                    "440",
+                ),
+                (
+                    "select.mock_aquarium_mock_filter_day_speed",
+                    "filter_data",
+                    "nm_dfs_soll_day",
+                    2,
+                    "480",
+                ),
+                (
+                    "select.mock_aquarium_mock_filter_night_speed",
+                    "filter_data",
+                    "nm_dfs_soll_night",
+                    14,
+                    "860",
+                ),
+                (
+                    "select.mock_aquarium_mock_filter_high_pulse_speed",
+                    "filter_data",
+                    "pm_dfs_soll_high",
+                    6,
+                    "620",
+                ),
+                (
+                    "select.mock_aquarium_mock_filter_low_pulse_speed",
+                    "filter_data",
+                    "pm_dfs_soll_low",
+                    11,
+                    "770",
+                ),
+            ],
+        ),
+        (
+            "reeflex_mock",
+            [
+                (
+                    "select.mock_aquarium_mock_reeflex_operation_mode",
+                    "reeflex_data",
+                    "mode",
+                    int(ReeflexMode.CONSTANT),
+                    "constant",
                 ),
             ],
         ),

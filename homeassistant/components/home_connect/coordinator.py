@@ -1,13 +1,10 @@
 """Coordinator for Home Connect."""
 
-from __future__ import annotations
-
 from asyncio import sleep as asyncio_sleep
-from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 import logging
-from typing import Any, cast
+from typing import override
 
 from aiohomeconnect.client import Client as HomeConnectClient
 from aiohomeconnect.model import (
@@ -33,19 +30,27 @@ from aiohomeconnect.model.error import (
     UnauthorizedError,
 )
 from aiohomeconnect.model.program import EnumerateProgram, ProgramDefinitionOption
-from propcache.api import cached_property
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
-from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    ConfigEntryNotReady,
+    OAuth2TokenRequestBaseError,
+    OAuth2TokenRequestReauthError,
+)
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
     API_DEFAULT_RETRY_AFTER,
     APPLIANCES_WITH_PROGRAMS,
+    BSH_OPERATION_STATE_INACTIVE,
     BSH_OPERATION_STATE_PAUSE,
+    BSH_OPERATION_STATE_READY,
     DOMAIN,
+    FAVORITE_PROGRAMS,
+    PROGRAM_PROGRESS_EVENT_KEYS,
 )
 from .utils import get_dict_from_home_connect_error
 
@@ -54,7 +59,7 @@ _LOGGER = logging.getLogger(__name__)
 MAX_EXECUTIONS_TIME_WINDOW = 60 * 60  # 1 hour
 MAX_EXECUTIONS = 8
 
-type HomeConnectConfigEntry = ConfigEntry[HomeConnectCoordinator]
+type HomeConnectConfigEntry = ConfigEntry[HomeConnectRuntimeData]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -73,6 +78,9 @@ class HomeConnectApplianceData:
         """Update data with data from other instance."""
         self.commands.clear()
         self.commands.update(other.commands)
+        for event_key in PROGRAM_PROGRESS_EVENT_KEYS:
+            if event_key not in other.events:
+                self.events.pop(event_key, None)
         self.events.update(other.events)
         self.info.connected = other.info.connected
         self.options.clear()
@@ -96,12 +104,14 @@ class HomeConnectApplianceData:
         )
 
 
-class HomeConnectCoordinator(
-    DataUpdateCoordinator[dict[str, HomeConnectApplianceData]]
-):
-    """Class to manage fetching Home Connect data."""
+class HomeConnectRuntimeData:
+    """Class to manage Home Connect's integration runtime data.
+
+    It also handles the API server-sent events.
+    """
 
     config_entry: HomeConnectConfigEntry
+    appliance_coordinators: dict[str, HomeConnectApplianceCoordinator]
 
     def __init__(
         self,
@@ -110,45 +120,105 @@ class HomeConnectCoordinator(
         client: HomeConnectClient,
     ) -> None:
         """Initialize."""
-        super().__init__(
-            hass,
-            _LOGGER,
-            config_entry=config_entry,
-            name=config_entry.entry_id,
-        )
+        self.hass = hass
+        self.config_entry = config_entry
         self.client = client
-        self._special_listeners: dict[
+        self.global_listeners: dict[
             CALLBACK_TYPE, tuple[CALLBACK_TYPE, tuple[EventKey, ...]]
         ] = {}
         self.device_registry = dr.async_get(self.hass)
-        self.data = {}
-        self._execution_tracker: dict[str, list[float]] = defaultdict(list)
-
-    @cached_property
-    def context_listeners(self) -> dict[tuple[str, EventKey], list[CALLBACK_TYPE]]:
-        """Return a dict of all listeners registered for a given context."""
-        listeners: dict[tuple[str, EventKey], list[CALLBACK_TYPE]] = defaultdict(list)
-        for listener, context in list(self._listeners.values()):
-            assert isinstance(context, tuple)
-            listeners[context].append(listener)
-        return listeners
+        self.appliance_coordinators = {}
 
     @callback
-    def async_add_listener(
-        self, update_callback: CALLBACK_TYPE, context: Any = None
-    ) -> Callable[[], None]:
-        """Listen for data updates."""
-        remove_listener = super().async_add_listener(update_callback, context)
-        self.__dict__.pop("context_listeners", None)
+    def start_event_listener(self) -> None:
+        """Start event listener."""
+        self.config_entry.async_create_background_task(
+            self.hass,
+            self._event_listener(),
+            f"home_connect-events_listener_task-{self.config_entry.entry_id}",
+        )
 
-        def remove_listener_and_invalidate_context_listeners() -> None:
-            remove_listener()
-            self.__dict__.pop("context_listeners", None)
+    async def _event_listener(self) -> None:
+        """Match event with listener for event type."""
+        retry_time = 10
+        while True:
+            try:
+                async for event_message in self.client.stream_all_events():
+                    if event_message is None:
+                        # Event message is None when the connection is established successfully
+                        if retry_time > 10:
+                            # We want to refresh all appliances' data if it isn't the first time
+                            # we connect to the event stream (i.e. after a stream error)
+                            retry_time = 10
+                            for (
+                                appliance_coordinator
+                            ) in self.appliance_coordinators.values():
+                                await appliance_coordinator.attempt_refresh_and_call_listeners()
+                        continue
+                    event_message_ha_id = event_message.ha_id
+                    if event_message_ha_id in self.appliance_coordinators:
+                        if event_message.type == EventType.DEPAIRED:
+                            appliance_coordinator = self.appliance_coordinators.pop(
+                                event_message.ha_id
+                            )
+                            await appliance_coordinator.async_shutdown()
+                        else:
+                            appliance_coordinator = self.appliance_coordinators[
+                                event_message.ha_id
+                            ]
+                            if not appliance_coordinator.data.info.connected:
+                                appliance_coordinator.data.info.connected = True
+                                appliance_coordinator.call_all_event_listeners()
 
-        return remove_listener_and_invalidate_context_listeners
+                    elif event_message.type == EventType.PAIRED:
+                        appliance_coordinator = HomeConnectApplianceCoordinator(
+                            self.hass,
+                            self.config_entry,
+                            self.client,
+                            self.global_listeners,
+                            await self.client.get_specific_appliance(
+                                event_message_ha_id
+                            ),
+                        )
+                        await appliance_coordinator.async_register_shutdown()
+                        self.appliance_coordinators[event_message.ha_id] = (
+                            appliance_coordinator
+                        )
+
+                    await appliance_coordinator.event_listener(event_message)
+
+            except (HomeConnectApiError, OAuth2TokenRequestReauthError) as error:
+                _LOGGER.error("Error while listening for events: %s", error)
+                self.hass.config_entries.async_schedule_reload(
+                    self.config_entry.entry_id
+                )
+                break
+            except (
+                EventStreamInterruptedError,
+                HomeConnectRequestError,
+                OAuth2TokenRequestBaseError,
+                # The token request leaves a bare TimeoutError unmapped
+                TimeoutError,
+            ) as error:
+                _LOGGER.debug(
+                    "Non-breaking error (%s) while listening for events,"
+                    " continuing in %s seconds",
+                    error,
+                    retry_time,
+                )
+                await asyncio_sleep(retry_time)
+                retry_time = min(retry_time * 2, 3600)
+            except Exception:
+                _LOGGER.exception(
+                    "Unexpected error while listening for events,"
+                    " continuing in %s seconds",
+                    retry_time,
+                )
+                await asyncio_sleep(retry_time)
+                retry_time = min(retry_time * 2, 3600)
 
     @callback
-    def async_add_special_listener(
+    def async_add_global_listener(
         self,
         update_callback: CALLBACK_TYPE,
         context: tuple[EventKey, ...],
@@ -161,223 +231,14 @@ class HomeConnectCoordinator(
         @callback
         def remove_listener() -> None:
             """Remove update listener."""
-            self._special_listeners.pop(remove_listener)
-            if not self._special_listeners:
-                self._unschedule_refresh()
+            self.global_listeners.pop(remove_listener)
 
-        self._special_listeners[remove_listener] = (update_callback, context)
+        self.global_listeners[remove_listener] = (update_callback, context)
 
         return remove_listener
 
-    @callback
-    def start_event_listener(self) -> None:
-        """Start event listener."""
-        self.config_entry.async_create_background_task(
-            self.hass,
-            self._event_listener(),
-            f"home_connect-events_listener_task-{self.config_entry.entry_id}",
-        )
-
-    async def _event_listener(self) -> None:  # noqa: C901
-        """Match event with listener for event type."""
-        retry_time = 10
-        while True:
-            try:
-                async for event_message in self.client.stream_all_events():
-                    retry_time = 10
-                    event_message_ha_id = event_message.ha_id
-                    if (
-                        event_message_ha_id in self.data
-                        and not self.data[event_message_ha_id].info.connected
-                    ):
-                        self.data[event_message_ha_id].info.connected = True
-                        self._call_all_event_listeners_for_appliance(
-                            event_message_ha_id
-                        )
-                    match event_message.type:
-                        case EventType.STATUS:
-                            statuses = self.data[event_message_ha_id].status
-                            for event in event_message.data.items:
-                                status_key = StatusKey(event.key)
-                                if status_key in statuses:
-                                    statuses[status_key].value = event.value
-                                else:
-                                    statuses[status_key] = Status(
-                                        key=status_key,
-                                        raw_key=status_key.value,
-                                        value=event.value,
-                                    )
-                                if (
-                                    status_key == StatusKey.BSH_COMMON_OPERATION_STATE
-                                    and event.value == BSH_OPERATION_STATE_PAUSE
-                                    and CommandKey.BSH_COMMON_RESUME_PROGRAM
-                                    not in (
-                                        commands := self.data[
-                                            event_message_ha_id
-                                        ].commands
-                                    )
-                                ):
-                                    # All the appliances that can be paused
-                                    # should have the resume command available.
-                                    commands.add(CommandKey.BSH_COMMON_RESUME_PROGRAM)
-                                    for (
-                                        listener,
-                                        context,
-                                    ) in self._special_listeners.values():
-                                        if (
-                                            EventKey.BSH_COMMON_APPLIANCE_DEPAIRED
-                                            not in context
-                                        ):
-                                            listener()
-                            self._call_event_listener(event_message)
-
-                        case EventType.NOTIFY:
-                            settings = self.data[event_message_ha_id].settings
-                            events = self.data[event_message_ha_id].events
-                            for event in event_message.data.items:
-                                event_key = event.key
-                                if event_key in SettingKey.__members__.values():  # type: ignore[comparison-overlap]
-                                    setting_key = SettingKey(event_key)
-                                    if setting_key in settings:
-                                        settings[setting_key].value = event.value
-                                    else:
-                                        settings[setting_key] = GetSetting(
-                                            key=setting_key,
-                                            raw_key=setting_key.value,
-                                            value=event.value,
-                                        )
-                                else:
-                                    if event_key in (
-                                        EventKey.BSH_COMMON_ROOT_ACTIVE_PROGRAM,
-                                        EventKey.BSH_COMMON_ROOT_SELECTED_PROGRAM,
-                                    ):
-                                        await self.update_options(
-                                            event_message_ha_id,
-                                            event_key,
-                                            ProgramKey(cast(str, event.value)),
-                                        )
-                                    events[event_key] = event
-                            self._call_event_listener(event_message)
-
-                        case EventType.EVENT:
-                            events = self.data[event_message_ha_id].events
-                            for event in event_message.data.items:
-                                events[event.key] = event
-                            self._call_event_listener(event_message)
-
-                        case EventType.CONNECTED | EventType.PAIRED:
-                            if self.refreshed_too_often_recently(event_message_ha_id):
-                                continue
-
-                            appliance_info = await self.client.get_specific_appliance(
-                                event_message_ha_id
-                            )
-
-                            appliance_data = await self._get_appliance_data(
-                                appliance_info, self.data.get(appliance_info.ha_id)
-                            )
-                            if event_message_ha_id not in self.data:
-                                self.data[event_message_ha_id] = appliance_data
-                            for listener, context in self._special_listeners.values():
-                                if (
-                                    EventKey.BSH_COMMON_APPLIANCE_DEPAIRED
-                                    not in context
-                                ):
-                                    listener()
-                            self._call_all_event_listeners_for_appliance(
-                                event_message_ha_id
-                            )
-
-                        case EventType.DISCONNECTED:
-                            self.data[event_message_ha_id].info.connected = False
-                            self._call_all_event_listeners_for_appliance(
-                                event_message_ha_id
-                            )
-
-                        case EventType.DEPAIRED:
-                            device = self.device_registry.async_get_device(
-                                identifiers={(DOMAIN, event_message_ha_id)}
-                            )
-                            if device:
-                                self.device_registry.async_update_device(
-                                    device_id=device.id,
-                                    remove_config_entry_id=self.config_entry.entry_id,
-                                )
-                            self.data.pop(event_message_ha_id, None)
-                            for listener, context in self._special_listeners.values():
-                                assert isinstance(context, tuple)
-                                if EventKey.BSH_COMMON_APPLIANCE_DEPAIRED in context:
-                                    listener()
-
-            except (EventStreamInterruptedError, HomeConnectRequestError) as error:
-                _LOGGER.debug(
-                    "Non-breaking error (%s) while listening for events,"
-                    " continuing in %s seconds",
-                    error,
-                    retry_time,
-                )
-                await asyncio_sleep(retry_time)
-                retry_time = min(retry_time * 2, 3600)
-            except HomeConnectApiError as error:
-                _LOGGER.error("Error while listening for events: %s", error)
-                self.hass.config_entries.async_schedule_reload(
-                    self.config_entry.entry_id
-                )
-                break
-
-    @callback
-    def _call_event_listener(self, event_message: EventMessage) -> None:
-        """Call listener for event."""
-        for event in event_message.data.items:
-            for listener in self.context_listeners.get(
-                (event_message.ha_id, event.key), []
-            ):
-                listener()
-
-    @callback
-    def _call_all_event_listeners_for_appliance(self, ha_id: str) -> None:
-        for listener, context in self._listeners.values():
-            if isinstance(context, tuple) and context[0] == ha_id:
-                listener()
-
-    async def _async_update_data(self) -> dict[str, HomeConnectApplianceData]:
-        """Fetch data from Home Connect."""
-        await self._async_setup()
-
-        for appliance_data in self.data.values():
-            appliance = appliance_data.info
-            ha_id = appliance.ha_id
-            while True:
-                try:
-                    self.data[ha_id] = await self._get_appliance_data(
-                        appliance, self.data.get(ha_id)
-                    )
-                except TooManyRequestsError as err:
-                    _LOGGER.debug(
-                        "Rate limit exceeded on initial fetch: %s",
-                        err,
-                    )
-                    await asyncio_sleep(err.retry_after or API_DEFAULT_RETRY_AFTER)
-                else:
-                    break
-
-        for listener, context in self._special_listeners.values():
-            assert isinstance(context, tuple)
-            if EventKey.BSH_COMMON_APPLIANCE_PAIRED in context:
-                listener()
-
-        return self.data
-
-    async def async_setup(self) -> None:
-        """Set up the devices."""
-        try:
-            await self._async_setup()
-        except UpdateFailed as err:
-            raise ConfigEntryNotReady from err
-
-    async def _async_setup(self) -> None:
-        """Set up the devices."""
-        old_appliances = set(self.data.keys())
+    async def setup_appliance_coordinators(self) -> None:
+        """Set up the coordinators for each appliance."""
         try:
             appliances = await self.client.get_home_appliances()
         except UnauthorizedError as error:
@@ -387,9 +248,7 @@ class HomeConnectCoordinator(
                 translation_placeholders=get_dict_from_home_connect_error(error),
             ) from error
         except HomeConnectError as error:
-            for appliance_data in self.data.values():
-                appliance_data.info.connected = False
-            raise UpdateFailed(
+            raise ConfigEntryNotReady(
                 translation_domain=DOMAIN,
                 translation_key="fetch_api_error",
                 translation_placeholders=get_dict_from_home_connect_error(error),
@@ -403,52 +262,424 @@ class HomeConnectCoordinator(
                 name=appliance.name,
                 model=appliance.vib,
             )
-            if appliance.ha_id not in self.data:
-                self.data[appliance.ha_id] = HomeConnectApplianceData.empty(appliance)
-            else:
-                self.data[appliance.ha_id].info.connected = appliance.connected
-                old_appliances.remove(appliance.ha_id)
-
-        for ha_id in old_appliances:
-            self.data.pop(ha_id, None)
-            device = self.device_registry.async_get_device(
-                identifiers={(DOMAIN, ha_id)}
+            new_coordinator = HomeConnectApplianceCoordinator(
+                self.hass,
+                self.config_entry,
+                self.client,
+                self.global_listeners,
+                appliance,
             )
-            if device:
-                self.device_registry.async_update_device(
-                    device_id=device.id,
-                    remove_config_entry_id=self.config_entry.entry_id,
-                )
+            await new_coordinator.async_register_shutdown()
+            self.appliance_coordinators[appliance.ha_id] = new_coordinator
 
-        # Trigger to delete the possible depaired device entities
-        # from known_entities variable at common.py
-        for listener, context in self._special_listeners.values():
-            assert isinstance(context, tuple)
-            if EventKey.BSH_COMMON_APPLIANCE_DEPAIRED in context:
+
+class HomeConnectApplianceCoordinator(DataUpdateCoordinator[HomeConnectApplianceData]):
+    """Class to manage fetching Home Connect appliance data."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        config_entry: HomeConnectConfigEntry,
+        client: HomeConnectClient,
+        global_listeners: dict[
+            CALLBACK_TYPE, tuple[CALLBACK_TYPE, tuple[EventKey, ...]]
+        ],
+        appliance: HomeAppliance,
+    ) -> None:
+        """Initialize."""
+        # Don't set config_entry attribute to avoid default behavior.
+        # HomeConnectApplianceCoordinator doesn't follow the
+        # config entry lifecycle so we can't use the default behavior.
+        self._config_entry = config_entry
+        super().__init__(
+            hass,
+            _LOGGER,
+            config_entry=None,
+            name=f"{self._config_entry.entry_id}-{appliance.ha_id}",
+        )
+        self.client = client
+        self.device_registry = dr.async_get(self.hass)
+        self.global_listeners = global_listeners
+        self.data = HomeConnectApplianceData.empty(appliance)
+        self._execution_tracker: list[float] = []
+        self.last_fetched_program: tuple[EventKey, ProgramKey] | None = None
+
+    def _get_listeners_for_event_key(self, event_key: EventKey) -> list[CALLBACK_TYPE]:
+        return [
+            listener
+            for listener, context in list(self._listeners.values())
+            if context == event_key
+        ]
+
+    async def attempt_refresh_and_call_listeners(self) -> None:
+        """Attempt to refresh the appliance data.
+
+        Check if the appliance data has been refreshed too often recently to avoid
+        hitting the API rate limit. Once refreshed, call all global listeners
+        that are not listening for the DEPAIRED event.
+        """
+        if self.refreshed_too_often_recently():
+            return
+
+        await self.async_refresh()
+        for (
+            listener,
+            context,
+        ) in self.global_listeners.values():
+            if EventKey.BSH_COMMON_APPLIANCE_DEPAIRED not in context:
+                listener()
+        self.call_all_event_listeners()
+
+    async def event_listener(self, event_message: EventMessage) -> None:
+        """Match event with listener for event type."""
+        # Clear before storing the items, as the message can
+        # already contain the progress of the new program run.
+
+        (
+            operation_state_finished,
+            operation_state_changed,
+            program_finished,
+            active_program_changed,
+        ) = self._get_program_finished_info(event_message)
+        cleared_event_keys = self._clear_progress_of_ended_program_run(
+            (operation_state_finished and operation_state_changed)
+            or program_finished
+            or active_program_changed is not None
+        )
+        await self._fetch_selected_program_if_just_finished(
+            operation_state_finished
+            and program_finished
+            and (operation_state_changed or active_program_changed) is True,
+            event_message,
+        )
+
+        match event_message.type:
+            case EventType.STATUS:
+                statuses = self.data.status
+                for event in event_message.data.items:
+                    status_key = StatusKey(event.key)
+                    status_value = event.value
+                    if status_key in statuses:
+                        statuses[status_key].value = status_value
+                    else:
+                        statuses[status_key] = Status(
+                            key=status_key,
+                            raw_key=status_key.value,
+                            value=status_value,
+                        )
+                    if (
+                        status_key == StatusKey.BSH_COMMON_OPERATION_STATE
+                        and status_value == BSH_OPERATION_STATE_PAUSE
+                        and CommandKey.BSH_COMMON_RESUME_PROGRAM
+                        not in (commands := self.data.commands)
+                    ):
+                        # All the appliances that can be paused
+                        # should have the resume command available.
+                        commands.add(CommandKey.BSH_COMMON_RESUME_PROGRAM)
+                        for (
+                            listener,
+                            context,
+                        ) in self.global_listeners.values():
+                            if EventKey.BSH_COMMON_APPLIANCE_DEPAIRED not in context:
+                                listener()
+
+                self._call_event_listener(event_message)
+
+            case EventType.NOTIFY:
+                settings = self.data.settings
+                events = self.data.events
+                program_update_event_value = None
+                for event in event_message.data.items:
+                    event_key = event.key
+                    if event_key in SettingKey.__members__.values():  # type: ignore[comparison-overlap]
+                        setting_key = SettingKey(event_key)
+                        if setting_key in settings:
+                            settings[setting_key].value = event.value
+                        else:
+                            settings[setting_key] = GetSetting(
+                                key=setting_key,
+                                raw_key=setting_key.value,
+                                value=event.value,
+                            )
+                    else:
+                        event_value = event.value
+                        if event_key in (
+                            EventKey.BSH_COMMON_ROOT_ACTIVE_PROGRAM,
+                            EventKey.BSH_COMMON_ROOT_SELECTED_PROGRAM,
+                        ) and isinstance(event_value, str):
+                            program_update_event_value = (
+                                event_key,
+                                ProgramKey(event_value),
+                            )
+
+                        events[event_key] = event
+
+                # Process program update after all events to ensure
+                # BSH_COMMON_OPTION_BASE_PROGRAM event is available for
+                # favorite program resolution.
+                # Also avoid redundant program fetches if the
+                # program hasn't changed since the last fetch.
+                if program_update_event_value:
+                    await self.update_options(program_update_event_value[1])
+                    self.last_fetched_program = program_update_event_value
+                self._call_event_listener(event_message)
+
+            case EventType.EVENT:
+                events = self.data.events
+                for event in event_message.data.items:
+                    events[event.key] = event
+                self._call_event_listener(event_message)
+
+            case EventType.CONNECTED | EventType.PAIRED:
+                await self.attempt_refresh_and_call_listeners()
+
+            case EventType.DISCONNECTED:
+                self.data.info.connected = False
+                self.call_all_event_listeners()
+
+            case EventType.DEPAIRED:
+                device = self.device_registry.async_get_device_by_identifier(
+                    (DOMAIN, self.data.info.ha_id), self._config_entry.entry_id
+                )
+                if device:
+                    self.device_registry.async_remove_device(device.id)
+                for (
+                    listener,
+                    context,
+                ) in self.global_listeners.values():
+                    assert isinstance(context, tuple)
+                    if EventKey.BSH_COMMON_APPLIANCE_DEPAIRED in context:
+                        listener()
+
+        # Notify after storing the message to avoid writing intermediate states
+        self._call_listeners_for_missing_event_keys(cleared_event_keys)
+
+    @callback
+    def _call_event_listener(self, event_message: EventMessage) -> None:
+        """Call listener for event."""
+        for event in event_message.data.items:
+            for listener in self._get_listeners_for_event_key(event.key):
                 listener()
 
-    async def _get_appliance_data(
-        self,
-        appliance: HomeAppliance,
-        appliance_data_to_update: HomeConnectApplianceData | None = None,
-    ) -> HomeConnectApplianceData:
+    def _get_program_finished_info(
+        self, event_message: EventMessage
+    ) -> tuple[bool, bool | None, bool, bool | None]:
+        """Return information to know if a program just finished.
+
+        A program is truly finished when the operation state is INACTIVE or READY
+        and the active program is cleared.
+        Then the old stuff from the active program can be cleared.
+        To verify if it just finished, we need check the previous operation state
+        and the previous active program.
+        """
+        operation_state_status: Status | Event | None = None
+        prev_operation_state = (
+            operation_state_status.value
+            if (
+                operation_state_status := self.data.status.get(
+                    StatusKey.BSH_COMMON_OPERATION_STATE
+                )
+            )
+            else None
+        )
+        operation_state_truly_finished = (
+            (prev_operation_state := operation_state_status.value)
+            in (BSH_OPERATION_STATE_INACTIVE, BSH_OPERATION_STATE_READY)
+            if operation_state_status is not None
+            else False
+        )
+        operation_state = None
+
+        prev_program = (
+            prev_program_event.value
+            if (
+                prev_program_event := self.data.events.get(
+                    EventKey.BSH_COMMON_ROOT_ACTIVE_PROGRAM
+                )
+            )
+            else None
+        )
+        active_program_finished = prev_program is None
+        program = None
+
+        match event_message.type:
+            case EventType.STATUS:
+                operation_state_status = next(
+                    (
+                        status
+                        for status in event_message.data.items
+                        if status.key == EventKey.BSH_COMMON_STATUS_OPERATION_STATE
+                    ),
+                    None,
+                )
+                if operation_state_status:
+                    operation_state = operation_state_status.value
+                    operation_state_truly_finished = operation_state in (
+                        BSH_OPERATION_STATE_INACTIVE,
+                        BSH_OPERATION_STATE_READY,
+                    )
+            case EventType.NOTIFY:
+                program_event = next(
+                    (
+                        event
+                        for event in event_message.data.items
+                        if event.key == EventKey.BSH_COMMON_ROOT_ACTIVE_PROGRAM
+                    ),
+                    None,
+                )
+                if program_event is not None and (
+                    program := program_event.value is None
+                ):
+                    active_program_finished = True
+        return (
+            operation_state_truly_finished,
+            operation_state != prev_operation_state
+            if operation_state is not None
+            else None,
+            active_program_finished,
+            program != prev_program if program is not None else None,
+        )
+
+    def _clear_progress_of_ended_program_run(
+        self, program_finished: bool
+    ) -> list[EventKey]:
+        """Remove the progress events of a program run that has ended."""
+        if not program_finished:
+            return []
+        events = self.data.events
+        return [
+            event_key
+            for event_key in PROGRAM_PROGRESS_EVENT_KEYS
+            if events.pop(event_key, None) is not None
+        ]
+
+    async def _fetch_selected_program_if_just_finished(
+        self, program_just_finished: bool, event_message: EventMessage
+    ) -> None:
+        """Fetch the selected program if the active program just finished.
+
+        Except for the case where the selected program is changes already in the event message,
+        in which case we don't need to fetch it.
+        """
+        if not (
+            program_just_finished
+            and (
+                selected_program_event := self.data.events.get(
+                    EventKey.BSH_COMMON_ROOT_SELECTED_PROGRAM
+                )
+            )
+            and isinstance(selected_program := selected_program_event.value, str)
+            and self.last_fetched_program
+            != (
+                EventKey.BSH_COMMON_ROOT_SELECTED_PROGRAM,
+                program := ProgramKey(selected_program),
+            )
+            and all(  # If there's already a select program event, don't fetch
+                event.key != EventKey.BSH_COMMON_ROOT_SELECTED_PROGRAM
+                for event in event_message.data.items
+            )
+        ):
+            return
+        # When the active program is cleared, refresh options from the selected
+        # program so the UI doesn't keep showing the completed program's options.
+        # Wait for READY; earlier requests fail.
+        await self.update_options(program)
+        self.last_fetched_program = (
+            EventKey.BSH_COMMON_ROOT_SELECTED_PROGRAM,
+            program,
+        )
+        # Notify listeners to discover entities for the refreshed options.
+        for listener in self._get_listeners_for_event_key(
+            EventKey.BSH_COMMON_ROOT_SELECTED_PROGRAM
+        ):
+            listener()
+
+    @callback
+    def _call_listeners_for_missing_event_keys(
+        self, event_keys: list[EventKey]
+    ) -> None:
+        """Call the listeners of the event keys that are no longer available."""
+        for event_key in event_keys:
+            if event_key not in self.data.events:
+                for listener in self._get_listeners_for_event_key(event_key):
+                    listener()
+
+    @callback
+    def call_all_event_listeners(self) -> None:
+        """Call all listeners."""
+        for listener, _ in self._listeners.values():
+            listener()
+
+    @override
+    async def _async_update_data(self) -> HomeConnectApplianceData:
+        """Fetch data from Home Connect."""
+        while True:
+            try:
+                try:
+                    self.data.info.connected = (
+                        await self.client.get_specific_appliance(self.data.info.ha_id)
+                    ).connected
+                except HomeConnectError:
+                    self.data.info.connected = False
+                    raise
+
+                await self.get_appliance_data()
+            except TooManyRequestsError as err:
+                delay = err.retry_after or API_DEFAULT_RETRY_AFTER
+                _LOGGER.warning(
+                    "Rate limit exceeded, retrying in %s seconds: %s",
+                    delay,
+                    err,
+                )
+                await asyncio_sleep(delay)
+            except UnauthorizedError as error:
+                # Reauth flow need to be started explicitly as
+                # we don't use the default config entry coordinator.
+                self._config_entry.async_start_reauth(self.hass)
+                raise ConfigEntryAuthFailed(
+                    translation_domain=DOMAIN,
+                    translation_key="auth_error",
+                    translation_placeholders=get_dict_from_home_connect_error(error),
+                ) from error
+            except HomeConnectError as error:
+                raise UpdateFailed(
+                    translation_domain=DOMAIN,
+                    translation_key="fetch_api_error",
+                    translation_placeholders=get_dict_from_home_connect_error(error),
+                ) from error
+            else:
+                break
+
+        for (
+            listener,
+            context,
+        ) in self.global_listeners.values():
+            assert isinstance(context, tuple)
+            if EventKey.BSH_COMMON_APPLIANCE_PAIRED in context:
+                listener()
+
+        return self.data
+
+    async def get_appliance_data(self) -> None:
         """Get appliance data."""
+        appliance = self.data.info
         self.device_registry.async_get_or_create(
-            config_entry_id=self.config_entry.entry_id,
+            config_entry_id=self._config_entry.entry_id,
             identifiers={(DOMAIN, appliance.ha_id)},
             manufacturer=appliance.brand,
             name=appliance.name,
             model=appliance.vib,
         )
         if not appliance.connected:
-            _LOGGER.debug(
-                "Appliance %s is not connected, skipping data fetch",
-                appliance.ha_id,
+            self.data.update(HomeConnectApplianceData.empty(appliance))
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="appliance_disconnected",
+                translation_placeholders={
+                    "appliance_name": appliance.name,
+                    "ha_id": appliance.ha_id,
+                },
             )
-            if appliance_data_to_update:
-                appliance_data_to_update.info.connected = False
-                return appliance_data_to_update
-            return HomeConnectApplianceData.empty(appliance)
         try:
             settings = {
                 setting.key: setting
@@ -483,7 +714,7 @@ class HomeConnectCoordinator(
         programs = []
         events = {}
         options = {}
-        if appliance.type in APPLIANCES_WITH_PROGRAMS:
+        if appliance.type in APPLIANCES_WITH_PROGRAMS:  # pylint: disable=too-many-nested-blocks
             try:
                 all_programs = await self.client.get_all_programs(appliance.ha_id)
             except TooManyRequestsError:
@@ -519,10 +750,18 @@ class HomeConnectCoordinator(
                         )
                         current_program_key = program.key
                         program_options = program.options
+                        if current_program_key in FAVORITE_PROGRAMS and program_options:
+                            # The API doesn't allow to fetch the
+                            # options from the favorite program.
+                            # We can attempt to get the base program and get the options
+                            for option in program_options:
+                                if option.key == OptionKey.BSH_COMMON_BASE_PROGRAM:
+                                    current_program_key = ProgramKey(option.value)
+                                    break
+                        self.last_fetched_program = (event_key, current_program_key)
+
                 if current_program_key:
-                    options = await self.get_options_definitions(
-                        appliance.ha_id, current_program_key
-                    )
+                    options = await self.get_options_definitions(current_program_key)
                     for option in program_options or []:
                         option_event_key = EventKey(option.key)
                         events[option_event_key] = Event(
@@ -549,23 +788,20 @@ class HomeConnectCoordinator(
         except HomeConnectError:
             commands = set()
 
-        appliance_data = HomeConnectApplianceData(
-            commands=commands,
-            events=events,
-            info=appliance,
-            options=options,
-            programs=programs,
-            settings=settings,
-            status=status,
+        self.data.update(
+            HomeConnectApplianceData(
+                commands=commands,
+                events=events,
+                info=appliance,
+                options=options,
+                programs=programs,
+                settings=settings,
+                status=status,
+            )
         )
-        if appliance_data_to_update:
-            appliance_data_to_update.update(appliance_data)
-            appliance_data = appliance_data_to_update
-
-        return appliance_data
 
     async def get_options_definitions(
-        self, ha_id: str, program_key: ProgramKey
+        self, program_key: ProgramKey
     ) -> dict[OptionKey, ProgramDefinitionOption]:
         """Get options with constraints for appliance."""
         if program_key is ProgramKey.UNKNOWN:
@@ -575,7 +811,7 @@ class HomeConnectCoordinator(
                 option.key: option
                 for option in (
                     await self.client.get_available_program(
-                        ha_id, program_key=program_key
+                        self.data.info.ha_id, program_key=program_key
                     )
                 ).options
                 or []
@@ -585,52 +821,61 @@ class HomeConnectCoordinator(
         except HomeConnectError as error:
             _LOGGER.debug(
                 "Error fetching options for %s: %s",
-                ha_id,
+                self.data.info.ha_id,
                 error,
             )
             return {}
 
-    async def update_options(
-        self, ha_id: str, event_key: EventKey, program_key: ProgramKey
-    ) -> None:
+    async def update_options(self, program_key: ProgramKey) -> None:
         """Update options for appliance."""
-        options = self.data[ha_id].options
-        events = self.data[ha_id].events
+        options = self.data.options
+        events = self.data.events
         options_to_notify = options.copy()
         options.clear()
-        options.update(await self.get_options_definitions(ha_id, program_key))
+        if (
+            program_key in FAVORITE_PROGRAMS
+            and (event := events.get(EventKey.BSH_COMMON_OPTION_BASE_PROGRAM))
+            and isinstance(event.value, str)
+        ):
+            # The API doesn't allow to fetch the options from the favorite program.
+            # We can attempt to get the base program and get the options
+            resolved_program_key = ProgramKey(event.value)
+        else:
+            resolved_program_key = program_key
+
+        options.update(await self.get_options_definitions(resolved_program_key))
 
         for option in options.values():
-            option_value = option.constraints.default if option.constraints else None
-            if option_value is not None:
-                option_event_key = EventKey(option.key)
+            option_event_key = EventKey(option.key)
+            if (
+                option_event_key not in events
+                and option.constraints
+                and (option_default_value := option.constraints.default) is not None
+            ):
                 events[option_event_key] = Event(
                     option_event_key,
                     option.key.value,
                     0,
                     "",
                     "",
-                    option_value,
+                    option_default_value,
                     option.name,
                     unit=option.unit,
                 )
         options_to_notify.update(options)
         for option_key in options_to_notify:
-            for listener in self.context_listeners.get(
-                (ha_id, EventKey(option_key)),
-                [],
-            ):
+            for listener in self._get_listeners_for_event_key(EventKey(option_key)):
                 listener()
 
-    def refreshed_too_often_recently(self, appliance_ha_id: str) -> bool:
+    def refreshed_too_often_recently(self) -> bool:
         """Check if the appliance data hasn't been refreshed too often recently."""
 
         now = self.hass.loop.time()
 
-        execution_tracker = self._execution_tracker[appliance_ha_id]
+        execution_tracker = self._execution_tracker
         initial_len = len(execution_tracker)
 
-        execution_tracker = self._execution_tracker[appliance_ha_id] = [
+        execution_tracker = self._execution_tracker = [
             timestamp
             for timestamp in execution_tracker
             if now - timestamp < MAX_EXECUTIONS_TIME_WINDOW
@@ -643,10 +888,11 @@ class HomeConnectCoordinator(
                 _LOGGER.warning(
                     'Too many connected/paired events for appliance "%s" '
                     "(%s times in less than %s minutes), updates have been disabled "
-                    "and they will be enabled again whenever the connection stabilizes. "
+                    "and they will be enabled again whenever "
+                    "the connection stabilizes. "
                     "Consider trying to unplug the appliance "
                     "for a while to perform a soft reset",
-                    self.data[appliance_ha_id].info.name,
+                    self.data.info.name,
                     MAX_EXECUTIONS,
                     MAX_EXECUTIONS_TIME_WINDOW // 60,
                 )
@@ -655,7 +901,7 @@ class HomeConnectCoordinator(
             _LOGGER.info(
                 'Connected/paired events from the appliance "%s" have stabilized,'
                 " updates have been re-enabled",
-                self.data[appliance_ha_id].info.name,
+                self.data.info.name,
             )
 
         return False

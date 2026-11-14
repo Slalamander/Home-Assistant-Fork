@@ -1,13 +1,13 @@
-"""The tests for the temper (USB temperature sensor) component."""
+"""The tests for the TEMPer integration."""
 
 from datetime import timedelta
 from unittest.mock import Mock, patch
 
+from pytest_homeassistant.common import async_fire_time_changed
+
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
-
-from tests.common import async_fire_time_changed
 
 
 async def test_temperature_readback(hass: HomeAssistant) -> None:

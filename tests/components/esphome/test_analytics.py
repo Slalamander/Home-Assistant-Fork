@@ -1,6 +1,6 @@
 """Tests for analytics platform."""
 
-import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.analytics import async_devices_payload
 from homeassistant.components.esphome import DOMAIN
@@ -8,10 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.setup import async_setup_component
 
-from tests.common import MockConfigEntry
 
-
-@pytest.mark.asyncio
 async def test_analytics(
     hass: HomeAssistant, device_registry: dr.DeviceRegistry
 ) -> None:

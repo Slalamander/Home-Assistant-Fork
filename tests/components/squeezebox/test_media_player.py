@@ -6,6 +6,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from freezegun.api import FrozenDateTimeFactory
 import pytest
+from pytest_homeassistant.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+    snapshot_platform,
+)
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components.media_player import (
@@ -40,13 +45,11 @@ from homeassistant.components.squeezebox.const import (
     PLAYER_UPDATE_INTERVAL,
     SENSOR_UPDATE_INTERVAL,
 )
-from homeassistant.components.squeezebox.media_player import (
-    ATTR_PARAMETERS,
-    SERVICE_CALL_METHOD,
-    SERVICE_CALL_QUERY,
+from homeassistant.components.squeezebox.services import (
+    SqueezeboxService,
+    SqueezeboxServiceArgument,
 )
 from homeassistant.const import (
-    ATTR_COMMAND,
     ATTR_ENTITY_ID,
     SERVICE_MEDIA_NEXT_TRACK,
     SERVICE_MEDIA_PAUSE,
@@ -72,9 +75,7 @@ from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity_registry import EntityRegistry
 from homeassistant.util.dt import utcnow
 
-from .conftest import FAKE_VALID_ITEM_ID, TEST_MAC, TEST_VOLUME_STEP
-
-from tests.common import MockConfigEntry, async_fire_time_changed, snapshot_platform
+from .conftest import FAKE_VALID_ITEM_ID, TEST_MAC, VOLUME_STEP
 
 
 @pytest.fixture(autouse=True)
@@ -83,6 +84,13 @@ def squeezebox_media_player_platform():
     with patch(
         "homeassistant.components.squeezebox.PLATFORMS", [Platform.MEDIA_PLAYER]
     ):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def mock_discovery():
+    """Mock discovery of squeezebox players."""
+    with patch("homeassistant.components.squeezebox.media_player.async_discover"):
         yield
 
 
@@ -211,7 +219,7 @@ async def test_squeezebox_volume_up(
         blocking=True,
     )
     configured_player.async_set_volume.assert_called_once_with(
-        str(configured_player.volume + TEST_VOLUME_STEP)
+        str(configured_player.volume + VOLUME_STEP)
     )
 
 
@@ -227,7 +235,7 @@ async def test_squeezebox_volume_down(
         blocking=True,
     )
     configured_player.async_set_volume.assert_called_once_with(
-        str(configured_player.volume - TEST_VOLUME_STEP)
+        str(configured_player.volume - VOLUME_STEP)
     )
 
 
@@ -509,7 +517,10 @@ async def test_squeezebox_play_media_with_announce_volume_invalid(
     """Test play service call with announce and volume zero."""
     with pytest.raises(
         ServiceValidationError,
-        match="announce_volume must be a number greater than 0 and less than or equal to 1",
+        match=(
+            "announce_volume must be a number greater than 0"
+            " and less than or equal to 1"
+        ),
     ):
         await hass.services.async_call(
             MEDIA_PLAYER_DOMAIN,
@@ -763,11 +774,11 @@ async def test_squeezebox_call_query(
     """Test query service call."""
     await hass.services.async_call(
         DOMAIN,
-        SERVICE_CALL_QUERY,
+        SqueezeboxService.CALL_QUERY,
         {
             ATTR_ENTITY_ID: "media_player.test_player",
-            ATTR_COMMAND: "test_command",
-            ATTR_PARAMETERS: ["param1", "param2"],
+            SqueezeboxServiceArgument.COMMAND: "test_command",
+            SqueezeboxServiceArgument.PARAMETERS: ["param1", "param2"],
         },
         blocking=True,
     )
@@ -780,11 +791,11 @@ async def test_squeezebox_call_method(
     """Test method call service call."""
     await hass.services.async_call(
         DOMAIN,
-        SERVICE_CALL_METHOD,
+        SqueezeboxService.CALL_METHOD,
         {
             ATTR_ENTITY_ID: "media_player.test_player",
-            ATTR_COMMAND: "test_command",
-            ATTR_PARAMETERS: ["param1", "param2"],
+            SqueezeboxServiceArgument.COMMAND: "test_command",
+            SqueezeboxServiceArgument.PARAMETERS: ["param1", "param2"],
         },
         blocking=True,
     )

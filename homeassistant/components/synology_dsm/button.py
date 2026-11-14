@@ -1,11 +1,11 @@
 """Support for Synology DSM buttons."""
 
-from __future__ import annotations
-
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 import logging
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any, Final, override
+
+from synology_dsm.exceptions import SynologyDSMAPIErrorException
 
 from homeassistant.components.button import (
     ButtonDeviceClass,
@@ -14,10 +14,11 @@ from homeassistant.components.button import (
 )
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from . import SynoApi
+from .common import SynoApi
 from .const import DOMAIN
 from .coordinator import SynologyDSMConfigEntry
 
@@ -34,15 +35,13 @@ class SynologyDSMbuttonDescription(ButtonEntityDescription):
 BUTTONS: Final = [
     SynologyDSMbuttonDescription(
         key="reboot",
-        name="Reboot",
         device_class=ButtonDeviceClass.RESTART,
         entity_category=EntityCategory.CONFIG,
         press_action=lambda syno_api: syno_api.async_reboot,
     ),
     SynologyDSMbuttonDescription(
         key="shutdown",
-        name="Shutdown",
-        icon="mdi:power",
+        translation_key="shutdown",
         entity_category=EntityCategory.CONFIG,
         press_action=lambda syno_api: syno_api.async_shutdown,
     ),
@@ -63,6 +62,7 @@ class SynologyDSMButton(ButtonEntity):
     """Defines a Synology DSM button."""
 
     entity_description: SynologyDSMbuttonDescription
+    _attr_has_entity_name = True
 
     def __init__(
         self,
@@ -75,12 +75,12 @@ class SynologyDSMButton(ButtonEntity):
         if TYPE_CHECKING:
             assert api.network is not None
             assert api.information is not None
-        self._attr_name = f"{api.network.hostname} {description.name}"
         self._attr_unique_id = f"{api.information.serial}_{description.key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, api.information.serial)}
         )
 
+    @override
     async def async_press(self) -> None:
         """Triggers the Synology DSM button press service."""
         if TYPE_CHECKING:
@@ -90,4 +90,11 @@ class SynologyDSMButton(ButtonEntity):
             self.entity_description.key,
             self.syno_api.network.hostname,
         )
-        await self.entity_description.press_action(self.syno_api)()
+        try:
+            await self.entity_description.press_action(self.syno_api)()
+        except SynologyDSMAPIErrorException as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key=f"{self.entity_description.key}_failed",
+                translation_placeholders={"error": str(err)},
+            ) from err

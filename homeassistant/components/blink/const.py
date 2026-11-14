@@ -3,7 +3,10 @@
 from homeassistant.const import Platform
 
 DOMAIN = "blink"
-DEVICE_ID = "Home Assistant"
+# Legacy globally-shared OAuth identifier every install used to send. Blink's
+# authorize endpoint now rejects it (HTTP 406); kept only to detect and drop
+# it on migration/reauth so blinkpy can mint a per-install UUID instead.
+LEGACY_HARDWARE_ID = "Home Assistant"
 
 CONF_MIGRATE = "migrate"
 CONF_CAMERA = "camera"
@@ -20,11 +23,6 @@ TYPE_TEMPERATURE = "temperature"
 TYPE_BATTERY = "battery"
 TYPE_WIFI_STRENGTH = "wifi_strength"
 
-SERVICE_RECORD = "record"
-SERVICE_TRIGGER = "trigger_camera"
-SERVICE_SAVE_VIDEO = "save_video"
-SERVICE_SAVE_RECENT_CLIPS = "save_recent_clips"
-SERVICE_SEND_PIN = "send_pin"
 
 PLATFORMS = [
     Platform.ALARM_CONTROL_PANEL,

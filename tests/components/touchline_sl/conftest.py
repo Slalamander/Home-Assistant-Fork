@@ -2,14 +2,13 @@
 
 from collections.abc import Generator
 from typing import NamedTuple
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.touchline_sl.const import DOMAIN
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
-
-from tests.common import MockConfigEntry
 
 
 class FakeModule(NamedTuple):
@@ -19,11 +18,44 @@ class FakeModule(NamedTuple):
     id: str
 
 
+def make_mock_zone(
+    zone_id: int = 1, name: str = "Zone 1", alarm: str | None = None
+) -> MagicMock:
+    """Return a mock Zone with configurable alarm state."""
+    zone = MagicMock()
+    zone.id = zone_id
+    zone.name = name
+    zone.temperature = 21.5
+    zone.target_temperature = 22.0
+    zone.humidity = 45
+    zone.mode = "constantTemp"
+    zone.algorithm = "heating"
+    zone.relay_on = False
+    zone.alarm = alarm
+    zone.schedule = None
+    zone.enabled = True
+    zone.signal_strength = 100
+    zone.battery_level = None
+    return zone
+
+
+def make_mock_module(zones: list) -> MagicMock:
+    """Return a mock module with the given zones."""
+    module = MagicMock()
+    module.id = "deadbeef"
+    module.name = "Foobar"
+    module.type = "SL"
+    module.version = "1.0"
+    module.zones = AsyncMock(return_value=zones)
+    module.schedules = AsyncMock(return_value=[])
+    return module
+
+
 @pytest.fixture
 def mock_setup_entry() -> Generator[AsyncMock]:
     """Override async_setup_entry."""
     with patch(
-        "homeassistant.components.touchline_sl.async_setup_entry", return_value=True
+        "homeassistant.components.touchline_sl.async_setup_entry", return_value=None
     ) as mock_setup_entry:
         yield mock_setup_entry
 

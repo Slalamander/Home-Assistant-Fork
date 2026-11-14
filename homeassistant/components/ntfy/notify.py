@@ -1,9 +1,8 @@
 """ntfy notification entity."""
 
-from __future__ import annotations
-
 from datetime import timedelta
-from typing import Any
+import logging
+from typing import Any, override
 
 from aiontfy import Message
 from aiontfy.exceptions import (
@@ -11,57 +10,30 @@ from aiontfy.exceptions import (
     NtfyHTTPError,
     NtfyUnauthorizedAuthenticationError,
 )
-import voluptuous as vol
-from yarl import URL
 
+from homeassistant.components import tts
+from homeassistant.components.media_source import (
+    async_get_media_image,
+    async_resolve_media,
+)
 from homeassistant.components.notify import (
-    ATTR_MESSAGE,
-    ATTR_TITLE,
     NotifyEntity,
     NotifyEntityDescription,
     NotifyEntityFeature,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
-from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.os_error import os_read_error
 
-from .const import DOMAIN
+from .const import DOMAIN, NtfyServiceArgument
 from .coordinator import NtfyConfigEntry
 from .entity import NtfyBaseEntity
+from .services import ACTIONS_MAP, ATTR_ACTION
+
+_LOGGER = logging.getLogger(__name__)
 
 PARALLEL_UPDATES = 0
-
-
-SERVICE_PUBLISH = "publish"
-ATTR_ATTACH = "attach"
-ATTR_CALL = "call"
-ATTR_CLICK = "click"
-ATTR_DELAY = "delay"
-ATTR_EMAIL = "email"
-ATTR_ICON = "icon"
-ATTR_MARKDOWN = "markdown"
-ATTR_PRIORITY = "priority"
-ATTR_TAGS = "tags"
-
-SERVICE_PUBLISH_SCHEMA = cv.make_entity_service_schema(
-    {
-        vol.Optional(ATTR_TITLE): cv.string,
-        vol.Optional(ATTR_MESSAGE): cv.string,
-        vol.Optional(ATTR_MARKDOWN): cv.boolean,
-        vol.Optional(ATTR_TAGS): vol.All(cv.ensure_list, [str]),
-        vol.Optional(ATTR_PRIORITY): vol.All(vol.Coerce(int), vol.Range(1, 5)),
-        vol.Optional(ATTR_CLICK): vol.All(vol.Url(), vol.Coerce(URL)),
-        vol.Optional(ATTR_DELAY): vol.All(
-            cv.time_period,
-            vol.Range(min=timedelta(seconds=10), max=timedelta(days=3)),
-        ),
-        vol.Optional(ATTR_ATTACH): vol.All(vol.Url(), vol.Coerce(URL)),
-        vol.Optional(ATTR_EMAIL): vol.Email(),
-        vol.Optional(ATTR_CALL): cv.string,
-        vol.Optional(ATTR_ICON): vol.All(vol.Url(), vol.Coerce(URL)),
-    }
-)
 
 
 async def async_setup_entry(
@@ -76,13 +48,6 @@ async def async_setup_entry(
             [NtfyNotifyEntity(config_entry, subentry)], config_subentry_id=subentry_id
         )
 
-    platform = entity_platform.async_get_current_platform()
-    platform.async_register_entity_service(
-        SERVICE_PUBLISH,
-        SERVICE_PUBLISH_SCHEMA,
-        "publish",
-    )
-
 
 class NtfyNotifyEntity(NtfyBaseEntity, NotifyEntity):
     """Representation of a ntfy notification entity."""
@@ -94,31 +59,74 @@ class NtfyNotifyEntity(NtfyBaseEntity, NotifyEntity):
     )
     _attr_supported_features = NotifyEntityFeature.TITLE
 
+    @override
     async def async_send_message(self, message: str, title: str | None = None) -> None:
-        """Publish a message to a topic."""
-        await self.publish(message=message, title=title)
+        """Publish a message to a topic via notify.send_message action."""
+        await self._publish(message=message, title=title)
 
     async def publish(self, **kwargs: Any) -> None:
-        """Publish a message to a topic."""
+        """Publish a message to a topic via ntfy.publish action."""
+        await self._publish(**kwargs)
+        self._async_record_notification()
 
+    async def _publish(self, **kwargs: Any) -> None:
+        """Shared internal helper to publish a message to a topic."""
+        attachment = None
         params: dict[str, Any] = kwargs
-        delay: timedelta | None = params.get("delay")
+        delay: timedelta | None = params.get(NtfyServiceArgument.DELAY)
         if delay:
-            params["delay"] = f"{delay.total_seconds()}s"
-            if params.get("email"):
+            params[NtfyServiceArgument.DELAY] = f"{delay.total_seconds()}s"
+            if params.get(NtfyServiceArgument.EMAIL):
                 raise ServiceValidationError(
                     translation_domain=DOMAIN,
                     translation_key="delay_no_email",
                 )
-            if params.get("call"):
+            if params.get(NtfyServiceArgument.CALL):
                 raise ServiceValidationError(
                     translation_domain=DOMAIN,
                     translation_key="delay_no_call",
                 )
+        if file := params.pop(NtfyServiceArgument.ATTACH_FILE, None):
+            media_content_id: str = file["media_content_id"]
+            if media_content_id.startswith("media-source://tts/"):
+                _, attachment = await tts.async_get_media_source_audio(
+                    self.hass, media_content_id
+                )
+            elif media_image := await async_get_media_image(
+                self.hass, media_content_id
+            ):
+                attachment = media_image.content
+            else:
+                media = await async_resolve_media(
+                    self.hass, file["media_content_id"], None
+                )
+
+                if media.path is None:
+                    raise ServiceValidationError(
+                        translation_domain=DOMAIN,
+                        translation_key="media_source_not_supported",
+                    )
+                try:
+                    attachment = await self.hass.async_add_executor_job(
+                        media.path.read_bytes
+                    )
+                except OSError as err:
+                    raise os_read_error(err, str(media.path)) from err
+
+                params.setdefault(NtfyServiceArgument.FILENAME, media.path.name)
+
+        actions: list[dict[str, Any]] | None = params.get(NtfyServiceArgument.ACTIONS)
+        if actions:
+            params[NtfyServiceArgument.ACTIONS] = [
+                ACTIONS_MAP[action[ATTR_ACTION]](
+                    **{k: v for k, v in action.items() if k != ATTR_ACTION}
+                )
+                for action in actions
+            ]
 
         msg = Message(topic=self.topic, **params)
         try:
-            await self.ntfy.publish(msg)
+            await self.ntfy.publish(msg, attachment)
         except NtfyUnauthorizedAuthenticationError as e:
             self.config_entry.async_start_reauth(self.hass)
             raise HomeAssistantError(
@@ -134,5 +142,45 @@ class NtfyNotifyEntity(NtfyBaseEntity, NotifyEntity):
         except NtfyException as e:
             raise HomeAssistantError(
                 translation_key="publish_failed_exception",
+                translation_domain=DOMAIN,
+            ) from e
+
+    async def clear(self, **kwargs: Any) -> None:
+        """Clear a message."""
+
+        params: dict[str, Any] = kwargs
+
+        try:
+            await self.ntfy.clear(self.topic, params[NtfyServiceArgument.SEQUENCE_ID])
+        except NtfyUnauthorizedAuthenticationError as e:
+            self.config_entry.async_start_reauth(self.hass)
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="authentication_error",
+            ) from e
+        except NtfyException as e:
+            _LOGGER.debug("Exception:", exc_info=True)
+            raise HomeAssistantError(
+                translation_key="clear_failed",
+                translation_domain=DOMAIN,
+            ) from e
+
+    async def delete(self, **kwargs: Any) -> None:
+        """Delete a message."""
+
+        params: dict[str, Any] = kwargs
+
+        try:
+            await self.ntfy.delete(self.topic, params[NtfyServiceArgument.SEQUENCE_ID])
+        except NtfyUnauthorizedAuthenticationError as e:
+            self.config_entry.async_start_reauth(self.hass)
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="authentication_error",
+            ) from e
+        except NtfyException as e:
+            _LOGGER.debug("Exception:", exc_info=True)
+            raise HomeAssistantError(
+                translation_key="delete_failed",
                 translation_domain=DOMAIN,
             ) from e

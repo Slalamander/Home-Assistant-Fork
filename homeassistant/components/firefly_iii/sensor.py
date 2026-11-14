@@ -1,21 +1,25 @@
 """Sensor platform for Firefly III integration."""
 
-from __future__ import annotations
+from typing import override
 
-from pyfirefly.models import Account, Category
+from pyfirefly.models import Account, Budget, Category
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
     SensorStateClass,
-    StateType,
 )
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.typing import StateType
 
 from .coordinator import FireflyConfigEntry, FireflyDataUpdateCoordinator
-from .entity import FireflyAccountBaseEntity, FireflyCategoryBaseEntity
+from .entity import (
+    FireflyAccountBaseEntity,
+    FireflyBudgetBaseEntity,
+    FireflyCategoryBaseEntity,
+)
 
 ACCOUNT_ROLE_MAPPING = {
     "defaultAsset": "default_asset",
@@ -35,6 +39,7 @@ ACCOUNT_BALANCE = "account_balance"
 ACCOUNT_ROLE = "account_role"
 ACCOUNT_TYPE = "account_type"
 CATEGORY = "category"
+BUDGET = "budget"
 
 
 async def async_setup_entry(
@@ -46,7 +51,7 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     entities: list[SensorEntity] = []
 
-    for account in coordinator.data.accounts:
+    for account in coordinator.data.accounts.values():
         entities.append(
             FireflyAccountBalanceSensor(coordinator, account, ACCOUNT_BALANCE)
         )
@@ -56,7 +61,14 @@ async def async_setup_entry(
     entities.extend(
         [
             FireflyCategorySensor(coordinator, category, CATEGORY)
-            for category in coordinator.data.category_details
+            for category in coordinator.data.category_details.values()
+        ]
+    )
+
+    entities.extend(
+        [
+            FireflyBudgetSensor(coordinator, budget, BUDGET)
+            for budget in coordinator.data.budgets.values()
         ]
     )
 
@@ -78,12 +90,12 @@ class FireflyAccountBalanceSensor(FireflyAccountBaseEntity, SensorEntity):
     ) -> None:
         """Initialize the account balance sensor."""
         super().__init__(coordinator, account, key)
-        self._account = account
         self._attr_native_unit_of_measurement = (
             coordinator.data.primary_currency.attributes.code
         )
 
     @property
+    @override
     def native_value(self) -> StateType:
         """Return current account balance."""
         return self._account.attributes.current_balance
@@ -96,17 +108,8 @@ class FireflyAccountRoleSensor(FireflyAccountBaseEntity, SensorEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_entity_registry_enabled_default = True
 
-    def __init__(
-        self,
-        coordinator: FireflyDataUpdateCoordinator,
-        account: Account,
-        key: str,
-    ) -> None:
-        """Initialize the account role sensor."""
-        super().__init__(coordinator, account, key)
-        self._account = account
-
     @property
+    @override
     def native_value(self) -> StateType:
         """Return account role."""
 
@@ -141,6 +144,7 @@ class FireflyAccountTypeSensor(FireflyAccountBaseEntity, SensorEntity):
         )
 
     @property
+    @override
     def native_value(self) -> StateType:
         """Return account type."""
         return self._account.attributes.type
@@ -161,12 +165,12 @@ class FireflyCategorySensor(FireflyCategoryBaseEntity, SensorEntity):
     ) -> None:
         """Initialize the category sensor."""
         super().__init__(coordinator, category, key)
-        self._category = category
         self._attr_native_unit_of_measurement = (
             coordinator.data.primary_currency.attributes.code
         )
 
     @property
+    @override
     def native_value(self) -> StateType:
         """Return net spent+earned value for this category in the period."""
         spent_items = self._category.attributes.spent or []
@@ -176,3 +180,30 @@ class FireflyCategorySensor(FireflyCategoryBaseEntity, SensorEntity):
         if spent == 0 and earned == 0:
             return None
         return spent + earned
+
+
+class FireflyBudgetSensor(FireflyBudgetBaseEntity, SensorEntity):
+    """Budget sensor."""
+
+    _attr_translation_key = "budget"
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_state_class = SensorStateClass.TOTAL
+
+    def __init__(
+        self,
+        coordinator: FireflyDataUpdateCoordinator,
+        budget: Budget,
+        key: str,
+    ) -> None:
+        """Initialize the budget sensor."""
+        super().__init__(coordinator, budget, key)
+        self._attr_native_unit_of_measurement = (
+            coordinator.data.primary_currency.attributes.code
+        )
+
+    @property
+    @override
+    def native_value(self) -> StateType:
+        """Return spent value for this budget in the period."""
+        spent_items = self._budget.attributes.spent or []
+        return sum(float(item.sum) for item in spent_items if item.sum is not None)

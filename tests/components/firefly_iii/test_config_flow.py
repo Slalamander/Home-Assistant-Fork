@@ -8,6 +8,7 @@ from pyfirefly.exceptions import (
     FireflyTimeoutError,
 )
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.firefly_iii.const import DOMAIN
 from homeassistant.config_entries import SOURCE_USER
@@ -17,19 +18,22 @@ from homeassistant.data_entry_flow import FlowResultType
 
 from .conftest import MOCK_TEST_CONFIG
 
-from tests.common import MockConfigEntry
-
 MOCK_USER_SETUP = {
     CONF_URL: "https://127.0.0.1:8080/",
     CONF_API_KEY: "test_api_key",
     CONF_VERIFY_SSL: True,
 }
 
+USER_INPUT_RECONFIGURE = {
+    CONF_URL: "https://new_domain:9000/",
+    CONF_API_KEY: "new_api_key",
+    CONF_VERIFY_SSL: True,
+}
 
+
+@pytest.mark.usefixtures("mock_setup_entry")
 async def test_form_and_flow(
-    hass: HomeAssistant,
-    mock_firefly_client: MagicMock,
-    mock_setup_entry: MagicMock,
+    hass: HomeAssistant, mock_firefly_client: MagicMock
 ) -> None:
     """Test we get the form and can complete the flow."""
     result = await hass.config_entries.flow.async_init(
@@ -69,10 +73,10 @@ async def test_form_and_flow(
         ),
     ],
 )
+@pytest.mark.usefixtures("mock_setup_entry")
 async def test_form_exceptions(
     hass: HomeAssistant,
     mock_firefly_client: AsyncMock,
-    mock_setup_entry: MagicMock,
     exception: Exception,
     reason: str,
 ) -> None:
@@ -91,16 +95,10 @@ async def test_form_exceptions(
         user_input=MOCK_USER_SETUP,
     )
 
-    assert result["type"] == FlowResultType.FORM
+    assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": reason}
 
     mock_firefly_client.get_about.side_effect = None
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": SOURCE_USER}
-    )
-    assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "user"
-
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         user_input=MOCK_USER_SETUP,
@@ -224,4 +222,124 @@ async def test_reauth_flow_exceptions(
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
     assert mock_config_entry.data[CONF_API_KEY] == "new_api_key"
+    assert len(mock_setup_entry.mock_calls) == 1
+
+
+async def test_full_flow_reconfigure(
+    hass: HomeAssistant,
+    mock_firefly_client: AsyncMock,
+    mock_setup_entry: MagicMock,
+    mock_config_entry: MockConfigEntry,
+) -> None:
+    """Test the full flow of the config flow."""
+    mock_config_entry.add_to_hass(hass)
+
+    result = await mock_config_entry.start_reconfigure_flow(hass)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input=USER_INPUT_RECONFIGURE,
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert mock_config_entry.data[CONF_API_KEY] == "new_api_key"
+    assert mock_config_entry.data[CONF_URL] == "https://new_domain:9000/"
+    assert mock_config_entry.data[CONF_VERIFY_SSL] is True
+    assert len(mock_setup_entry.mock_calls) == 1
+
+
+@pytest.mark.usefixtures("mock_setup_entry")
+async def test_full_flow_reconfigure_unique_id(
+    hass: HomeAssistant,
+    mock_firefly_client: AsyncMock,
+    mock_config_entry: MockConfigEntry,
+) -> None:
+    """Test the full flow of the config flow, this time with a known unique ID."""
+    mock_config_entry.add_to_hass(hass)
+    duplicate_entry = MockConfigEntry(
+        domain="firefly_iii",
+        data={
+            CONF_URL: "https://duplicate-url/",
+            CONF_API_KEY: "other_key",
+            CONF_VERIFY_SSL: True,
+        },
+        unique_id="very-annoying-duplicate",
+    )
+    duplicate_entry.add_to_hass(hass)
+
+    result = await mock_config_entry.start_reconfigure_flow(hass)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_URL: "https://duplicate-url/",
+            CONF_API_KEY: "new_key",
+            CONF_VERIFY_SSL: True,
+        },
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+
+
+@pytest.mark.parametrize(
+    ("exception", "reason"),
+    [
+        (
+            FireflyAuthenticationError,
+            "invalid_auth",
+        ),
+        (
+            FireflyConnectionError,
+            "cannot_connect",
+        ),
+        (
+            FireflyTimeoutError,
+            "timeout_connect",
+        ),
+        (
+            Exception("Some other error"),
+            "unknown",
+        ),
+    ],
+)
+async def test_full_flow_reconfigure_exceptions(
+    hass: HomeAssistant,
+    mock_firefly_client: AsyncMock,
+    mock_setup_entry: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    exception: Exception,
+    reason: str,
+) -> None:
+    """Test the full flow of the config flow, this time with exceptions."""
+    mock_config_entry.add_to_hass(hass)
+    result = await mock_config_entry.start_reconfigure_flow(hass)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+
+    mock_firefly_client.get_about.side_effect = exception
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input=USER_INPUT_RECONFIGURE,
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": reason}
+
+    mock_firefly_client.get_about.side_effect = None
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input=USER_INPUT_RECONFIGURE,
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert mock_config_entry.data[CONF_API_KEY] == "new_api_key"
+    assert mock_config_entry.data[CONF_URL] == "https://new_domain:9000/"
+    assert mock_config_entry.data[CONF_VERIFY_SSL] is True
     assert len(mock_setup_entry.mock_calls) == 1

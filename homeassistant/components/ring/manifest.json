@@ -1,8 +1,13 @@
 {
   "domain": "ring",
   "name": "Ring",
+  "categories": [
+    "security_safety.doorbells_intercoms",
+    "security_safety.cameras"
+  ],
   "codeowners": ["@sdb9696"],
   "config_flow": true,
+  "connectivity": ["cloud"],
   "dependencies": ["ffmpeg"],
   "dhcp": [
     {
@@ -27,8 +32,9 @@
     }
   ],
   "documentation": "https://www.home-assistant.io/integrations/ring",
+  "integration_type": "hub",
   "iot_class": "cloud_polling",
   "loggers": ["ring_doorbell"],
   "quality_scale": "bronze",
-  "requirements": ["ring-doorbell==0.9.13"]
+  "requirements": ["ring-doorbell==0.9.14"]
 }

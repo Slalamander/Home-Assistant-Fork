@@ -1,11 +1,9 @@
 """Diagnostics support for Kostal Plenticore."""
 
-from __future__ import annotations
-
 from typing import Any
 
-from homeassistant.components.diagnostics import REDACTED, async_redact_data
-from homeassistant.const import ATTR_IDENTIFIERS, CONF_PASSWORD
+from homeassistant.components.diagnostics import async_redact_data
+from homeassistant.const import CONF_PASSWORD
 from homeassistant.core import HomeAssistant
 
 from .coordinator import PlenticoreConfigEntry
@@ -34,8 +32,30 @@ async def async_get_config_entry_diagnostics(
         },
     }
 
-    device_info = {**plenticore.device_info}
-    device_info[ATTR_IDENTIFIERS] = REDACTED  # contains serial number
-    data["device"] = device_info
+    # Add important information how the inverter is configured
+    string_count_setting = await plenticore.client.get_setting_values(
+        "devices:local", "Properties:StringCnt"
+    )
+    try:
+        string_count = int(
+            string_count_setting["devices:local"]["Properties:StringCnt"]
+        )
+    except ValueError:
+        string_count = 0
+
+    configuration_settings = await plenticore.client.get_setting_values(
+        "devices:local",
+        (
+            "Properties:StringCnt",
+            *(f"Properties:String{idx}Features" for idx in range(string_count)),
+        ),
+    )
+
+    data["configuration"] = {
+        **configuration_settings,
+    }
+
+    # Identifiers contain the serial number
+    data["device"] = async_redact_data(plenticore.device_info, {"identifiers"})
 
     return data

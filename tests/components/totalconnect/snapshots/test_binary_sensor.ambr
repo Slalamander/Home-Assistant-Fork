@@ -1,14 +1,15 @@
 # serializer version: 1
 # name: test_entity_registry[binary_sensor.apartment_carbonmonoxidedetecto-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '210000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -20,6 +21,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -37,8 +39,8 @@
 # name: test_entity_registry[binary_sensor.apartment_carbonmonoxidedetecto-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Apartment  CarbonMonoxideDetecto',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Apartment  CarbonMonoxideDetecto',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '21',
@@ -53,14 +55,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.apartment_carbonmonoxidedetecto_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '210000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -72,6 +75,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -89,8 +93,8 @@
 # name: test_entity_registry[binary_sensor.apartment_carbonmonoxidedetecto_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Apartment  CarbonMonoxideDetecto Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Apartment  CarbonMonoxideDetecto Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '21',
@@ -105,14 +109,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.apartment_carbonmonoxidedetecto_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '210000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -124,6 +129,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -141,8 +147,8 @@
 # name: test_entity_registry[binary_sensor.apartment_carbonmonoxidedetecto_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Apartment  CarbonMonoxideDetecto Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Apartment  CarbonMonoxideDetecto Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '21',
@@ -157,14 +163,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.apartment_smokedetector-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '160000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -176,6 +183,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -193,8 +201,8 @@
 # name: test_entity_registry[binary_sensor.apartment_smokedetector-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Apartment  SmokeDetector',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Apartment  SmokeDetector',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '16',
@@ -209,14 +217,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.apartment_smokedetector_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '160000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -228,6 +237,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -245,8 +255,8 @@
 # name: test_entity_registry[binary_sensor.apartment_smokedetector_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Apartment  SmokeDetector Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Apartment  SmokeDetector Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '16',
@@ -261,14 +271,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.apartment_smokedetector_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '160000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -280,6 +291,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -297,8 +309,8 @@
 # name: test_entity_registry[binary_sensor.apartment_smokedetector_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Apartment  SmokeDetector Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Apartment  SmokeDetector Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '16',
@@ -313,14 +325,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.dining_room_two_door-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '120000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -332,6 +345,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -349,8 +363,8 @@
 # name: test_entity_registry[binary_sensor.dining_room_two_door-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Dining Room Two Door',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Dining Room Two Door',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '12',
@@ -365,14 +379,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.dining_room_two_door_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '120000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -384,6 +399,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -401,8 +417,8 @@
 # name: test_entity_registry[binary_sensor.dining_room_two_door_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Dining Room Two Door Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Dining Room Two Door Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '12',
@@ -417,14 +433,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.dining_room_two_door_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '120000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -436,6 +453,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -453,8 +471,8 @@
 # name: test_entity_registry[binary_sensor.dining_room_two_door_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Dining Room Two Door Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Dining Room Two Door Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '12',
@@ -469,14 +487,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.doorbell_other-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '070000000000000A')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -488,6 +507,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -505,8 +525,8 @@
 # name: test_entity_registry[binary_sensor.doorbell_other-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Doorbell  Other',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Doorbell  Other',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '7',
@@ -521,14 +541,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.doorbell_other_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '070000000000000A')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -540,6 +561,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -557,8 +579,8 @@
 # name: test_entity_registry[binary_sensor.doorbell_other_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Doorbell  Other Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Doorbell  Other Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '7',
@@ -573,14 +595,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.doorbell_other_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '070000000000000A')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -592,6 +615,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -609,8 +633,8 @@
 # name: test_entity_registry[binary_sensor.doorbell_other_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Doorbell  Other Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Doorbell  Other Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '7',
@@ -625,14 +649,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.downstairs_hallway_carbonmonoxid-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '220000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -644,6 +669,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -661,8 +687,8 @@
 # name: test_entity_registry[binary_sensor.downstairs_hallway_carbonmonoxid-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Downstairs Hallway CarbonMonoxid',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Downstairs Hallway CarbonMonoxid',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '22',
@@ -677,14 +703,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.downstairs_hallway_carbonmonoxid_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '220000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -696,6 +723,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -713,8 +741,8 @@
 # name: test_entity_registry[binary_sensor.downstairs_hallway_carbonmonoxid_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Downstairs Hallway CarbonMonoxid Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Downstairs Hallway CarbonMonoxid Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '22',
@@ -729,14 +757,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.downstairs_hallway_carbonmonoxid_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '220000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -748,6 +777,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -765,8 +795,8 @@
 # name: test_entity_registry[binary_sensor.downstairs_hallway_carbonmonoxid_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Downstairs Hallway CarbonMonoxid Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Downstairs Hallway CarbonMonoxid Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '22',
@@ -781,14 +811,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.downstairs_hallway_smokedetector-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '180000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -800,6 +831,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -817,8 +849,8 @@
 # name: test_entity_registry[binary_sensor.downstairs_hallway_smokedetector-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Downstairs Hallway SmokeDetector',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Downstairs Hallway SmokeDetector',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '18',
@@ -833,14 +865,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.downstairs_hallway_smokedetector_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '180000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -852,6 +885,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -869,8 +903,8 @@
 # name: test_entity_registry[binary_sensor.downstairs_hallway_smokedetector_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Downstairs Hallway SmokeDetector Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Downstairs Hallway SmokeDetector Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '18',
@@ -885,14 +919,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.downstairs_hallway_smokedetector_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '180000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -904,6 +939,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -921,8 +957,8 @@
 # name: test_entity_registry[binary_sensor.downstairs_hallway_smokedetector_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Downstairs Hallway SmokeDetector Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Downstairs Hallway SmokeDetector Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '18',
@@ -937,14 +973,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.fire-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '030000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -956,6 +993,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -973,8 +1011,8 @@
 # name: test_entity_registry[binary_sensor.fire-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Fire',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Fire',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '3',
@@ -989,14 +1027,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.fire_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '030000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -1008,6 +1047,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -1025,8 +1065,8 @@
 # name: test_entity_registry[binary_sensor.fire_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Fire Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Fire Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '3',
@@ -1041,14 +1081,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.fire_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '030000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -1060,6 +1101,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -1077,8 +1119,8 @@
 # name: test_entity_registry[binary_sensor.fire_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Fire Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Fire Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '3',
@@ -1093,14 +1135,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.front_door_door-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '260000000000000A')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -1112,6 +1155,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -1129,8 +1173,8 @@
 # name: test_entity_registry[binary_sensor.front_door_door-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Front Door  Door',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Front Door  Door',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '26',
@@ -1145,14 +1189,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.front_door_door_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '260000000000000A')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -1164,6 +1209,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -1181,8 +1227,8 @@
 # name: test_entity_registry[binary_sensor.front_door_door_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Front Door  Door Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Front Door  Door Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '26',
@@ -1197,14 +1243,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.front_door_door_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '260000000000000A')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -1216,6 +1263,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -1233,8 +1281,8 @@
 # name: test_entity_registry[binary_sensor.front_door_door_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Front Door  Door Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Front Door  Door Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '26',
@@ -1249,14 +1297,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.garage_side_other-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '250000000000000A')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -1268,6 +1317,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -1285,8 +1335,8 @@
 # name: test_entity_registry[binary_sensor.garage_side_other-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Garage Side  Other',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Garage Side  Other',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '25',
@@ -1301,14 +1351,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.garage_side_other_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '250000000000000A')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -1320,6 +1371,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -1337,8 +1389,8 @@
 # name: test_entity_registry[binary_sensor.garage_side_other_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Garage Side  Other Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Garage Side  Other Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '25',
@@ -1353,14 +1405,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.garage_side_other_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '250000000000000A')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -1372,6 +1425,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -1389,8 +1443,8 @@
 # name: test_entity_registry[binary_sensor.garage_side_other_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Garage Side  Other Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Garage Side  Other Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '25',
@@ -1405,14 +1459,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.gas-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '040000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -1424,6 +1479,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -1441,8 +1497,8 @@
 # name: test_entity_registry[binary_sensor.gas-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Gas',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Gas',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '4',
@@ -1457,14 +1513,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.gas_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '040000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -1476,6 +1533,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -1493,8 +1551,8 @@
 # name: test_entity_registry[binary_sensor.gas_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Gas Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Gas Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '4',
@@ -1509,14 +1567,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.gas_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '040000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -1528,6 +1587,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -1545,8 +1605,8 @@
 # name: test_entity_registry[binary_sensor.gas_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Gas Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Gas Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '4',
@@ -1561,14 +1621,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.guest_bedroom_smokedetector-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '200000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -1580,6 +1641,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -1597,8 +1659,8 @@
 # name: test_entity_registry[binary_sensor.guest_bedroom_smokedetector-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Guest Bedroom SmokeDetector',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Guest Bedroom SmokeDetector',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '20',
@@ -1613,14 +1675,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.guest_bedroom_smokedetector_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '200000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -1632,6 +1695,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -1649,8 +1713,8 @@
 # name: test_entity_registry[binary_sensor.guest_bedroom_smokedetector_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Guest Bedroom SmokeDetector Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Guest Bedroom SmokeDetector Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '20',
@@ -1665,14 +1729,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.guest_bedroom_smokedetector_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '200000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -1684,6 +1749,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -1701,8 +1767,8 @@
 # name: test_entity_registry[binary_sensor.guest_bedroom_smokedetector_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Guest Bedroom SmokeDetector Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Guest Bedroom SmokeDetector Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '20',
@@ -1717,14 +1783,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.kid_bedroom_smokedetector-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '190000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -1736,6 +1803,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -1753,8 +1821,8 @@
 # name: test_entity_registry[binary_sensor.kid_bedroom_smokedetector-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Kid Bedroom SmokeDetector',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Kid Bedroom SmokeDetector',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '19',
@@ -1769,14 +1837,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.kid_bedroom_smokedetector_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '190000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -1788,6 +1857,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -1805,8 +1875,8 @@
 # name: test_entity_registry[binary_sensor.kid_bedroom_smokedetector_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Kid Bedroom SmokeDetector Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Kid Bedroom SmokeDetector Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '19',
@@ -1821,14 +1891,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.kid_bedroom_smokedetector_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '190000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -1840,6 +1911,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -1857,8 +1929,8 @@
 # name: test_entity_registry[binary_sensor.kid_bedroom_smokedetector_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Kid Bedroom SmokeDetector Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Kid Bedroom SmokeDetector Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '19',
@@ -1873,14 +1945,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.living_room_two_window-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '150000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -1892,6 +1965,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -1909,8 +1983,8 @@
 # name: test_entity_registry[binary_sensor.living_room_two_window-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Living Room Two Window',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Living Room Two Window',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '15',
@@ -1925,14 +1999,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.living_room_two_window_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '150000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -1944,6 +2019,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -1961,8 +2037,8 @@
 # name: test_entity_registry[binary_sensor.living_room_two_window_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Living Room Two Window Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Living Room Two Window Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '15',
@@ -1977,14 +2053,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.living_room_two_window_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '150000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -1996,6 +2073,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -2013,8 +2091,8 @@
 # name: test_entity_registry[binary_sensor.living_room_two_window_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Living Room Two Window Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Living Room Two Window Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '15',
@@ -2029,14 +2107,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.living_room_window-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '140000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -2048,6 +2127,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -2065,8 +2145,8 @@
 # name: test_entity_registry[binary_sensor.living_room_window-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Living Room  Window',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Living Room  Window',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '14',
@@ -2081,14 +2161,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.living_room_window_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '140000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -2100,6 +2181,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -2117,8 +2199,8 @@
 # name: test_entity_registry[binary_sensor.living_room_window_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Living Room  Window Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Living Room  Window Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '14',
@@ -2133,14 +2215,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.living_room_window_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '140000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -2152,6 +2235,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -2169,8 +2253,8 @@
 # name: test_entity_registry[binary_sensor.living_room_window_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Living Room  Window Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Living Room  Window Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '14',
@@ -2185,14 +2269,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.master_bedroom_door-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '100000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -2204,6 +2289,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -2221,8 +2307,8 @@
 # name: test_entity_registry[binary_sensor.master_bedroom_door-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Master Bedroom  Door',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Master Bedroom  Door',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '10',
@@ -2237,14 +2323,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.master_bedroom_door_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '100000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -2256,6 +2343,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -2273,8 +2361,8 @@
 # name: test_entity_registry[binary_sensor.master_bedroom_door_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Master Bedroom  Door Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Master Bedroom  Door Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '10',
@@ -2289,14 +2377,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.master_bedroom_door_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '100000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -2308,6 +2397,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -2325,8 +2415,8 @@
 # name: test_entity_registry[binary_sensor.master_bedroom_door_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Master Bedroom  Door Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Master Bedroom  Door Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '10',
@@ -2341,14 +2431,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.master_bedroom_keypad-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', 'zone_800')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -2360,6 +2451,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -2377,8 +2469,8 @@
 # name: test_entity_registry[binary_sensor.master_bedroom_keypad-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Master Bedroom Keypad',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Master Bedroom Keypad',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '800',
@@ -2393,14 +2485,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.master_bedroom_keypad_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', 'zone_800')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -2412,6 +2505,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -2429,8 +2523,8 @@
 # name: test_entity_registry[binary_sensor.master_bedroom_keypad_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Master Bedroom Keypad Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Master Bedroom Keypad Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '800',
@@ -2445,14 +2539,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.master_bedroom_keypad_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', 'zone_800')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -2464,6 +2559,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -2481,8 +2577,8 @@
 # name: test_entity_registry[binary_sensor.master_bedroom_keypad_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Master Bedroom Keypad Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Master Bedroom Keypad Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '800',
@@ -2497,14 +2593,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.master_bedroom_smokedetector-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '240000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -2516,6 +2613,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -2533,8 +2631,8 @@
 # name: test_entity_registry[binary_sensor.master_bedroom_smokedetector-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Master Bedroom  SmokeDetector',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Master Bedroom  SmokeDetector',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '24',
@@ -2549,14 +2647,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.master_bedroom_smokedetector_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '240000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -2568,6 +2667,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -2585,8 +2685,8 @@
 # name: test_entity_registry[binary_sensor.master_bedroom_smokedetector_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Master Bedroom  SmokeDetector Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Master Bedroom  SmokeDetector Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '24',
@@ -2601,14 +2701,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.master_bedroom_smokedetector_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '240000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -2620,6 +2721,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -2637,8 +2739,8 @@
 # name: test_entity_registry[binary_sensor.master_bedroom_smokedetector_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Master Bedroom  SmokeDetector Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Master Bedroom  SmokeDetector Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '24',
@@ -2653,14 +2755,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.office_back_door-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '090000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -2672,6 +2775,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -2689,8 +2793,8 @@
 # name: test_entity_registry[binary_sensor.office_back_door-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Office Back Door',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Office Back Door',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '9',
@@ -2705,14 +2809,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.office_back_door_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '090000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -2724,6 +2829,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -2741,8 +2847,8 @@
 # name: test_entity_registry[binary_sensor.office_back_door_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Office Back Door Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Office Back Door Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '9',
@@ -2757,14 +2863,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.office_back_door_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '090000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -2776,6 +2883,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -2793,8 +2901,8 @@
 # name: test_entity_registry[binary_sensor.office_back_door_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Office Back Door Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Office Back Door Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '9',
@@ -2809,14 +2917,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.office_side_door-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '080000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -2828,6 +2937,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -2845,8 +2955,8 @@
 # name: test_entity_registry[binary_sensor.office_side_door-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Office Side Door',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Office Side Door',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '8',
@@ -2861,14 +2971,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.office_side_door_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '080000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -2880,6 +2991,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -2897,8 +3009,8 @@
 # name: test_entity_registry[binary_sensor.office_side_door_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Office Side Door Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Office Side Door Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '8',
@@ -2913,14 +3025,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.office_side_door_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '080000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -2932,6 +3045,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -2949,8 +3063,8 @@
 # name: test_entity_registry[binary_sensor.office_side_door_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Office Side Door Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Office Side Door Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '8',
@@ -2965,14 +3079,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.patio_door-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '130000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -2984,6 +3099,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -3001,8 +3117,8 @@
 # name: test_entity_registry[binary_sensor.patio_door-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Patio  Door',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Patio  Door',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '13',
@@ -3017,14 +3133,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.patio_door_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '130000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -3036,6 +3153,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -3053,8 +3171,8 @@
 # name: test_entity_registry[binary_sensor.patio_door_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Patio  Door Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Patio  Door Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '13',
@@ -3069,14 +3187,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.patio_door_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '130000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -3088,6 +3207,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -3105,8 +3225,8 @@
 # name: test_entity_registry[binary_sensor.patio_door_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Patio  Door Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Patio  Door Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '13',
@@ -3121,14 +3241,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.security-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '020000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -3140,6 +3261,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -3157,8 +3279,8 @@
 # name: test_entity_registry[binary_sensor.security-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Security',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Security',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '2',
@@ -3173,14 +3295,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.security_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '020000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -3192,6 +3315,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -3209,8 +3333,8 @@
 # name: test_entity_registry[binary_sensor.security_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Security Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Security Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '2',
@@ -3225,14 +3349,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.security_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '020000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -3244,6 +3369,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -3261,8 +3387,8 @@
 # name: test_entity_registry[binary_sensor.security_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Security Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Security Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '2',
@@ -3277,14 +3403,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.temperature-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '060000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -3296,6 +3423,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -3313,8 +3441,8 @@
 # name: test_entity_registry[binary_sensor.temperature-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Temperature',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Temperature',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '6',
@@ -3329,14 +3457,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.temperature_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '060000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -3348,6 +3477,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -3365,8 +3495,8 @@
 # name: test_entity_registry[binary_sensor.temperature_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Temperature Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Temperature Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '6',
@@ -3381,14 +3511,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.temperature_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '060000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -3400,6 +3531,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -3417,8 +3549,8 @@
 # name: test_entity_registry[binary_sensor.temperature_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Temperature Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Temperature Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '6',
@@ -3433,14 +3565,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.test_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '1234567890AB')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -3452,6 +3585,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -3469,8 +3603,8 @@
 # name: test_entity_registry[binary_sensor.test_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'test Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'test Battery',
       'location_id': 1234567,
     }),
     'context': <ANY>,
@@ -3483,14 +3617,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.test_carbon_monoxide-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '1234567890AB')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -3502,6 +3637,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Carbon monoxide',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.CO: 'carbon_monoxide'>,
@@ -3519,8 +3655,8 @@
 # name: test_entity_registry[binary_sensor.test_carbon_monoxide-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'carbon_monoxide',
-      'friendly_name': 'test Carbon monoxide',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'carbon_monoxide',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'test Carbon monoxide',
       'location_id': 1234567,
     }),
     'context': <ANY>,
@@ -3533,14 +3669,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.test_police_emergency-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '1234567890AB')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -3552,6 +3689,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Police emergency',
     'options': dict({
     }),
     'original_device_class': None,
@@ -3569,7 +3707,7 @@
 # name: test_entity_registry[binary_sensor.test_police_emergency-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'test Police emergency',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'test Police emergency',
       'location_id': 1234567,
     }),
     'context': <ANY>,
@@ -3582,14 +3720,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.test_power-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '1234567890AB')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -3601,6 +3740,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Power',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.POWER: 'power'>,
@@ -3618,8 +3758,8 @@
 # name: test_entity_registry[binary_sensor.test_power-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'power',
-      'friendly_name': 'test Power',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'power',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'test Power',
       'location_id': 1234567,
     }),
     'context': <ANY>,
@@ -3632,14 +3772,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.test_smoke-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '1234567890AB')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -3651,6 +3792,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Smoke',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -3668,8 +3810,8 @@
 # name: test_entity_registry[binary_sensor.test_smoke-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'test Smoke',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'test Smoke',
       'location_id': 1234567,
     }),
     'context': <ANY>,
@@ -3682,14 +3824,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.test_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '1234567890AB')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -3701,6 +3844,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -3718,8 +3862,8 @@
 # name: test_entity_registry[binary_sensor.test_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'test Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'test Tamper',
       'location_id': 1234567,
     }),
     'context': <ANY>,
@@ -3732,14 +3876,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.unknown-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '050000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -3751,6 +3896,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -3768,8 +3914,8 @@
 # name: test_entity_registry[binary_sensor.unknown-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Unknown',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Unknown',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '5',
@@ -3784,14 +3930,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.unknown_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '050000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -3803,6 +3950,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -3820,8 +3968,8 @@
 # name: test_entity_registry[binary_sensor.unknown_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Unknown Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Unknown Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '5',
@@ -3836,14 +3984,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.unknown_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '050000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -3855,6 +4004,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -3872,8 +4022,8 @@
 # name: test_entity_registry[binary_sensor.unknown_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Unknown Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Unknown Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '5',
@@ -3888,14 +4038,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.upstairs_hallway_carbonmonoxided-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '230000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -3907,6 +4058,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -3924,8 +4076,8 @@
 # name: test_entity_registry[binary_sensor.upstairs_hallway_carbonmonoxided-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Upstairs Hallway CarbonMonoxideD',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Upstairs Hallway CarbonMonoxideD',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '23',
@@ -3940,14 +4092,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.upstairs_hallway_carbonmonoxided_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '230000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -3959,6 +4112,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -3976,8 +4130,8 @@
 # name: test_entity_registry[binary_sensor.upstairs_hallway_carbonmonoxided_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Upstairs Hallway CarbonMonoxideD Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Upstairs Hallway CarbonMonoxideD Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '23',
@@ -3992,14 +4146,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.upstairs_hallway_carbonmonoxided_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '230000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -4011,6 +4166,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -4028,8 +4184,8 @@
 # name: test_entity_registry[binary_sensor.upstairs_hallway_carbonmonoxided_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Upstairs Hallway CarbonMonoxideD Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Upstairs Hallway CarbonMonoxideD Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '23',
@@ -4044,14 +4200,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.upstairs_hallway_smokedetector-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '170000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -4063,6 +4220,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -4080,8 +4238,8 @@
 # name: test_entity_registry[binary_sensor.upstairs_hallway_smokedetector-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Upstairs Hallway SmokeDetector',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Upstairs Hallway SmokeDetector',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '17',
@@ -4096,14 +4254,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.upstairs_hallway_smokedetector_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '170000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -4115,6 +4274,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -4132,8 +4292,8 @@
 # name: test_entity_registry[binary_sensor.upstairs_hallway_smokedetector_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Upstairs Hallway SmokeDetector Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Upstairs Hallway SmokeDetector Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '17',
@@ -4148,14 +4308,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.upstairs_hallway_smokedetector_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', '170000')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -4167,6 +4328,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -4184,8 +4346,8 @@
 # name: test_entity_registry[binary_sensor.upstairs_hallway_smokedetector_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Upstairs Hallway SmokeDetector Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Upstairs Hallway SmokeDetector Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '17',
@@ -4200,14 +4362,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.zone_995_fire-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', 'zone_1995')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -4219,6 +4382,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -4236,8 +4400,8 @@
 # name: test_entity_registry[binary_sensor.zone_995_fire-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Zone 995 Fire',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone 995 Fire',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '1995',
@@ -4252,14 +4416,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.zone_995_fire_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', 'zone_1995')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -4271,6 +4436,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -4288,8 +4454,8 @@
 # name: test_entity_registry[binary_sensor.zone_995_fire_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Zone 995 Fire Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone 995 Fire Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '1995',
@@ -4304,14 +4470,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.zone_995_fire_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', 'zone_1995')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -4323,6 +4490,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -4340,8 +4508,8 @@
 # name: test_entity_registry[binary_sensor.zone_995_fire_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Zone 995 Fire Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone 995 Fire Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '1995',
@@ -4356,14 +4524,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.zone_996_medical-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', 'zone_1996')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -4375,6 +4544,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -4392,8 +4562,8 @@
 # name: test_entity_registry[binary_sensor.zone_996_medical-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Zone 996 Medical',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone 996 Medical',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '1996',
@@ -4408,14 +4578,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.zone_996_medical_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', 'zone_1996')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -4427,6 +4598,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -4444,8 +4616,8 @@
 # name: test_entity_registry[binary_sensor.zone_996_medical_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Zone 996 Medical Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone 996 Medical Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '1996',
@@ -4460,14 +4632,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.zone_996_medical_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', 'zone_1996')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -4479,6 +4652,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -4496,8 +4670,8 @@
 # name: test_entity_registry[binary_sensor.zone_996_medical_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Zone 996 Medical Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone 996 Medical Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '1996',
@@ -4512,14 +4686,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.zone_998_other-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', 'zone_1998')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -4531,6 +4706,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -4548,8 +4724,8 @@
 # name: test_entity_registry[binary_sensor.zone_998_other-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Zone 998 Other',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone 998 Other',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '1998',
@@ -4564,14 +4740,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.zone_998_other_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', 'zone_1998')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -4583,6 +4760,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -4600,8 +4778,8 @@
 # name: test_entity_registry[binary_sensor.zone_998_other_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Zone 998 Other Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone 998 Other Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '1998',
@@ -4616,14 +4794,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.zone_998_other_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', 'zone_1998')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -4635,6 +4814,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -4652,8 +4832,8 @@
 # name: test_entity_registry[binary_sensor.zone_998_other_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Zone 998 Other Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone 998 Other Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '1998',
@@ -4668,14 +4848,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.zone_999_police-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', 'zone_1999')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': None,
@@ -4687,6 +4868,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': None,
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.SMOKE: 'smoke'>,
@@ -4704,8 +4886,8 @@
 # name: test_entity_registry[binary_sensor.zone_999_police-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'smoke',
-      'friendly_name': 'Zone 999 Police',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'smoke',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone 999 Police',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '1999',
@@ -4720,14 +4902,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.zone_999_police_battery-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', 'zone_1999')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -4739,6 +4922,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.BATTERY: 'battery'>,
@@ -4756,8 +4940,8 @@
 # name: test_entity_registry[binary_sensor.zone_999_police_battery-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'battery',
-      'friendly_name': 'Zone 999 Police Battery',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'battery',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone 999 Police Battery',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '1999',
@@ -4772,14 +4956,15 @@
 # ---
 # name: test_entity_registry[binary_sensor.zone_999_police_tamper-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('totalconnect', 'zone_1999')]>,
     'disabled_by': None,
     'domain': 'binary_sensor',
     'entity_category': <EntityCategory.DIAGNOSTIC: 'diagnostic'>,
@@ -4791,6 +4976,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Tamper',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.TAMPER: 'tamper'>,
@@ -4808,8 +4994,8 @@
 # name: test_entity_registry[binary_sensor.zone_999_police_tamper-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_class': 'tamper',
-      'friendly_name': 'Zone 999 Police Tamper',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'tamper',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone 999 Police Tamper',
       'location_id': 1234567,
       'partition': '1',
       'zone_id': '1999',

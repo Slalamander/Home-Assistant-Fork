@@ -1,8 +1,8 @@
-"""Test the Ruuvitag BLE sensors."""
-
-from __future__ import annotations
+"""Test the Ruuvi BLE sensors."""
 
 import pytest
+from pytest_homeassistant.common import MockConfigEntry, snapshot_platform
+from pytest_homeassistant.components.bluetooth import inject_bluetooth_service_info
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components.ruuvitag_ble.const import DOMAIN
@@ -10,15 +10,21 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_registry import EntityRegistry
 from homeassistant.helpers.service_info.bluetooth import BluetoothServiceInfo
 
-from .fixtures import RUUVI_V5_SERVICE_INFO, RUUVI_V6_SERVICE_INFO
-
-from tests.common import MockConfigEntry, snapshot_platform
-from tests.components.bluetooth import inject_bluetooth_service_info
+from .fixtures import (
+    RUUVI_E1_SERVICE_INFO,
+    RUUVI_V5_SERVICE_INFO,
+    RUUVI_V6_SERVICE_INFO,
+)
 
 
 @pytest.mark.usefixtures("enable_bluetooth", "entity_registry_enabled_by_default")
 @pytest.mark.parametrize(
-    "service_info", [RUUVI_V5_SERVICE_INFO, RUUVI_V6_SERVICE_INFO], ids=("v5", "v6")
+    "service_info",
+    [
+        pytest.param(RUUVI_E1_SERVICE_INFO, id="e1"),
+        pytest.param(RUUVI_V5_SERVICE_INFO, id="v5"),
+        pytest.param(RUUVI_V6_SERVICE_INFO, id="v6"),
+    ],
 )
 async def test_sensors(
     hass: HomeAssistant,
@@ -26,7 +32,7 @@ async def test_sensors(
     snapshot: SnapshotAssertion,
     service_info: BluetoothServiceInfo,
 ) -> None:
-    """Test the RuuviTag BLE sensors."""
+    """Test the Ruuvi BLE sensors."""
     entry = MockConfigEntry(domain=DOMAIN, unique_id=service_info.address)
     entry.add_to_hass(hass)
 

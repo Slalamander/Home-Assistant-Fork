@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 from ns_api import Station, Trip
 import pytest
+from pytest_homeassistant.common import MockConfigEntry, load_json_object_fixture
 
 from homeassistant.components.nederlandse_spoorwegen.const import (
     CONF_FROM,
@@ -20,15 +21,13 @@ from homeassistant.const import CONF_API_KEY, CONF_NAME
 
 from .const import API_KEY, SUBENTRY_ID_1, SUBENTRY_ID_2
 
-from tests.common import MockConfigEntry, load_json_object_fixture
-
 
 @pytest.fixture
 def mock_setup_entry() -> Generator[AsyncMock]:
     """Override async_setup_entry."""
     with patch(
         "homeassistant.components.nederlandse_spoorwegen.async_setup_entry",
-        return_value=True,
+        return_value=None,
     ) as mock_setup_entry:
         yield mock_setup_entry
 
@@ -54,6 +53,29 @@ def mock_nsapi() -> Generator[AsyncMock]:
         trips = load_json_object_fixture("trip.json", DOMAIN)
         client.get_trips.return_value = [Trip(trip) for trip in trips["trips"]]
         yield client
+
+
+@pytest.fixture
+def mock_single_trip_nsapi(mock_nsapi: AsyncMock) -> Generator[AsyncMock]:
+    """Override async_setup_entry."""
+    trips_data = load_json_object_fixture("trip_single.json", DOMAIN)
+    mock_nsapi.get_trips.return_value = [Trip(trip) for trip in trips_data["trips"]]
+    return mock_nsapi
+
+
+@pytest.fixture
+def mock_no_trips_nsapi(mock_nsapi: AsyncMock) -> Generator[AsyncMock]:
+    """Override async_setup_entry."""
+    mock_nsapi.get_trips.return_value = []
+    return mock_nsapi
+
+
+@pytest.fixture
+def mock_tomorrow_trips_nsapi(mock_nsapi: AsyncMock) -> Generator[AsyncMock]:
+    """Override async_setup_entry."""
+    trips_data = load_json_object_fixture("trip_tomorrow.json", DOMAIN)
+    mock_nsapi.get_trips.return_value = [Trip(trip) for trip in trips_data["trips"]]
+    return mock_nsapi
 
 
 @pytest.fixture

@@ -1,14 +1,12 @@
 """The SSDP integration scanner."""
 
-from __future__ import annotations
-
 import asyncio
 from collections.abc import Callable, Coroutine, Mapping
 from datetime import timedelta
 from enum import Enum
-from ipaddress import IPv4Address
+from ipaddress import IPv4Address, IPv6Address
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from async_upnp_client.aiohttp import AiohttpSessionRequester
 from async_upnp_client.const import AddressTupleVXType, DeviceOrServiceType, SsdpSource
@@ -260,6 +258,7 @@ class Scanner:
         for source_ip in await async_build_source_set(self.hass):
             source_ip_str = str(source_ip)
             if source_ip.version == 6:
+                source_ip = cast(IPv6Address, source_ip)
                 assert source_ip.scope_id is not None
                 source_tuple: AddressTupleVXType = (
                     source_ip_str,
@@ -389,7 +388,8 @@ class Scanner:
             ssdp_change = SSDP_SOURCE_SSDP_CHANGE_MAPPING[source]
             _async_process_callbacks(self.hass, callbacks, discovery_info, ssdp_change)
 
-        # Config flows should only be created for alive/update messages from alive devices
+        # Config flows should only be created for alive/update
+        # messages from alive devices
         if source == SsdpSource.ADVERTISEMENT_BYEBYE:
             self._async_dismiss_discoveries(discovery_info)
             return
@@ -416,14 +416,13 @@ class Scanner:
         self, byebye_discovery_info: _SsdpServiceInfo
     ) -> None:
         """Dismiss all discoveries for the given address."""
-        for flow in self.hass.config_entries.flow.async_progress_by_init_data_type(
+        self.hass.config_entries.flow.async_dismiss_discovery_flows(
             _SsdpServiceInfo,
             lambda service_info: bool(
                 service_info.ssdp_st == byebye_discovery_info.ssdp_st
                 and service_info.ssdp_location == byebye_discovery_info.ssdp_location
             ),
-        ):
-            self.hass.config_entries.flow.async_abort(flow["flow_id"])
+        )
 
     async def _async_get_description_dict(
         self, location: str | None

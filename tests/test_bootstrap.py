@@ -4,13 +4,22 @@ import asyncio
 from collections.abc import Generator, Iterable
 import contextlib
 import glob
-import logging
 import os
 import sys
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from pytest_homeassistant.common import (
+    MockConfigEntry,
+    MockModule,
+    MockPlatform,
+    get_test_config_dir,
+    mock_config_flow,
+    mock_integration,
+    mock_platform,
+)
+from syrupy.assertion import SnapshotAssertion
 
 from homeassistant import bootstrap, config as config_util, core, loader, runner
 from homeassistant.config_entries import ConfigEntry
@@ -25,16 +34,6 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.translation import async_translations_loaded
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import Integration
-
-from .common import (
-    MockConfigEntry,
-    MockModule,
-    MockPlatform,
-    get_test_config_dir,
-    mock_config_flow,
-    mock_integration,
-    mock_platform,
-)
 
 VERSION_PATH = os.path.join(get_test_config_dir(), config_util.VERSION_FILE)
 
@@ -72,11 +71,16 @@ def disable_block_async_io(disable_block_async_io):
     """Disable the loop protection from block_async_io after each test."""
 
 
+@pytest.fixture(autouse=True)
+def disable_block_shared_serial(disable_block_shared_serial: None) -> None:
+    """Restore pyserial after each test."""
+
+
 @pytest.fixture(scope="module", autouse=True)
 def mock_http_start_stop() -> Generator[None]:
     """Mock HTTP start and stop."""
     with (
-        patch("homeassistant.components.http.start_http_server_and_save_config"),
+        patch("homeassistant.components.http.HomeAssistantHTTP.start"),
         patch("homeassistant.components.http.HomeAssistantHTTP.stop"),
     ):
         yield
@@ -130,30 +134,99 @@ async def test_async_enable_logging(
     cleanup_log_files()
 
 
-async def test_async_enable_logging_supervisor(
-    hass: HomeAssistant, caplog: pytest.LogCaptureFixture
+@pytest.mark.parametrize(
+    (
+        "env",
+        "log_file_count",
+        "old_log_file_count",
+        "data_logging",
+        "data_logging_disabled_reason",
+    ),
+    [
+        pytest.param(
+            {"SUPERVISOR": "1"},
+            0,
+            1,
+            None,
+            None,
+            id="supervisor",
+        ),
+        pytest.param(
+            {"SUPERVISOR": "1", "HA_DUPLICATE_LOG_FILE": "1"},
+            1,
+            0,
+            CONFIG_LOG_FILE,
+            None,
+            id="supervisor-duplicate-log-file",
+        ),
+        pytest.param(
+            {"HA_DISABLE_LOG_FILE": "1"},
+            0,
+            1,
+            None,
+            "environment",
+            id="disable-log-file",
+        ),
+        pytest.param(
+            {"HA_DISABLE_LOG_FILE": "0"},
+            1,
+            0,
+            CONFIG_LOG_FILE,
+            None,
+            id="disable-log-file-false",
+        ),
+        pytest.param(
+            {"HA_DISABLE_LOG_FILE": "invalid"},
+            1,
+            0,
+            CONFIG_LOG_FILE,
+            None,
+            id="disable-log-file-invalid",
+        ),
+    ],
+)
+async def test_async_enable_logging_log_file_disable_control(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    env: dict[str, str],
+    log_file_count: int,
+    old_log_file_count: int,
+    data_logging: str | None,
+    data_logging_disabled_reason: str | None,
 ) -> None:
-    """Test to ensure the default log file is not created on Supervisor installations."""
+    """Test the default log file disable controls."""
 
     # Ensure we start with a clean slate
     cleanup_log_files()
     assert len(glob.glob(CONFIG_LOG_FILE)) == 0
     assert len(glob.glob(ARG_LOG_FILE)) == 0
 
+    for env_var in ("SUPERVISOR", "HA_DUPLICATE_LOG_FILE", "HA_DISABLE_LOG_FILE"):
+        monkeypatch.delenv(env_var, raising=False)
+    for env_var, value in env.items():
+        monkeypatch.setenv(env_var, value)
+
     with (
-        patch.dict(os.environ, {"SUPERVISOR": "1"}),
         patch(
             "homeassistant.bootstrap.async_activate_log_queue_handler"
         ) as mock_async_activate_log_queue_handler,
         patch("logging.getLogger"),
     ):
         await bootstrap.async_enable_logging(hass)
-        assert len(glob.glob(CONFIG_LOG_FILE)) == 0
+        assert len(glob.glob(CONFIG_LOG_FILE)) == log_file_count
+        assert hass.data.get(bootstrap.DATA_LOGGING) == data_logging
+        assert (
+            hass.data.get(bootstrap.DATA_LOGGING_DISABLED_REASON)
+            == data_logging_disabled_reason
+        )
+        assert hass.config.as_dict()["logging"] == {
+            "log_file_disabled_reason": data_logging_disabled_reason,
+        }
         mock_async_activate_log_queue_handler.assert_called_once()
         mock_async_activate_log_queue_handler.reset_mock()
 
         # Check that if the log file exists, it is renamed
-        def write_log_file():
+        def write_log_file() -> None:
             with open(
                 get_test_config_dir("home-assistant.log"), "w", encoding="utf8"
             ) as f:
@@ -162,9 +235,15 @@ async def test_async_enable_logging_supervisor(
         await hass.async_add_executor_job(write_log_file)
         assert len(glob.glob(CONFIG_LOG_FILE)) == 1
         assert len(glob.glob(f"{CONFIG_LOG_FILE}.old")) == 0
+
         await bootstrap.async_enable_logging(hass)
-        assert len(glob.glob(CONFIG_LOG_FILE)) == 0
-        assert len(glob.glob(f"{CONFIG_LOG_FILE}.old")) == 1
+        assert len(glob.glob(CONFIG_LOG_FILE)) == log_file_count
+        assert len(glob.glob(f"{CONFIG_LOG_FILE}.old")) == old_log_file_count
+        assert hass.data.get(bootstrap.DATA_LOGGING) == data_logging
+        assert (
+            hass.data.get(bootstrap.DATA_LOGGING_DISABLED_REASON)
+            == data_logging_disabled_reason
+        )
         mock_async_activate_log_queue_handler.assert_called_once()
         mock_async_activate_log_queue_handler.reset_mock()
 
@@ -174,8 +253,9 @@ async def test_async_enable_logging_supervisor(
             log_file="test.log",
         )
         mock_async_activate_log_queue_handler.assert_called_once()
-        # Even on Supervisor, the log file should be created if it is explicitly specified
+        # The log file should be created if it is explicitly specified.
         assert len(glob.glob(ARG_LOG_FILE)) > 0
+        assert bootstrap.DATA_LOGGING in hass.data
 
     cleanup_log_files()
 
@@ -211,8 +291,6 @@ async def test_config_does_not_turn_off_debug(hass: HomeAssistant) -> None:
 @pytest.mark.usefixtures("mock_hass_config")
 async def test_asyncio_debug_on_turns_hass_debug_on(
     mock_enable_logging: AsyncMock,
-    mock_is_virtual_env: Mock,
-    mock_mount_local_lib_path: AsyncMock,
     mock_ensure_config_exists: AsyncMock,
     mock_process_ha_config_upgrade: Mock,
 ) -> None:
@@ -265,13 +343,34 @@ async def test_core_failure_loads_recovery_mode(
 
 
 @pytest.mark.parametrize("load_registries", [False])
-async def test_setting_up_config(hass: HomeAssistant) -> None:
+async def test_setting_up_empty_config(
+    hass: HomeAssistant,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Test default integrations are set up with empty config."""
+    await bootstrap._async_set_up_integrations(hass, {})
+
+    assert all(
+        domain in hass.config.components for domain in bootstrap.DEFAULT_INTEGRATIONS
+    )
+    assert set(hass.config.components) == snapshot
+
+
+@pytest.mark.parametrize("load_registries", [False])
+async def test_setting_up_config(
+    hass: HomeAssistant,
+    snapshot: SnapshotAssertion,
+) -> None:
     """Test we set up domains in config."""
     await bootstrap._async_set_up_integrations(
         hass, {"group hello": {}, "homeassistant": {}}
     )
 
     assert "group" in hass.config.components
+    assert all(
+        domain in hass.config.components for domain in bootstrap.DEFAULT_INTEGRATIONS
+    )
+    assert set(hass.config.components) == snapshot
 
 
 @pytest.mark.parametrize("load_registries", [False])
@@ -522,9 +621,11 @@ async def test_setup_frontend_before_recorder(hass: HomeAssistant) -> None:
     assert "recorder" in hass.config.components
     assert "http" in hass.config.components
 
-    assert order == [
-        "http",
-        "an_after_dep",
+    # http (a dependency) and an_after_dep (an after_dependency) are both set
+    # up in the frontend substage of stage 0; their relative order depends on
+    # set iteration order and is not guaranteed.
+    assert set(order[:2]) == {"http", "an_after_dep"}
+    assert order[2:] == [
         "frontend",
         "recorder",
         "normal_integration",
@@ -655,15 +756,6 @@ async def test_setup_after_deps_not_present(hass: HomeAssistant) -> None:
 
 
 @pytest.fixture
-def mock_is_virtual_env() -> Generator[Mock]:
-    """Mock is_virtual_env."""
-    with patch(
-        "homeassistant.bootstrap.is_virtual_env", return_value=False
-    ) as is_virtual_env:
-        yield is_virtual_env
-
-
-@pytest.fixture
 def mock_enable_logging() -> Generator[AsyncMock]:
     """Mock enable logging."""
     with patch("homeassistant.bootstrap.async_enable_logging") as enable_logging:
@@ -671,19 +763,10 @@ def mock_enable_logging() -> Generator[AsyncMock]:
 
 
 @pytest.fixture
-def mock_mount_local_lib_path() -> Generator[AsyncMock]:
-    """Mock enable logging."""
-    with patch(
-        "homeassistant.bootstrap.async_mount_local_lib_path"
-    ) as mount_local_lib_path:
-        yield mount_local_lib_path
-
-
-@pytest.fixture
 def mock_process_ha_config_upgrade() -> Generator[Mock]:
     """Mock enable logging."""
     with patch(
-        "homeassistant.config.process_ha_config_upgrade"
+        "homeassistant.config.process_ha_config_upgrade", return_value=None
     ) as process_ha_config_upgrade:
         yield process_ha_config_upgrade
 
@@ -701,8 +784,6 @@ def mock_ensure_config_exists() -> Generator[AsyncMock]:
 @pytest.mark.usefixtures("mock_hass_config")
 async def test_setup_hass(
     mock_enable_logging: AsyncMock,
-    mock_is_virtual_env: Mock,
-    mock_mount_local_lib_path: AsyncMock,
     mock_ensure_config_exists: AsyncMock,
     mock_process_ha_config_upgrade: Mock,
     caplog: pytest.LogCaptureFixture,
@@ -727,7 +808,7 @@ async def test_setup_hass(
             ),
         )
 
-    assert "Waiting on integrations to complete setup" not in caplog.text
+    assert "Waiting for integrations to complete setup" not in caplog.text
 
     assert "browser" in hass.config.components
     assert "recovery_mode" not in hass.config.components
@@ -740,9 +821,9 @@ async def test_setup_hass(
         log_file,
         log_no_color,
     )
-    assert len(mock_mount_local_lib_path.mock_calls) == 1
     assert len(mock_ensure_config_exists.mock_calls) == 1
     assert len(mock_process_ha_config_upgrade.mock_calls) == 1
+    assert config_util.DATA_PREVIOUS_VERSION not in hass.data
 
     # debug in RuntimeConfig should set it it in hass.config
     assert hass.config.debug is True
@@ -751,11 +832,30 @@ async def test_setup_hass(
 
 
 @pytest.mark.parametrize("hass_config", [{"browser": {}, "frontend": {}}])
+@pytest.mark.usefixtures(
+    "mock_hass_config", "mock_enable_logging", "mock_ensure_config_exists"
+)
+async def test_setup_hass_keeps_previous_version(
+    mock_process_ha_config_upgrade: Mock,
+) -> None:
+    """Test the version that ran before an update is kept for the trigger."""
+    mock_process_ha_config_upgrade.return_value = "2026.9.4"
+
+    hass = await bootstrap.async_setup_hass(
+        runner.RuntimeConfig(
+            config_dir=get_test_config_dir(),
+            skip_pip=True,
+            recovery_mode=False,
+        ),
+    )
+
+    assert hass.data[config_util.DATA_PREVIOUS_VERSION] == "2026.9.4"
+
+
+@pytest.mark.parametrize("hass_config", [{"browser": {}, "frontend": {}}])
 @pytest.mark.usefixtures("mock_hass_config")
 async def test_setup_hass_takes_longer_than_log_slow_startup(
     mock_enable_logging: AsyncMock,
-    mock_is_virtual_env: Mock,
-    mock_mount_local_lib_path: AsyncMock,
     mock_ensure_config_exists: AsyncMock,
     mock_process_ha_config_upgrade: Mock,
     caplog: pytest.LogCaptureFixture,
@@ -790,13 +890,11 @@ async def test_setup_hass_takes_longer_than_log_slow_startup(
             ),
         )
 
-    assert "Waiting on integrations to complete setup" in caplog.text
+    assert "Waiting for integrations to complete setup" in caplog.text
 
 
 async def test_setup_hass_invalid_yaml(
     mock_enable_logging: AsyncMock,
-    mock_is_virtual_env: Mock,
-    mock_mount_local_lib_path: AsyncMock,
     mock_ensure_config_exists: AsyncMock,
     mock_process_ha_config_upgrade: Mock,
 ) -> None:
@@ -817,13 +915,10 @@ async def test_setup_hass_invalid_yaml(
         )
 
     assert "recovery_mode" in hass.config.components
-    assert len(mock_mount_local_lib_path.mock_calls) == 0
 
 
 async def test_setup_hass_config_dir_nonexistent(
     mock_enable_logging: AsyncMock,
-    mock_is_virtual_env: Mock,
-    mock_mount_local_lib_path: AsyncMock,
     mock_ensure_config_exists: AsyncMock,
     mock_process_ha_config_upgrade: Mock,
 ) -> None:
@@ -848,8 +943,6 @@ async def test_setup_hass_config_dir_nonexistent(
 
 async def test_setup_hass_recovery_mode(
     mock_enable_logging: AsyncMock,
-    mock_is_virtual_env: Mock,
-    mock_mount_local_lib_path: AsyncMock,
     mock_ensure_config_exists: AsyncMock,
     mock_process_ha_config_upgrade: Mock,
 ) -> None:
@@ -879,18 +972,46 @@ async def test_setup_hass_recovery_mode(
     mock_hass.assert_called_once()
 
     assert "recovery_mode" in hass.config.components
-    assert len(mock_mount_local_lib_path.mock_calls) == 0
 
     # Validate we didn't try to set up config entry.
     assert "browser" not in hass.config.components
     assert len(browser_setup.mock_calls) == 0
 
+    # Downloading custom integrations is the last thing recovery mode needs
+    assert "marketplace" not in hass.config.components
+
+
+@pytest.mark.parametrize("domain", ["cloud", "backup"])
+async def test_setup_hass_recovery_mode_with_failing_integration(
+    mock_enable_logging: AsyncMock,
+    mock_ensure_config_exists: AsyncMock,
+    mock_process_ha_config_upgrade: Mock,
+    domain: str,
+) -> None:
+    """Test recovery mode still starts if cloud or backup fails to set up."""
+    with patch(
+        f"homeassistant.components.{domain}.async_setup",
+        side_effect=Exception(f"{domain} setup failed"),
+    ):
+        hass = await bootstrap.async_setup_hass(
+            runner.RuntimeConfig(
+                config_dir=get_test_config_dir(),
+                verbose=False,
+                log_rotate_days=10,
+                log_file="",
+                log_no_color=False,
+                skip_pip=True,
+                recovery_mode=True,
+            ),
+        )
+
+    assert "recovery_mode" in hass.config.components
+    assert domain not in hass.config.components
+
 
 @pytest.mark.usefixtures("mock_hass_config")
 async def test_setup_hass_safe_mode(
     mock_enable_logging: AsyncMock,
-    mock_is_virtual_env: Mock,
-    mock_mount_local_lib_path: AsyncMock,
     mock_ensure_config_exists: AsyncMock,
     mock_process_ha_config_upgrade: Mock,
     caplog: pytest.LogCaptureFixture,
@@ -924,8 +1045,6 @@ async def test_setup_hass_safe_mode(
 @pytest.mark.usefixtures("mock_hass_config")
 async def test_setup_hass_recovery_mode_and_safe_mode(
     mock_enable_logging: AsyncMock,
-    mock_is_virtual_env: Mock,
-    mock_mount_local_lib_path: AsyncMock,
     mock_ensure_config_exists: AsyncMock,
     mock_process_ha_config_upgrade: Mock,
     caplog: pytest.LogCaptureFixture,
@@ -956,12 +1075,58 @@ async def test_setup_hass_recovery_mode_and_safe_mode(
     assert "Starting in safe mode" not in caplog.text
 
 
+@pytest.mark.parametrize("hass_config", [{"frontend": {}}])
+@pytest.mark.parametrize(
+    "storage_key",
+    [
+        # Loading the entity registry waits for the device registry
+        "core.device_registry",
+        # Loading restore state waits for the entity registry
+        "core.entity_registry",
+    ],
+)
+@pytest.mark.usefixtures("mock_hass_config")
+async def test_storage_version_too_new_triggers_recovery_mode(
+    hass_storage: dict[str, Any],
+    mock_enable_logging: AsyncMock,
+    mock_ensure_config_exists: AsyncMock,
+    mock_process_ha_config_upgrade: Mock,
+    caplog: pytest.LogCaptureFixture,
+    storage_key: str,
+) -> None:
+    """Test that a storage file with a newer major version triggers recovery mode."""
+    hass_storage[storage_key] = {
+        "version": 99,
+        "minor_version": 1,
+        "key": storage_key,
+        "data": {},
+    }
+
+    hass = await bootstrap.async_setup_hass(
+        runner.RuntimeConfig(
+            config_dir=get_test_config_dir(),
+            verbose=False,
+            log_rotate_days=10,
+            log_file="",
+            log_no_color=False,
+            skip_pip=True,
+            recovery_mode=False,
+        ),
+    )
+
+    assert hass is not None
+    assert hass.config.recovery_mode is True
+    assert "recovery_mode" in hass.config.components
+    assert (
+        f"Storage file {storage_key} was created"
+        " by a newer version of Home Assistant" in caplog.text
+    )
+
+
 @pytest.mark.parametrize("hass_config", [{"homeassistant": {"non-existing": 1}}])
 @pytest.mark.usefixtures("mock_hass_config")
 async def test_setup_hass_invalid_core_config(
     mock_enable_logging: AsyncMock,
-    mock_is_virtual_env: Mock,
-    mock_mount_local_lib_path: AsyncMock,
     mock_ensure_config_exists: AsyncMock,
     mock_process_ha_config_upgrade: Mock,
 ) -> None:
@@ -999,8 +1164,6 @@ async def test_setup_hass_invalid_core_config(
 @pytest.mark.usefixtures("mock_hass_config")
 async def test_setup_recovery_mode_if_no_frontend(
     mock_enable_logging: AsyncMock,
-    mock_is_virtual_env: Mock,
-    mock_mount_local_lib_path: AsyncMock,
     mock_ensure_config_exists: AsyncMock,
     mock_process_ha_config_upgrade: Mock,
 ) -> None:
@@ -1137,13 +1300,16 @@ async def test_tasks_logged_that_block_stage_1(
     hass: HomeAssistant, caplog: pytest.LogCaptureFixture
 ) -> None:
     """Test we log tasks that delay stage 1 startup."""
+    task: asyncio.Task | None = None
 
     def gen_domain_setup(domain):
         async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-            async def _not_marked_background_task():
-                await asyncio.sleep(0.2)
+            nonlocal task
 
-            hass.async_create_task(_not_marked_background_task())
+            async def _not_marked_background_task():
+                await hass.loop.create_future()
+
+            task = hass.async_create_task(_not_marked_background_task())
             await asyncio.sleep(0.1)
             return True
 
@@ -1162,12 +1328,16 @@ async def test_tasks_logged_that_block_stage_1(
     with (
         patch.object(bootstrap, "STAGE_1_TIMEOUT", 0),
         patch.object(bootstrap, "COOLDOWN_TIME", 0),
+        patch.object(bootstrap, "WRAP_UP_TIMEOUT", 0),
         patch.object(
             bootstrap, "STAGE_1_INTEGRATIONS", {*original_stage_1, "normal_integration"}
         ),
     ):
         await bootstrap._async_set_up_integrations(hass, {"normal_integration": {}})
-        await hass.async_block_till_done()
+
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
 
     assert "Setup timed out for stage 1 waiting on" in caplog.text
     assert "waiting on" in caplog.text
@@ -1179,14 +1349,17 @@ async def test_tasks_logged_that_block_stage_2(
     hass: HomeAssistant, caplog: pytest.LogCaptureFixture
 ) -> None:
     """Test we log tasks that delay stage 2 startup."""
-    done_future = hass.loop.create_future()
+    task: asyncio.Task | None = None
 
     def gen_domain_setup(domain):
         async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-            async def _not_marked_background_task():
-                await done_future
+            nonlocal task
 
-            hass.async_create_task(_not_marked_background_task())
+            async def _not_marked_background_task():
+                await hass.loop.create_future()
+
+            task = hass.async_create_task(_not_marked_background_task())
+            await asyncio.sleep(0.1)
             return True
 
         return async_setup
@@ -1200,36 +1373,20 @@ async def test_tasks_logged_that_block_stage_2(
         ),
     )
 
-    wanted_messages = {
-        "Setup timed out for stage 2 waiting on",
-        "waiting on",
-        "_not_marked_background_task",
-    }
-
-    def on_message_logged(log_record: logging.LogRecord, *args):
-        for message in list(wanted_messages):
-            if message in log_record.message:
-                wanted_messages.remove(message)
-        if not done_future.done() and not wanted_messages:
-            done_future.set_result(None)
-            return
-
     with (
         patch.object(bootstrap, "STAGE_2_TIMEOUT", 0),
         patch.object(bootstrap, "COOLDOWN_TIME", 0),
-        patch.object(
-            caplog.handler,
-            "emit",
-            wraps=caplog.handler.emit,
-            side_effect=on_message_logged,
-        ),
+        patch.object(bootstrap, "WRAP_UP_TIMEOUT", 0),
     ):
         await bootstrap._async_set_up_integrations(hass, {"normal_integration": {}})
-        async with asyncio.timeout(2):
-            await done_future
-        await hass.async_block_till_done()
 
-    assert not wanted_messages
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+
+    assert "Setup timed out for stage 2 waiting on" in caplog.text
+    assert "waiting on" in caplog.text
+    assert "_not_marked_background_task" in caplog.text
 
 
 @pytest.mark.parametrize("load_registries", [False])
@@ -1295,7 +1452,7 @@ async def test_bootstrap_dependencies(
     calls: list[str] = []
     assertions: list[bool] = []
 
-    async def async_mqtt_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    async def async_mqtt_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Assert the mqtt config entry was set up."""
         calls.append("mqtt")
         # assert the integration is not yet set up
@@ -1307,7 +1464,6 @@ async def test_bootstrap_dependencies(
             )
         )
         assertions.append(integration not in hass.config.components)
-        return True
 
     async def async_integration_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         """Assert the mqtt config entry was set up."""
@@ -1518,8 +1674,8 @@ async def test_cancellation_does_not_leak_upward_from_async_setup_entry(
     await bootstrap._async_setup_multi_components(hass, {"test_package"}, {})
     await hass.async_block_till_done()
     assert (
-        "Error setting up entry Mock Title for test_package_raises_cancelled_error_config_entry"
-        in caplog.text
+        "Error setting up entry Mock Title"
+        " for test_package_raises_cancelled_error_config_entry" in caplog.text
     )
 
     assert "test_package" in hass.config.components
@@ -1670,7 +1826,8 @@ async def test_no_base_platforms_loaded_before_recorder(hass: HomeAssistant) -> 
         if domain_with_base_platforms_deps:
             problems[domain] = domain_with_base_platforms_deps
     assert not problems, (
-        f"Integrations that are setup before recorder have base platforms in their dependencies: {problems}"
+        "Integrations that are setup before recorder have"
+        f" base platforms in their dependencies: {problems}"
     )
 
     base_platform_py_files = {f"{base_platform}.py" for base_platform in base_platforms}
@@ -1684,7 +1841,8 @@ async def test_no_base_platforms_loaded_before_recorder(hass: HomeAssistant) -> 
         if integration_base_platforms_files:
             problems[domain] = integration_base_platforms_files
     assert not problems, (
-        f"Integrations that are setup before recorder implement base platforms: {problems}"
+        "Integrations that are setup before recorder"
+        f" implement base platforms: {problems}"
     )
 
 

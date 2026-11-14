@@ -1,9 +1,13 @@
 """Test the Home Assistant Yellow config flow."""
 
 from collections.abc import Generator
-from unittest.mock import AsyncMock, Mock, call, patch
+from unittest.mock import ANY, AsyncMock, Mock, call, patch
 
+from aiohasupervisor import SupervisorError
+from aiohasupervisor.models import YellowOptions
 import pytest
+from pytest_homeassistant.common import MockConfigEntry, MockModule, mock_integration
+from universal_silabs_flasher.flasher import YellowFlasher
 
 from homeassistant.components.hassio import (
     DOMAIN as HASSIO_DOMAIN,
@@ -16,7 +20,6 @@ from homeassistant.components.homeassistant_hardware.firmware_config_flow import
 )
 from homeassistant.components.homeassistant_hardware.silabs_multiprotocol_addon import (
     CONF_DISABLE_MULTI_PAN,
-    get_flasher_addon_manager,
     get_multiprotocol_addon_manager,
 )
 from homeassistant.components.homeassistant_hardware.util import (
@@ -28,8 +31,6 @@ from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.setup import async_setup_component
-
-from tests.common import MockConfigEntry, MockModule, mock_integration
 
 
 @pytest.fixture(autouse=True)
@@ -51,23 +52,10 @@ def mock_get_supervisor_client(supervisor_client: AsyncMock) -> Generator[None]:
         yield
 
 
-@pytest.fixture(name="get_yellow_settings")
-def mock_get_yellow_settings():
-    """Mock getting yellow settings."""
-    with patch(
-        "homeassistant.components.homeassistant_yellow.config_flow.async_get_yellow_settings",
-        return_value={"disk_led": True, "heartbeat_led": True, "power_led": True},
-    ) as get_yellow_settings:
-        yield get_yellow_settings
-
-
 @pytest.fixture(name="set_yellow_settings")
-def mock_set_yellow_settings():
+def mock_set_yellow_settings(supervisor_client: AsyncMock) -> Generator[AsyncMock]:
     """Mock setting yellow settings."""
-    with patch(
-        "homeassistant.components.homeassistant_yellow.config_flow.async_set_yellow_settings",
-    ) as set_yellow_settings:
-        yield set_yellow_settings
+    return supervisor_client.os.set_yellow_options
 
 
 @pytest.fixture(name="reboot_host")
@@ -81,7 +69,7 @@ def setup_entry_fixture() -> Generator[AsyncMock]:
     """Mock entry setup."""
     with patch(
         "homeassistant.components.homeassistant_yellow.async_setup_entry",
-        return_value=True,
+        return_value=None,
     ) as mock_setup_entry:
         yield mock_setup_entry
 
@@ -94,7 +82,7 @@ async def test_config_flow(hass: HomeAssistant) -> None:
     with (
         patch(
             "homeassistant.components.homeassistant_yellow.async_setup_entry",
-            return_value=True,
+            return_value=None,
         ) as mock_setup_entry,
         patch(
             "homeassistant.components.homeassistant_hardware.firmware_config_flow.probe_silabs_firmware_info",
@@ -141,7 +129,7 @@ async def test_config_flow_single_entry(hass: HomeAssistant) -> None:
 
     with patch(
         "homeassistant.components.homeassistant_yellow.async_setup_entry",
-        return_value=True,
+        return_value=None,
     ) as mock_setup_entry:
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": "system"}
@@ -156,9 +144,9 @@ async def test_config_flow_single_entry(hass: HomeAssistant) -> None:
     ("reboot_menu_choice", "reboot_calls"),
     [("reboot_now", 1), ("reboot_later", 0)],
 )
+@pytest.mark.usefixtures("os_yellow_info")
 async def test_option_flow_led_settings(
     hass: HomeAssistant,
-    get_yellow_settings: AsyncMock,
     set_yellow_settings: AsyncMock,
     reboot_host: AsyncMock,
     reboot_menu_choice: str,
@@ -196,7 +184,7 @@ async def test_option_flow_led_settings(
     assert result["type"] is FlowResultType.MENU
     assert result["step_id"] == "reboot_menu"
     set_yellow_settings.assert_called_once_with(
-        hass, {"disk_led": False, "heartbeat_led": False, "power_led": False}
+        YellowOptions(disk_led=False, heartbeat_led=False, power_led=False)
     )
 
     result = await hass.config_entries.options.async_configure(
@@ -207,10 +195,10 @@ async def test_option_flow_led_settings(
     assert reboot_host.call_count == reboot_calls
 
 
+@pytest.mark.usefixtures("os_yellow_info")
 async def test_option_flow_led_settings_unchanged(
     hass: HomeAssistant,
-    get_yellow_settings,
-    set_yellow_settings,
+    set_yellow_settings: AsyncMock,
 ) -> None:
     """Test updating LED settings."""
     mock_integration(hass, MockModule("hassio"))
@@ -245,7 +233,10 @@ async def test_option_flow_led_settings_unchanged(
     set_yellow_settings.assert_not_called()
 
 
-async def test_option_flow_led_settings_fail_1(hass: HomeAssistant) -> None:
+@pytest.mark.parametrize("exc", [SupervisorError, TimeoutError])
+async def test_option_flow_led_settings_fail_1(
+    hass: HomeAssistant, os_yellow_info: AsyncMock, exc: type[Exception]
+) -> None:
     """Test updating LED settings."""
     mock_integration(hass, MockModule("hassio"))
     await async_setup_component(hass, HASSIO_DOMAIN, {})
@@ -265,20 +256,19 @@ async def test_option_flow_led_settings_fail_1(hass: HomeAssistant) -> None:
     assert result["type"] is FlowResultType.MENU
     assert result["step_id"] == "main_menu"
 
-    with patch(
-        "homeassistant.components.homeassistant_yellow.config_flow.async_get_yellow_settings",
-        side_effect=TimeoutError,
-    ):
-        result = await hass.config_entries.options.async_configure(
-            result["flow_id"],
-            {"next_step_id": "hardware_settings"},
-        )
+    os_yellow_info.side_effect = exc
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"next_step_id": "hardware_settings"},
+    )
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "read_hw_settings_error"
 
 
+@pytest.mark.parametrize("exc", [SupervisorError, TimeoutError])
+@pytest.mark.usefixtures("os_yellow_info")
 async def test_option_flow_led_settings_fail_2(
-    hass: HomeAssistant, get_yellow_settings
+    hass: HomeAssistant, set_yellow_settings: AsyncMock, exc: type[Exception]
 ) -> None:
     """Test updating LED settings."""
     mock_integration(hass, MockModule("hassio"))
@@ -305,14 +295,11 @@ async def test_option_flow_led_settings_fail_2(
     )
     assert result["type"] is FlowResultType.FORM
 
-    with patch(
-        "homeassistant.components.homeassistant_yellow.config_flow.async_set_yellow_settings",
-        side_effect=TimeoutError,
-    ):
-        result = await hass.config_entries.options.async_configure(
-            result["flow_id"],
-            {"disk_led": False, "heartbeat_led": False, "power_led": False},
-        )
+    set_yellow_settings.side_effect = exc
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"disk_led": False, "heartbeat_led": False, "power_led": False},
+    )
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "write_hw_settings_error"
 
@@ -388,7 +375,8 @@ async def test_firmware_options_flow_zigbee(hass: HomeAssistant) -> None:
         patch(
             "homeassistant.components.homeassistant_hardware.firmware_config_flow.probe_silabs_firmware_info",
             side_effect=[
-                # First call: probe before installation (returns current SPINEL firmware)
+                # First call: probe before installation (returns current SPINEL
+                # firmware)
                 FirmwareInfo(
                     device=RADIO_DEVICE,
                     firmware_type=ApplicationType.SPINEL,
@@ -418,9 +406,19 @@ async def test_firmware_options_flow_zigbee(hass: HomeAssistant) -> None:
         assert pick_result["type"] is FlowResultType.MENU
         assert pick_result["step_id"] == "zigbee_installation_type"
 
-        create_result = await hass.config_entries.options.async_configure(
+        progress_result = await hass.config_entries.options.async_configure(
             pick_result["flow_id"],
             user_input={"next_step_id": "zigbee_intent_recommended"},
+        )
+
+        assert progress_result["type"] is FlowResultType.SHOW_PROGRESS
+        assert progress_result["step_id"] == "install_zigbee_firmware"
+
+        # Make sure the flow continues when the progress task is done.
+        await hass.async_block_till_done()
+
+        create_result = await hass.config_entries.options.async_configure(
+            progress_result["flow_id"]
         )
 
     assert create_result["type"] is FlowResultType.CREATE_ENTRY
@@ -430,9 +428,16 @@ async def test_firmware_options_flow_zigbee(hass: HomeAssistant) -> None:
         "firmware_version": fw_version,
     }
 
-    # Verify async_flash_silabs_firmware was called with Yellow's reset method
-    assert flash_mock.call_count == 1
-    assert flash_mock.mock_calls[0].kwargs["bootloader_reset_methods"] == ["yellow"]
+    assert flash_mock.mock_calls == [
+        call(
+            hass=hass,
+            device=RADIO_DEVICE,
+            fw_data=ANY,
+            flasher_cls=YellowFlasher,
+            expected_installed_firmware_type=ApplicationType.EZSP,
+            progress_callback=ANY,
+        )
+    ]
 
 
 @pytest.mark.usefixtures("addon_installed")
@@ -526,7 +531,7 @@ async def test_firmware_options_flow_thread(
     }
 
 
-@pytest.mark.usefixtures("supervisor_client")
+@pytest.mark.usefixtures("addon_store_info", "supervisor_client")
 async def test_options_flow_multipan_uninstall(hass: HomeAssistant) -> None:
     """Test options flow for when multi-PAN firmware is installed."""
     mock_integration(hass, MockModule("hassio"))
@@ -553,15 +558,11 @@ async def test_options_flow_multipan_uninstall(hass: HomeAssistant) -> None:
         version="1.0.0",
     )
 
-    mock_flasher_manager = Mock(spec_set=get_flasher_addon_manager(hass))
-    mock_flasher_manager.async_get_addon_info.return_value = AddonInfo(
-        available=True,
-        hostname=None,
-        options={},
-        state=AddonState.NOT_RUNNING,
-        update_available=False,
-        version="1.0.0",
-    )
+    mock_fw_manifest = Mock()
+    mock_fw_manifest.filename = "yellow_zigbee_ncp_7.4.4.0.gbl"
+    mock_fw_client = AsyncMock()
+    mock_fw_client.async_update_data.return_value = Mock(firmwares=[mock_fw_manifest])
+    mock_fw_client.async_fetch_firmware.return_value = b"fake_firmware"
 
     with (
         patch(
@@ -569,8 +570,12 @@ async def test_options_flow_multipan_uninstall(hass: HomeAssistant) -> None:
             return_value=mock_multipan_manager,
         ),
         patch(
-            "homeassistant.components.homeassistant_hardware.silabs_multiprotocol_addon.get_flasher_addon_manager",
-            return_value=mock_flasher_manager,
+            "homeassistant.components.homeassistant_hardware.silabs_multiprotocol_addon.async_flash_silabs_firmware",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "homeassistant.components.homeassistant_hardware.silabs_multiprotocol_addon.FirmwareUpdateClient",
+            return_value=mock_fw_client,
         ),
         patch(
             "homeassistant.components.homeassistant_hardware.silabs_multiprotocol_addon.is_hassio",
@@ -599,11 +604,15 @@ async def test_options_flow_multipan_uninstall(hass: HomeAssistant) -> None:
             result["flow_id"], user_input={CONF_DISABLE_MULTI_PAN: True}
         )
 
-        # Finish the flow
+        # Uninstall multiprotocol addon
         result = await hass.config_entries.options.async_configure(result["flow_id"])
         await hass.async_block_till_done(wait_background_tasks=True)
+
+        # Flash zigbee firmware
         result = await hass.config_entries.options.async_configure(result["flow_id"])
         await hass.async_block_till_done(wait_background_tasks=True)
+
+        # Flashing complete
         result = await hass.config_entries.options.async_configure(result["flow_id"])
         assert result["type"] is FlowResultType.CREATE_ENTRY
 

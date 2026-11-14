@@ -1,29 +1,35 @@
 """Test Tuya select platform."""
 
-from __future__ import annotations
-
+from typing import Any
 from unittest.mock import patch
 
+from freezegun.api import FrozenDateTimeFactory
 import pytest
+from pytest_homeassistant.common import MockConfigEntry, snapshot_platform
 from syrupy.assertion import SnapshotAssertion
 from tuya_sharing import CustomerDevice, Manager
 
 from homeassistant.components.select import (
-    ATTR_OPTION,
     DOMAIN as SELECT_DOMAIN,
-    SERVICE_SELECT_OPTION,
+    SelectService,
+    SelectServiceArgument,
 )
-from homeassistant.const import ATTR_ENTITY_ID, Platform
+from homeassistant.const import CommonServiceArgument, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 
-from . import initialize_entry
-
-from tests.common import MockConfigEntry, snapshot_platform
+from . import TuyaNotificationHelper, check_selective_state_update, initialize_entry
 
 
-@patch("homeassistant.components.tuya.PLATFORMS", [Platform.SELECT])
+@pytest.fixture(autouse=True)
+def platform_autouse():
+    """Platform fixture."""
+    with patch("homeassistant.components.tuya.PLATFORMS", [Platform.SELECT]):
+        yield
+
+
+@pytest.mark.usefixtures("no_quirk")
 async def test_platform_setup_and_discovery(
     hass: HomeAssistant,
     mock_manager: Manager,
@@ -36,6 +42,54 @@ async def test_platform_setup_and_discovery(
     await initialize_entry(hass, mock_manager, mock_config_entry, mock_devices)
 
     await snapshot_platform(hass, entity_registry, snapshot, mock_config_entry.entry_id)
+
+
+@pytest.mark.parametrize(
+    "mock_device_code",
+    ["cl_zah67ekd"],
+)
+@pytest.mark.parametrize(
+    ("updates", "expected_state", "last_reported"),
+    [
+        # Update without dpcode - state should not change, last_reported stays
+        # at available_reported
+        ({"control": "stop"}, "forward", "2024-01-01T00:00:20+00:00"),
+        # Update with dpcode - state should change, last_reported advances
+        ({"control_back_mode": "back"}, "back", "2024-01-01T00:01:00+00:00"),
+        # Update with multiple properties including dpcode - state should change
+        (
+            {"control": "stop", "control_back_mode": "back"},
+            "back",
+            "2024-01-01T00:01:00+00:00",
+        ),
+    ],
+)
+@pytest.mark.freeze_time("2024-01-01")
+async def test_selective_state_update(
+    hass: HomeAssistant,
+    mock_manager: Manager,
+    mock_config_entry: MockConfigEntry,
+    mock_device: CustomerDevice,
+    notification_helper: TuyaNotificationHelper,
+    freezer: FrozenDateTimeFactory,
+    updates: dict[str, Any],
+    expected_state: str,
+    last_reported: str,
+) -> None:
+    """Test skip_update/last_reported."""
+    await initialize_entry(hass, mock_manager, mock_config_entry, mock_device)
+    await check_selective_state_update(
+        hass,
+        mock_device,
+        notification_helper,
+        freezer,
+        entity_id="select.kitchen_blinds_motor_mode",
+        dpcode="control_back_mode",
+        initial_state="forward",
+        updates=updates,
+        expected_state=expected_state,
+        last_reported=last_reported,
+    )
 
 
 @pytest.mark.parametrize(
@@ -56,10 +110,10 @@ async def test_select_option(
     assert state is not None, f"{entity_id} does not exist"
     await hass.services.async_call(
         SELECT_DOMAIN,
-        SERVICE_SELECT_OPTION,
+        SelectService.SELECT_OPTION,
         {
-            ATTR_ENTITY_ID: entity_id,
-            ATTR_OPTION: "forward",
+            CommonServiceArgument.ENTITY_ID: entity_id,
+            SelectServiceArgument.OPTION: "forward",
         },
         blocking=True,
     )
@@ -87,11 +141,48 @@ async def test_select_invalid_option(
     with pytest.raises(ServiceValidationError) as exc:
         await hass.services.async_call(
             SELECT_DOMAIN,
-            SERVICE_SELECT_OPTION,
+            SelectService.SELECT_OPTION,
             {
-                ATTR_ENTITY_ID: entity_id,
-                ATTR_OPTION: "hello",
+                CommonServiceArgument.ENTITY_ID: entity_id,
+                SelectServiceArgument.OPTION: "hello",
             },
             blocking=True,
         )
     assert exc.value.translation_key == "not_valid_option"
+
+
+@pytest.mark.parametrize("mock_device_code", ["hwsb_ircs2n82vgrozoew"])
+async def test_hwsb_select_with_quirk(
+    hass: HomeAssistant,
+    mock_manager: Manager,
+    mock_config_entry: MockConfigEntry,
+    mock_device: CustomerDevice,
+    entity_registry: er.EntityRegistry,
+) -> None:
+    """Test HWSB outdoor equipment select with quirk applied."""
+    mock_device.status["mode"] = "MI"
+    await initialize_entry(hass, mock_manager, mock_config_entry, mock_device)
+
+    entity_id = "select.inverflow_mode"
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == "MI"
+    assert state.attributes["options"] == ["MI", "AI", "backwash"]
+
+    entry = entity_registry.async_get(entity_id)
+    assert entry is not None
+    assert entry.translation_key == "pump_mode"
+    assert entry.entity_category is None
+
+    await hass.services.async_call(
+        SELECT_DOMAIN,
+        SelectService.SELECT_OPTION,
+        {
+            CommonServiceArgument.ENTITY_ID: entity_id,
+            SelectServiceArgument.OPTION: "AI",
+        },
+        blocking=True,
+    )
+    mock_manager.send_commands.assert_called_once_with(
+        mock_device.id, [{"code": "mode", "value": "AI"}]
+    )

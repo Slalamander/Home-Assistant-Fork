@@ -1,7 +1,5 @@
 """Tests for the ElevenLabs TTS entity."""
 
-from __future__ import annotations
-
 import asyncio
 from collections import deque
 from collections.abc import AsyncIterator, Iterator
@@ -13,10 +11,11 @@ from unittest.mock import AsyncMock, MagicMock
 from elevenlabs.core import ApiError
 from elevenlabs.types import VoiceSettings
 import pytest
+from pytest_homeassistant.common import async_mock_service
+from pytest_homeassistant.typing import ClientSessionGenerator
 
 from homeassistant.components import tts
 from homeassistant.components.elevenlabs.const import (
-    ATTR_MODEL,
     CONF_SIMILARITY,
     CONF_STABILITY,
     CONF_STYLE,
@@ -26,19 +25,18 @@ from homeassistant.components.elevenlabs.const import (
     DEFAULT_STYLE,
     DEFAULT_USE_SPEAKER_BOOST,
 )
+from homeassistant.components.elevenlabs.tts import ElevenLabsTextToSpeechOption
 from homeassistant.components.media_player import (
     ATTR_MEDIA_CONTENT_ID,
-    DOMAIN as DOMAIN_MP,
+    DOMAIN as MP_DOMAIN,
     SERVICE_PLAY_MEDIA,
 )
-from homeassistant.components.tts import TTSAudioRequest
+from homeassistant.components.tts import TextToSpeechCommonOption, TTSAudioRequest
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.core_config import async_process_ha_core_config
 
-from tests.common import async_mock_service
 from tests.components.tts.common import retrieve_media
-from tests.typing import ClientSessionGenerator
 
 
 class _FakeResponse:
@@ -47,7 +45,10 @@ class _FakeResponse:
 
 
 class _AsyncByteStream:
-    """Async iterator that yields bytes and exposes response headers like ElevenLabs' stream."""
+    """Async iterator that yields bytes.
+
+    Exposes response headers like ElevenLabs' stream.
+    """
 
     def __init__(self, chunks: list[bytes], request_id: str | None = None) -> None:
         self._chunks = chunks
@@ -81,11 +82,12 @@ class _AsyncStreamResponse:
 
 @pytest.fixture
 def capture_stream_calls(monkeypatch: pytest.MonkeyPatch):
-    """Patches AsyncElevenLabs.text_to_speech.with_raw_response.stream and captures each call's kwargs.
+    """Patch text_to_speech.with_raw_response.stream, capture kwargs.
 
     Returns:
-      calls: list[dict] — kwargs passed into each stream() invocation
-      set_next_return(chunks, request_id): sets what the NEXT stream() call yields/returns
+      calls: list[dict] -- kwargs passed into each stream() invocation
+      set_next_return(chunks, request_id): sets what the NEXT
+          stream() call yields/returns
     """
     calls: list[dict] = []
     state = {"chunks": [b"X"], "request_id": "rid-1"}  # defaults; override per test
@@ -149,7 +151,7 @@ def mock_tts_cache_dir_autouse(mock_tts_cache_dir: Path) -> None:
 @pytest.fixture
 async def calls(hass: HomeAssistant) -> list[ServiceCall]:
     """Mock media player calls."""
-    return async_mock_service(hass, DOMAIN_MP, SERVICE_PLAY_MEDIA)
+    return async_mock_service(hass, MP_DOMAIN, SERVICE_PLAY_MEDIA)
 
 
 @pytest.fixture(autouse=True)
@@ -190,7 +192,7 @@ async def setup_internal_url(hass: HomeAssistant) -> None:
                 ATTR_ENTITY_ID: "tts.elevenlabs_text_to_speech",
                 tts.ATTR_MEDIA_PLAYER_ENTITY_ID: "media_player.something",
                 tts.ATTR_MESSAGE: "There is a person at the front door.",
-                tts.ATTR_OPTIONS: {tts.ATTR_VOICE: "voice2"},
+                tts.ATTR_OPTIONS: {TextToSpeechCommonOption.VOICE: "voice2"},
             },
         ),
         (
@@ -200,7 +202,7 @@ async def setup_internal_url(hass: HomeAssistant) -> None:
                 ATTR_ENTITY_ID: "tts.elevenlabs_text_to_speech",
                 tts.ATTR_MEDIA_PLAYER_ENTITY_ID: "media_player.something",
                 tts.ATTR_MESSAGE: "There is a person at the front door.",
-                tts.ATTR_OPTIONS: {ATTR_MODEL: "model2"},
+                tts.ATTR_OPTIONS: {ElevenLabsTextToSpeechOption.MODEL: "model2"},
             },
         ),
         (
@@ -210,7 +212,10 @@ async def setup_internal_url(hass: HomeAssistant) -> None:
                 ATTR_ENTITY_ID: "tts.elevenlabs_text_to_speech",
                 tts.ATTR_MEDIA_PLAYER_ENTITY_ID: "media_player.something",
                 tts.ATTR_MESSAGE: "There is a person at the front door.",
-                tts.ATTR_OPTIONS: {tts.ATTR_VOICE: "voice2", ATTR_MODEL: "model2"},
+                tts.ATTR_OPTIONS: {
+                    TextToSpeechCommonOption.VOICE: "voice2",
+                    ElevenLabsTextToSpeechOption.MODEL: "model2",
+                },
             },
         ),
     ],
@@ -249,8 +254,12 @@ async def test_tts_service_speak(
         == HTTPStatus.OK
     )
     assert len(stream_calls) == 1
-    voice_id = service_data[tts.ATTR_OPTIONS].get(tts.ATTR_VOICE, "voice1")
-    model_id = service_data[tts.ATTR_OPTIONS].get(ATTR_MODEL, "model1")
+    voice_id = service_data[tts.ATTR_OPTIONS].get(
+        TextToSpeechCommonOption.VOICE, "voice1"
+    )
+    model_id = service_data[tts.ATTR_OPTIONS].get(
+        ElevenLabsTextToSpeechOption.MODEL, "model1"
+    )
     language = service_data.get(tts.ATTR_LANGUAGE, tts_entity.default_language)
 
     call_kwargs = stream_calls[0]
@@ -273,7 +282,7 @@ async def test_tts_service_speak(
                 tts.ATTR_MEDIA_PLAYER_ENTITY_ID: "media_player.something",
                 tts.ATTR_MESSAGE: "There is a person at the front door.",
                 tts.ATTR_LANGUAGE: "de",
-                tts.ATTR_OPTIONS: {tts.ATTR_VOICE: "voice1"},
+                tts.ATTR_OPTIONS: {TextToSpeechCommonOption.VOICE: "voice1"},
             },
         ),
         (
@@ -284,7 +293,7 @@ async def test_tts_service_speak(
                 tts.ATTR_MEDIA_PLAYER_ENTITY_ID: "media_player.something",
                 tts.ATTR_MESSAGE: "There is a person at the front door.",
                 tts.ATTR_LANGUAGE: "es",
-                tts.ATTR_OPTIONS: {tts.ATTR_VOICE: "voice1"},
+                tts.ATTR_OPTIONS: {TextToSpeechCommonOption.VOICE: "voice1"},
             },
         ),
     ],
@@ -337,7 +346,7 @@ async def test_tts_service_speak_lang_config(
                 ATTR_ENTITY_ID: "tts.elevenlabs_text_to_speech",
                 tts.ATTR_MEDIA_PLAYER_ENTITY_ID: "media_player.something",
                 tts.ATTR_MESSAGE: "There is a person at the front door.",
-                tts.ATTR_OPTIONS: {tts.ATTR_VOICE: "voice1"},
+                tts.ATTR_OPTIONS: {TextToSpeechCommonOption.VOICE: "voice1"},
             },
         ),
     ],
@@ -406,7 +415,7 @@ async def test_tts_service_speak_error(
                 ATTR_ENTITY_ID: "tts.elevenlabs_text_to_speech",
                 tts.ATTR_MEDIA_PLAYER_ENTITY_ID: "media_player.something",
                 tts.ATTR_MESSAGE: "There is a person at the front door.",
-                tts.ATTR_OPTIONS: {tts.ATTR_VOICE: "voice2"},
+                tts.ATTR_OPTIONS: {TextToSpeechCommonOption.VOICE: "voice2"},
             },
         ),
     ],
@@ -550,7 +559,8 @@ async def test_stream_tts_with_request_ids(
     """Test streaming TTS with request-id stitching."""
     calls, set_next_return, patch_stream = capture_stream_calls
 
-    # Access the TTS entity as in your existing tests; adjust if you use a fixture instead
+    # Access the TTS entity as in your existing tests;
+    # adjust if you use a fixture instead
     tts_entity = hass.data[tts.DOMAIN].get_entity("tts.elevenlabs_text_to_speech")
     patch_stream(tts_entity)
 
@@ -559,7 +569,7 @@ async def test_stream_tts_with_request_ids(
     prev_request_ids: deque[str] = deque(maxlen=3)  # keep last 3 request IDs
     sentence_iter = iter(zip(message, chunks, request_ids, strict=False))
     get_next_part, message_gen = stream_sentence_helpers(sentence_iter, queue)
-    options = {tts.ATTR_VOICE: "voice1", "model": model_id}
+    options = {TextToSpeechCommonOption.VOICE: "voice1", "model": model_id}
     req = TTSAudioRequest(message_gen=message_gen(), language="en", options=options)
 
     resp = await tts_entity.async_stream_tts_audio(req)
@@ -612,31 +622,33 @@ async def test_stream_tts_with_request_ids(
         ),
     ],
 )
+@pytest.mark.parametrize(
+    "model",
+    [
+        pytest.param("eleven_v3", id="eleven_v3"),
+        pytest.param("eleven_v3_conversational", id="eleven_v3_conversational"),
+    ],
+)
 async def test_stream_tts_without_previous_info(
     setup: AsyncMock,
     hass: HomeAssistant,
     hass_client: ClientSessionGenerator,
     capture_stream_calls,
     stream_sentence_helpers,
-    monkeypatch: pytest.MonkeyPatch,
     message: list[list[str]],
     chunks: list[bytes],
     request_ids: list[str],
+    model: str,
 ) -> None:
-    """Test streaming TTS without request-id stitching (eleven_v3)."""
+    """Test streaming TTS without request-id stitching for eleven_v3 models."""
     calls, set_next_return, patch_stream = capture_stream_calls
     tts_entity = hass.data[tts.DOMAIN].get_entity("tts.elevenlabs_text_to_speech")
     patch_stream(tts_entity)
-    monkeypatch.setattr(
-        "homeassistant.components.elevenlabs.tts.MODELS_PREVIOUS_INFO_NOT_SUPPORTED",
-        ("model1",),
-        raising=False,
-    )
 
     queue = asyncio.Queue()
     sentence_iter = iter(zip(message, chunks, request_ids, strict=False))
     get_next_part, message_gen = stream_sentence_helpers(sentence_iter, queue)
-    options = {tts.ATTR_VOICE: "voice1", "model": "model1"}
+    options = {TextToSpeechCommonOption.VOICE: "voice1", "model": model}
     req = TTSAudioRequest(message_gen=message_gen(), language="en", options=options)
 
     resp = await tts_entity.async_stream_tts_audio(req)

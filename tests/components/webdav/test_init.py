@@ -2,114 +2,21 @@
 
 from unittest.mock import AsyncMock
 
-from aiowebdav2.exceptions import AccessDeniedError, UnauthorizedError, WebDavError
+from aiowebdav2.exceptions import (
+    AccessDeniedError,
+    ConnectionExceptionError,
+    NoConnectionError,
+    UnauthorizedError,
+)
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.webdav.const import CONF_BACKUP_PATH, DOMAIN
-from homeassistant.config_entries import ConfigEntryState
+from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
 from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 
 from . import setup_integration
-
-from tests.common import MockConfigEntry
-
-
-async def test_migrate_wrong_path(
-    hass: HomeAssistant, webdav_client: AsyncMock
-) -> None:
-    """Test migration of wrong encoded folder path."""
-    webdav_client.list_with_properties.return_value = [
-        {"/wrong%20path": []},
-    ]
-
-    config_entry = MockConfigEntry(
-        title="user@webdav.demo",
-        domain=DOMAIN,
-        data={
-            CONF_URL: "https://webdav.demo",
-            CONF_USERNAME: "user",
-            CONF_PASSWORD: "supersecretpassword",
-            CONF_BACKUP_PATH: "/wrong path",
-        },
-        entry_id="01JKXV07ASC62D620DGYNG2R8H",
-    )
-    await setup_integration(hass, config_entry)
-
-    webdav_client.move.assert_called_once_with("/wrong%20path", "/wrong path")
-
-
-@pytest.mark.parametrize(
-    ("expected_path", "remote_path_check"),
-    [
-        (
-            "/correct path",
-            False,
-        ),  # remote_path_check is False as /correct%20path is not there
-        ("/", True),
-        ("/folder_with_underscores", True),
-    ],
-)
-async def test_migrate_non_wrong_path(
-    hass: HomeAssistant,
-    webdav_client: AsyncMock,
-    expected_path: str,
-    remote_path_check: bool,
-) -> None:
-    """Test no migration of correct folder path."""
-    webdav_client.list_with_properties.return_value = [
-        {expected_path: []},
-    ]
-    # first return is used to check the connectivity
-    # second is used in the migration to determine if wrong quoted path is there
-    webdav_client.check.side_effect = [True, remote_path_check]
-
-    config_entry = MockConfigEntry(
-        title="user@webdav.demo",
-        domain=DOMAIN,
-        data={
-            CONF_URL: "https://webdav.demo",
-            CONF_USERNAME: "user",
-            CONF_PASSWORD: "supersecretpassword",
-            CONF_BACKUP_PATH: expected_path,
-        },
-        entry_id="01JKXV07ASC62D620DGYNG2R8H",
-    )
-
-    await setup_integration(hass, config_entry)
-
-    webdav_client.move.assert_not_called()
-
-
-async def test_migrate_error(
-    hass: HomeAssistant,
-    webdav_client: AsyncMock,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Test migration of wrong encoded folder path with error."""
-    webdav_client.list_with_properties.return_value = [
-        {"/wrong%20path": []},
-    ]
-    webdav_client.move.side_effect = WebDavError("Failed to move")
-
-    config_entry = MockConfigEntry(
-        title="user@webdav.demo",
-        domain=DOMAIN,
-        data={
-            CONF_URL: "https://webdav.demo",
-            CONF_USERNAME: "user",
-            CONF_PASSWORD: "supersecretpassword",
-            CONF_BACKUP_PATH: "/wrong path",
-        },
-        entry_id="01JKXV07ASC62D620DGYNG2R8H",
-    )
-    await setup_integration(hass, config_entry)
-
-    assert config_entry.state is ConfigEntryState.SETUP_RETRY
-    assert (
-        'Failed to migrate wrong encoded folder "/wrong%20path" to "/wrong path"'
-        in caplog.text
-    )
 
 
 @pytest.mark.parametrize(
@@ -125,8 +32,29 @@ async def test_migrate_error(
             "Access denied to /access_denied",
             ConfigEntryState.SETUP_ERROR,
         ),
+        (
+            ConnectionExceptionError(ConnectionError("Connection refused")),
+            "Connection refused",
+            ConfigEntryState.SETUP_RETRY,
+        ),
+        (
+            NoConnectionError("webdav.demo"),
+            "No connection with webdav.demo",
+            ConfigEntryState.SETUP_RETRY,
+        ),
+        (
+            TimeoutError(),
+            "",
+            ConfigEntryState.SETUP_RETRY,
+        ),
     ],
-    ids=["UnauthorizedError", "AccessDeniedError"],
+    ids=[
+        "UnauthorizedError",
+        "AccessDeniedError",
+        "ConnectionExceptionError",
+        "NoConnectionError",
+        "TimeoutError",
+    ],
 )
 async def test_error_during_setup(
     hass: HomeAssistant,
@@ -137,7 +65,7 @@ async def test_error_during_setup(
     expected_state: ConfigEntryState,
 ) -> None:
     """Test handling of various errors during setup."""
-    webdav_client.check.side_effect = error
+    webdav_client.exists.side_effect = error
 
     config_entry = MockConfigEntry(
         title="user@webdav.demo",
@@ -154,3 +82,97 @@ async def test_error_during_setup(
 
     assert expected_message in caplog.text
     assert config_entry.state is expected_state
+
+
+async def test_auth_error_during_setup_starts_reauth(
+    hass: HomeAssistant,
+    webdav_client: AsyncMock,
+    mock_config_entry: MockConfigEntry,
+) -> None:
+    """Test an authentication error during setup starts a reauth flow."""
+    webdav_client.exists.side_effect = UnauthorizedError("https://webdav.demo")
+
+    await setup_integration(hass, mock_config_entry)
+
+    assert mock_config_entry.state is ConfigEntryState.SETUP_ERROR
+    flows = hass.config_entries.flow.async_progress()
+    assert len(flows) == 1
+    assert flows[0]["context"]["source"] == SOURCE_REAUTH
+    assert flows[0]["context"]["entry_id"] == mock_config_entry.entry_id
+
+
+@pytest.mark.parametrize(
+    ("check_side_effect", "mkdir_side_effect", "expected_message"),
+    [
+        pytest.param(
+            [False],
+            None,
+            "Cannot access or create backup path",
+            id="root_check_failed",
+        ),
+        pytest.param(
+            [True, NoConnectionError("webdav.demo")],
+            None,
+            "No connection with webdav.demo",
+            id="check_no_connection",
+        ),
+        pytest.param(
+            [True, False],
+            ConnectionExceptionError(ConnectionError("Connection refused")),
+            "Connection refused",
+            id="mkdir_connection_exception",
+        ),
+        pytest.param(
+            [True, False],
+            TimeoutError(),
+            "",
+            id="mkdir_timeout",
+        ),
+        pytest.param(
+            [True, False],
+            AccessDeniedError("https://webdav.demo"),
+            "Cannot access or create backup path",
+            id="mkdir_failed",
+        ),
+    ],
+)
+async def test_backup_path_error_during_setup(
+    hass: HomeAssistant,
+    webdav_client: AsyncMock,
+    caplog: pytest.LogCaptureFixture,
+    check_side_effect: list[bool | Exception],
+    mkdir_side_effect: Exception | None,
+    expected_message: str,
+) -> None:
+    """Test errors while ensuring the backup path exists are retried."""
+    webdav_client.exists.side_effect = check_side_effect
+    webdav_client.mkdir.side_effect = mkdir_side_effect
+
+    config_entry = MockConfigEntry(
+        title="user@webdav.demo",
+        domain=DOMAIN,
+        data={
+            CONF_URL: "https://webdav.demo",
+            CONF_USERNAME: "user",
+            CONF_PASSWORD: "supersecretpassword",
+            CONF_BACKUP_PATH: "/backups",
+        },
+        entry_id="01JKXV07ASC62D620DGYNG2R8H",
+    )
+    await setup_integration(hass, config_entry)
+
+    assert expected_message in caplog.text
+    assert config_entry.state is ConfigEntryState.SETUP_RETRY
+
+
+async def test_setup_with_root_backup_path(
+    hass: HomeAssistant,
+    webdav_client: AsyncMock,
+    mock_config_entry: MockConfigEntry,
+) -> None:
+    """Test the default root backup path only checks the server root."""
+    await setup_integration(hass, mock_config_entry)
+
+    assert mock_config_entry.state is ConfigEntryState.LOADED
+    webdav_client.exists.assert_awaited_once_with()
+    webdav_client.mkdir.assert_not_called()

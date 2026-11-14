@@ -1,20 +1,22 @@
 """Tests for the Rituals Perfume Genie number platform."""
 
-from __future__ import annotations
-
 import pytest
+from ritualsgenie import RitualsGenieConnectionError
 
-from homeassistant.components.homeassistant import SERVICE_UPDATE_ENTITY
+from homeassistant.components.homeassistant import (
+    DOMAIN as HOMEASSISTANT_DOMAIN,
+    SERVICE_UPDATE_ENTITY,
+)
 from homeassistant.components.number import (
     ATTR_MAX,
     ATTR_MIN,
-    ATTR_VALUE,
     DOMAIN as NUMBER_DOMAIN,
-    SERVICE_SET_VALUE,
+    NumberService,
+    NumberServiceArgument,
 )
-from homeassistant.const import ATTR_ENTITY_ID
+from homeassistant.const import ATTR_ENTITY_ID, CommonServiceArgument
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ServiceValidationError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
 
@@ -49,9 +51,8 @@ async def test_set_number_value(hass: HomeAssistant) -> None:
     """Test setting the diffuser number entity value."""
     config_entry = mock_config_entry(unique_id="number_set_value_test")
     diffuser = mock_diffuser_v1_battery_cartridge()
-    await init_integration(hass, config_entry, [diffuser])
-    await async_setup_component(hass, "homeassistant", {})
-    diffuser.perfume_amount = 1
+    client = await init_integration(hass, config_entry, [diffuser])
+    await async_setup_component(hass, HOMEASSISTANT_DOMAIN, {})
 
     state = hass.states.get("number.genie_perfume_amount")
     assert state
@@ -59,12 +60,24 @@ async def test_set_number_value(hass: HomeAssistant) -> None:
 
     await hass.services.async_call(
         NUMBER_DOMAIN,
-        SERVICE_SET_VALUE,
-        {ATTR_ENTITY_ID: "number.genie_perfume_amount", ATTR_VALUE: 1},
+        NumberService.SET_VALUE,
+        {
+            CommonServiceArgument.ENTITY_ID: "number.genie_perfume_amount",
+            NumberServiceArgument.VALUE: 1,
+        },
         blocking=True,
     )
+
+    client.set_perfume_amount.assert_awaited_once_with(diffuser.hub_hash, 1)
+
+    # The new value shows right away, without waiting for the next update.
+    state = hass.states.get("number.genie_perfume_amount")
+    assert state
+    assert state.state == "1"
+
+    diffuser.perfume_amount = 1
     await hass.services.async_call(
-        "homeassistant",
+        HOMEASSISTANT_DOMAIN,
         SERVICE_UPDATE_ENTITY,
         {ATTR_ENTITY_ID: ["number.genie_perfume_amount"]},
         blocking=True,
@@ -81,7 +94,7 @@ async def test_set_number_value_out_of_range(hass: HomeAssistant) -> None:
     config_entry = mock_config_entry(unique_id="number_set_value_out_of_range_test")
     diffuser = mock_diffuser(hublot="lot123", perfume_amount=2)
     await init_integration(hass, config_entry, [diffuser])
-    await async_setup_component(hass, "homeassistant", {})
+    await async_setup_component(hass, HOMEASSISTANT_DOMAIN, {})
 
     state = hass.states.get("number.genie_perfume_amount")
     assert state
@@ -90,12 +103,15 @@ async def test_set_number_value_out_of_range(hass: HomeAssistant) -> None:
     with pytest.raises(ServiceValidationError):
         await hass.services.async_call(
             NUMBER_DOMAIN,
-            SERVICE_SET_VALUE,
-            {ATTR_ENTITY_ID: "number.genie_perfume_amount", ATTR_VALUE: 4},
+            NumberService.SET_VALUE,
+            {
+                CommonServiceArgument.ENTITY_ID: "number.genie_perfume_amount",
+                NumberServiceArgument.VALUE: 4,
+            },
             blocking=True,
         )
     await hass.services.async_call(
-        "homeassistant",
+        HOMEASSISTANT_DOMAIN,
         SERVICE_UPDATE_ENTITY,
         {ATTR_ENTITY_ID: ["number.genie_perfume_amount"]},
         blocking=True,
@@ -109,12 +125,15 @@ async def test_set_number_value_out_of_range(hass: HomeAssistant) -> None:
     with pytest.raises(ServiceValidationError):
         await hass.services.async_call(
             NUMBER_DOMAIN,
-            SERVICE_SET_VALUE,
-            {ATTR_ENTITY_ID: "number.genie_perfume_amount", ATTR_VALUE: 0},
+            NumberService.SET_VALUE,
+            {
+                CommonServiceArgument.ENTITY_ID: "number.genie_perfume_amount",
+                NumberServiceArgument.VALUE: 0,
+            },
             blocking=True,
         )
     await hass.services.async_call(
-        "homeassistant",
+        HOMEASSISTANT_DOMAIN,
         SERVICE_UPDATE_ENTITY,
         {ATTR_ENTITY_ID: ["number.genie_perfume_amount"]},
         blocking=True,
@@ -131,21 +150,25 @@ async def test_set_number_value_to_float(hass: HomeAssistant) -> None:
     config_entry = mock_config_entry(unique_id="number_set_value_to_float_test")
     diffuser = mock_diffuser(hublot="lot123", perfume_amount=3)
     await init_integration(hass, config_entry, [diffuser])
-    await async_setup_component(hass, "homeassistant", {})
+    await async_setup_component(hass, HOMEASSISTANT_DOMAIN, {})
 
     state = hass.states.get("number.genie_perfume_amount")
     assert state
     assert state.state == "3"
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ServiceValidationError) as exc_info:
         await hass.services.async_call(
             NUMBER_DOMAIN,
-            SERVICE_SET_VALUE,
-            {ATTR_ENTITY_ID: "number.genie_perfume_amount", ATTR_VALUE: 1.5},
+            NumberService.SET_VALUE,
+            {
+                CommonServiceArgument.ENTITY_ID: "number.genie_perfume_amount",
+                NumberServiceArgument.VALUE: 1.5,
+            },
             blocking=True,
         )
+    assert exc_info.value.translation_key == "perfume_amount_not_whole"
     await hass.services.async_call(
-        "homeassistant",
+        HOMEASSISTANT_DOMAIN,
         SERVICE_UPDATE_ENTITY,
         {ATTR_ENTITY_ID: ["number.genie_perfume_amount"]},
         blocking=True,
@@ -155,3 +178,26 @@ async def test_set_number_value_to_float(hass: HomeAssistant) -> None:
     state = hass.states.get("number.genie_perfume_amount")
     assert state
     assert state.state == "3"
+
+
+async def test_number_action_error(hass: HomeAssistant) -> None:
+    """Test a failing change of the perfume amount raises a translated error."""
+    config_entry = mock_config_entry(unique_id="id_123_number_action_error")
+    client = await init_integration(hass, config_entry, [mock_diffuser("lot123")])
+    client.set_perfume_amount.side_effect = RitualsGenieConnectionError
+
+    with pytest.raises(HomeAssistantError) as exc_info:
+        await hass.services.async_call(
+            NUMBER_DOMAIN,
+            NumberService.SET_VALUE,
+            {
+                CommonServiceArgument.ENTITY_ID: "number.genie_perfume_amount",
+                NumberServiceArgument.VALUE: 1,
+            },
+            blocking=True,
+        )
+
+    assert exc_info.value.translation_key == "communication_error"
+    state = hass.states.get("number.genie_perfume_amount")
+    assert state
+    assert state.state == "2"

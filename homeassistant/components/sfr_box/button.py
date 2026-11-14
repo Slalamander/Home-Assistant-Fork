@@ -1,14 +1,12 @@
 """SFR Box button platform."""
 
-from __future__ import annotations
-
 from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Concatenate
+from typing import Any, Concatenate, override
 
 from sfrbox_api.bridge import SFRBox
-from sfrbox_api.exceptions import SFRBoxError
+from sfrbox_api.exceptions import SFRBoxAuthenticationError, SFRBoxError
 from sfrbox_api.models import SystemInfo
 
 from homeassistant.components.button import (
@@ -16,15 +14,18 @@ from homeassistant.components.button import (
     ButtonEntity,
     ButtonEntityDescription,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import DOMAIN
-from .models import DomainData
+from .coordinator import SFRConfigEntry
+from .entity import SFREntity
+
+# Coordinator is used to centralize the data updates
+# but better to queue action calls to avoid conflicts
+PARALLEL_UPDATES = 1
 
 
 def with_error_wrapping[**_P, _R](
@@ -41,8 +42,18 @@ def with_error_wrapping[**_P, _R](
         """Catch SFRBoxError errors and raise HomeAssistantError."""
         try:
             return await func(self, *args, **kwargs)
+        except SFRBoxAuthenticationError as err:
+            self._entry.async_start_reauth(self.hass)
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="invalid_credentials",
+            ) from err
         except SFRBoxError as err:
-            raise HomeAssistantError(err) from err
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="unknown_error",
+                translation_placeholders={"error": str(err)},
+            ) from err
 
     return wrapper
 
@@ -66,42 +77,41 @@ BUTTON_TYPES: tuple[SFRBoxButtonEntityDescription, ...] = (
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: SFRConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the buttons."""
-    data: DomainData = hass.data[DOMAIN][entry.entry_id]
+    data = entry.runtime_data
+    if not data.has_authentication:
+        # All buttons currently require authentication
+        return
+
     system_info = data.system.data
-    if TYPE_CHECKING:
-        assert system_info is not None
 
     entities = [
-        SFRBoxButton(data.box, description, system_info) for description in BUTTON_TYPES
+        SFRBoxButton(entry, description, system_info) for description in BUTTON_TYPES
     ]
     async_add_entities(entities)
 
 
-class SFRBoxButton(ButtonEntity):
-    """Mixin for button specific attributes."""
+class SFRBoxButton(SFREntity, ButtonEntity):
+    """SFR Box button."""
 
     entity_description: SFRBoxButtonEntityDescription
-    _attr_has_entity_name = True
 
     def __init__(
         self,
-        box: SFRBox,
+        entry: SFRConfigEntry,
         description: SFRBoxButtonEntityDescription,
         system_info: SystemInfo,
     ) -> None:
-        """Initialize the sensor."""
-        self.entity_description = description
-        self._box = box
-        self._attr_unique_id = f"{system_info.mac_addr}_{description.key}"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, system_info.mac_addr)},
-        )
+        """Initialize the button."""
+        super().__init__(description, system_info)
+        self._entry = entry
+        self._box = entry.runtime_data.box
 
     @with_error_wrapping
+    @override
     async def async_press(self) -> None:
         """Process the button press."""
         await self.entity_description.async_press(self._box)

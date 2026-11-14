@@ -2,8 +2,9 @@
 
 from collections.abc import Mapping
 import logging
-from typing import Any
+from typing import Any, override
 
+import probatio
 from psnawp_api.core.psnawp_exceptions import (
     PSNAWPAuthenticationError,
     PSNAWPError,
@@ -11,17 +12,15 @@ from psnawp_api.core.psnawp_exceptions import (
     PSNAWPNotFoundError,
 )
 from psnawp_api.utils.misc import parse_npsso_token
-import voluptuous as vol
 
 from homeassistant.config_entries import (
     SOURCE_REAUTH,
-    ConfigEntry,
+    ConfigEntryState,
     ConfigFlow,
     ConfigFlowResult,
     ConfigSubentryFlow,
     SubentryFlowResult,
 )
-from homeassistant.const import CONF_NAME
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     SelectOptionDict,
@@ -35,7 +34,7 @@ from .helpers import PlaystationNetwork
 
 _LOGGER = logging.getLogger(__name__)
 
-STEP_USER_DATA_SCHEMA = vol.Schema({vol.Required(CONF_NPSSO): str})
+STEP_USER_DATA_SCHEMA = probatio.Schema({probatio.Required(CONF_NPSSO): str})
 
 
 class PlaystationNetworkConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -43,12 +42,14 @@ class PlaystationNetworkConfigFlow(ConfigFlow, domain=DOMAIN):
 
     @classmethod
     @callback
+    @override
     def async_get_supported_subentry_types(
-        cls, config_entry: ConfigEntry
+        cls, config_entry: PlaystationNetworkConfigEntry
     ) -> dict[str, type[ConfigSubentryFlow]]:
         """Return subentries supported by this integration."""
         return {"friend": FriendSubentryFlowHandler}
 
+    @override
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -131,7 +132,7 @@ class PlaystationNetworkConfigFlow(ConfigFlow, domain=DOMAIN):
                 user = await psn.get_user()
             except PSNAWPAuthenticationError:
                 errors["base"] = "invalid_auth"
-            except (PSNAWPNotFoundError, PSNAWPInvalidTokenError):
+            except PSNAWPNotFoundError, PSNAWPInvalidTokenError:
                 errors["base"] = "invalid_account"
             except PSNAWPError:
                 errors["base"] = "cannot_connect"
@@ -143,15 +144,16 @@ class PlaystationNetworkConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_mismatch(
                     description_placeholders={
                         "wrong_account": user.online_id,
-                        CONF_NAME: entry.title,
+                        "name": entry.title,
                     }
                 )
 
-                return self.async_update_reload_and_abort(
+                return self.async_update_and_abort(
                     entry,
                     data_updates={CONF_NPSSO: npsso},
                 )
 
+        # pylint: disable-next=home-assistant-step_id-match-method
         return self.async_show_form(
             step_id="reauth_confirm" if self.source == SOURCE_REAUTH else "reconfigure",
             data_schema=self.add_suggested_values_to_schema(
@@ -173,6 +175,8 @@ class FriendSubentryFlowHandler(ConfigSubentryFlow):
     ) -> SubentryFlowResult:
         """Subentry user flow."""
         config_entry: PlaystationNetworkConfigEntry = self._get_entry()
+        if config_entry.state is not ConfigEntryState.LOADED:
+            return self.async_abort(reason="config_entry_disabled")
         friends_list = config_entry.runtime_data.user_data.psn.friends_list
 
         if user_input is not None:
@@ -207,9 +211,9 @@ class FriendSubentryFlowHandler(ConfigSubentryFlow):
         return self.async_show_form(
             step_id="user",
             data_schema=self.add_suggested_values_to_schema(
-                vol.Schema(
+                probatio.Schema(
                     {
-                        vol.Required(CONF_ACCOUNT_ID): SelectSelector(
+                        probatio.Required(CONF_ACCOUNT_ID): SelectSelector(
                             SelectSelectorConfig(options=options)
                         )
                     }

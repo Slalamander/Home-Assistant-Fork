@@ -1,24 +1,14 @@
 """Coordinate data for powerview devices."""
 
-from __future__ import annotations
-
-from collections.abc import Iterable
-from typing import Any
-
 from aiopvapi.helpers.aiorequest import AioRequest
-from aiopvapi.helpers.constants import ATTR_ID
 from aiopvapi.hub import Hub
 
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
+from .const import DOMAIN
 from .model import PowerviewAPI, PowerviewDeviceInfo
-
-
-@callback
-def async_map_data_by_id(data: Iterable[dict[str | int, Any]]):
-    """Return a dict with the key being the id for a list of entries."""
-    return {entry[ATTR_ID]: entry for entry in data}
 
 
 async def async_connect_hub(
@@ -40,3 +30,8 @@ async def async_connect_hub(
         hub_address=hub.ip,
     )
     return PowerviewAPI(hub, pv_request, info)
+
+
+def get_shade_ids(device: dr.DeviceEntry) -> set[str]:
+    """Return the Powerview identifiers on a device as strings."""
+    return {str(ident) for domain, ident in device.identifiers if domain == DOMAIN}

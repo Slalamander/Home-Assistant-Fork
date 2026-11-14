@@ -1,15 +1,14 @@
 """Generate config flow file."""
 
-from __future__ import annotations
-
 import json
 from typing import Any
 
-from .brand import validate as validate_brands
-from .model import Brand, Config, Integration
-from .serializer import format_python_namespace
+from hassfest.model import Brand, Config, Integration, IntegrationType
+from hassfest.serializer import format_python_namespace
 
-UNIQUE_ID_IGNORE = {"huawei_lte", "mqtt", "adguard"}
+from .brand import validate as validate_brands
+
+UNIQUE_ID_IGNORE = {"huawei_lte", "mqtt", "adguard", "unifi_discovery"}
 
 
 def _validate_integration(config: Config, integration: Integration) -> None:
@@ -75,12 +74,34 @@ def _generate_and_validate(integrations: dict[str, Integration], config: Config)
 
         _validate_integration(config, integration)
 
-        if integration.integration_type == "helper":
+        if integration.integration_type == IntegrationType.HELPER:
             domains["helper"].append(domain)
         else:
             domains["integration"].append(domain)
 
     return format_python_namespace({"FLOWS": domains})
+
+
+def _categories(
+    integration: Integration, integrations: dict[str, Integration]
+) -> list[str]:
+    """Return the categories, virtual integrations inherit them from supported_by."""
+    if integration.supported_by and (
+        supported_by := integrations.get(integration.supported_by)
+    ):
+        return supported_by.categories
+    return integration.categories
+
+
+def _connectivity(
+    integration: Integration, integrations: dict[str, Integration]
+) -> list[str]:
+    """Return the connectivity, virtual integrations inherit it from supported_by."""
+    if integration.supported_by and (
+        supported_by := integrations.get(integration.supported_by)
+    ):
+        return supported_by.connectivity
+    return integration.connectivity
 
 
 def _populate_brand_integrations(
@@ -94,8 +115,8 @@ def _populate_brand_integrations(
     for domain in sub_integrations:
         integration = integrations.get(domain)
         if not integration or integration.integration_type in (
-            "entity",
-            "system",
+            IntegrationType.ENTITY,
+            IntegrationType.SYSTEM,
         ):
             continue
         metadata: dict[str, Any] = {
@@ -110,6 +131,10 @@ def _populate_brand_integrations(
             metadata["supported_by"] = integration.supported_by
         if integration.iot_standards:
             metadata["iot_standards"] = integration.iot_standards
+        if categories := _categories(integration, integrations):
+            metadata["categories"] = categories
+        if connectivity := _connectivity(integration, integrations):
+            metadata["connectivity"] = connectivity
         if integration.translated_name:
             integration_data["translated_name"].add(domain)
         else:
@@ -130,9 +155,10 @@ def _generate_integrations(
         "translated_name": set(),
     }
 
-    # Not all integrations will have an item in the brands collection.
-    # The config flow data index will be the union of the integrations without a brands item
-    # and the brand domain names from the brands collection.
+    # Not all integrations will have an item in the brands
+    # collection. The config flow data index will be the union of
+    # the integrations without a brands item and the brand domain
+    # names from the brands collection.
 
     # Compile a set of integrations which are referenced from at least one brand's
     # integrations list. These integrations will not be present in the root level of the
@@ -170,7 +196,10 @@ def _generate_integrations(
             result["integration"][domain] = metadata
         else:  # integration
             integration = integrations[domain]
-            if integration.integration_type in ("entity", "system"):
+            if integration.integration_type in (
+                IntegrationType.ENTITY,
+                IntegrationType.SYSTEM,
+            ):
                 continue
 
             if integration.translated_name:
@@ -180,7 +209,13 @@ def _generate_integrations(
 
             metadata["integration_type"] = integration.integration_type
 
-            if integration.integration_type == "virtual":
+            if categories := _categories(integration, integrations):
+                metadata["categories"] = categories
+
+            if connectivity := _connectivity(integration, integrations):
+                metadata["connectivity"] = connectivity
+
+            if integration.integration_type == IntegrationType.VIRTUAL:
                 if integration.supported_by:
                     metadata["supported_by"] = integration.supported_by
                 if integration.iot_standards:
@@ -195,7 +230,7 @@ def _generate_integrations(
                 ):
                     metadata["single_config_entry"] = single_config_entry
 
-            if integration.integration_type == "helper":
+            if integration.integration_type == IntegrationType.HELPER:
                 result["helper"][domain] = metadata
             else:
                 result["integration"][domain] = metadata

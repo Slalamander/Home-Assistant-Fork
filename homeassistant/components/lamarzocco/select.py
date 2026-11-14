@@ -2,9 +2,10 @@
 
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, cast, override
 
 from pylamarzocco.const import (
+    DoseMode,
     ModelName,
     PreExtractionMode,
     SmartStandByType,
@@ -12,8 +13,8 @@ from pylamarzocco.const import (
     WidgetType,
 )
 from pylamarzocco.devices import LaMarzoccoMachine
-from pylamarzocco.exceptions import RequestNotSuccessful
-from pylamarzocco.models import PreBrewing, SteamBoilerLevel
+from pylamarzocco.exceptions import LaMarzoccoError
+from pylamarzocco.models import BrewByWeightDoses, PreBrewing, SteamBoilerLevel
 
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
 from homeassistant.const import EntityCategory
@@ -50,6 +51,14 @@ STANDBY_MODE_HA_TO_LM = {
 
 STANDBY_MODE_LM_TO_HA = {value: key for key, value in STANDBY_MODE_HA_TO_LM.items()}
 
+DOSE_MODE_HA_TO_LM = {
+    "continuous": DoseMode.CONTINUOUS,
+    "dose1": DoseMode.DOSE_1,
+    "dose2": DoseMode.DOSE_2,
+}
+
+DOSE_MODE_LM_TO_HA = {value: key for key, value in DOSE_MODE_HA_TO_LM.items()}
+
 
 @dataclass(frozen=True, kw_only=True)
 class LaMarzoccoSelectEntityDescription(
@@ -70,16 +79,23 @@ ENTITIES: tuple[LaMarzoccoSelectEntityDescription, ...] = (
         select_option_fn=lambda machine, option: machine.set_steam_level(
             STEAM_LEVEL_HA_TO_LM[option]
         ),
-        current_option_fn=lambda machine: STEAM_LEVEL_LM_TO_HA[
-            cast(
-                SteamBoilerLevel,
-                machine.dashboard.config[WidgetType.CM_STEAM_BOILER_LEVEL],
-            ).target_level
-        ],
-        supported_fn=(
-            lambda coordinator: coordinator.device.dashboard.model_name
-            in (ModelName.LINEA_MINI_R, ModelName.LINEA_MICRA)
+        current_option_fn=lambda machine: (
+            STEAM_LEVEL_LM_TO_HA[
+                cast(
+                    SteamBoilerLevel,
+                    machine.dashboard.config[WidgetType.CM_STEAM_BOILER_LEVEL],
+                ).target_level
+            ]
+            if WidgetType.CM_STEAM_BOILER_LEVEL in machine.dashboard.config
+            else None
         ),
+        supported_fn=(
+            lambda coordinator: (
+                coordinator.device.dashboard.model_name
+                in (ModelName.LINEA_MINI_R, ModelName.LINEA_MICRA)
+            )
+        ),
+        bt_offline_mode=True,
     ),
     LaMarzoccoSelectEntityDescription(
         key="prebrew_infusion_select",
@@ -93,12 +109,14 @@ ENTITIES: tuple[LaMarzoccoSelectEntityDescription, ...] = (
             cast(PreBrewing, machine.dashboard.config[WidgetType.CM_PRE_BREWING]).mode
         ],
         supported_fn=(
-            lambda coordinator: coordinator.device.dashboard.model_name
-            in (
-                ModelName.LINEA_MICRA,
-                ModelName.LINEA_MINI,
-                ModelName.LINEA_MINI_R,
-                ModelName.GS3_AV,
+            lambda coordinator: (
+                coordinator.device.dashboard.model_name
+                in (
+                    ModelName.LINEA_MICRA,
+                    ModelName.LINEA_MINI,
+                    ModelName.LINEA_MINI_R,
+                    ModelName.GS3_AV,
+                )
             )
         ),
     ),
@@ -116,6 +134,35 @@ ENTITIES: tuple[LaMarzoccoSelectEntityDescription, ...] = (
             machine.schedule.smart_wake_up_sleep.smart_stand_by_after
         ],
     ),
+    LaMarzoccoSelectEntityDescription(
+        key="bbw_dose_mode",
+        translation_key="bbw_dose_mode",
+        entity_category=EntityCategory.CONFIG,
+        options=["continuous", "dose1", "dose2"],
+        select_option_fn=lambda machine, option: machine.set_brew_by_weight_dose_mode(
+            mode=DOSE_MODE_HA_TO_LM[option]
+        ),
+        current_option_fn=lambda machine: DOSE_MODE_LM_TO_HA[
+            cast(
+                BrewByWeightDoses,
+                machine.dashboard.config[WidgetType.CM_BREW_BY_WEIGHT_DOSES],
+            ).mode
+        ],
+        available_fn=lambda coordinator: (
+            cast(
+                BrewByWeightDoses,
+                coordinator.device.dashboard.config[WidgetType.CM_BREW_BY_WEIGHT_DOSES],
+            ).scale_connected
+        ),
+        supported_fn=(
+            lambda coordinator: (
+                coordinator.device.dashboard.model_name
+                in (ModelName.LINEA_MINI, ModelName.LINEA_MINI_R)
+                and WidgetType.CM_BREW_BY_WEIGHT_DOSES
+                in coordinator.device.dashboard.config
+            )
+        ),
+    ),
 )
 
 
@@ -128,7 +175,9 @@ async def async_setup_entry(
     coordinator = entry.runtime_data.config_coordinator
 
     async_add_entities(
-        LaMarzoccoSelectEntity(coordinator, description)
+        LaMarzoccoSelectEntity(
+            coordinator, description, entry.runtime_data.bluetooth_coordinator
+        )
         for description in ENTITIES
         if description.supported_fn(coordinator)
     )
@@ -140,10 +189,12 @@ class LaMarzoccoSelectEntity(LaMarzoccoEntity, SelectEntity):
     entity_description: LaMarzoccoSelectEntityDescription
 
     @property
+    @override
     def current_option(self) -> str | None:
         """Return the current selected option."""
         return self.entity_description.current_option_fn(self.coordinator.device)
 
+    @override
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
         if option != self.current_option:
@@ -151,7 +202,7 @@ class LaMarzoccoSelectEntity(LaMarzoccoEntity, SelectEntity):
                 await self.entity_description.select_option_fn(
                     self.coordinator.device, option
                 )
-            except RequestNotSuccessful as exc:
+            except (LaMarzoccoError, TimeoutError) as exc:
                 raise HomeAssistantError(
                     translation_domain=DOMAIN,
                     translation_key="select_option_error",

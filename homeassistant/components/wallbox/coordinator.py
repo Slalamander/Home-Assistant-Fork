@@ -1,18 +1,17 @@
 """DataUpdateCoordinator for the wallbox integration."""
 
-from __future__ import annotations
-
 from collections.abc import Callable
 from datetime import timedelta
 from http import HTTPStatus
 import logging
-from typing import Any, Concatenate
+import time
+from typing import Any, Concatenate, override
 
 import requests
 from wallbox import Wallbox
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -27,6 +26,10 @@ from .const import (
     CHARGER_ECO_SMART_STATUS_KEY,
     CHARGER_ENERGY_PRICE_KEY,
     CHARGER_FEATURES_KEY,
+    CHARGER_JWT_REFRESH_TOKEN,
+    CHARGER_JWT_REFRESH_TTL,
+    CHARGER_JWT_TOKEN,
+    CHARGER_JWT_TTL,
     CHARGER_LOCKED_UNLOCKED_KEY,
     CHARGER_MAX_CHARGING_CURRENT_KEY,
     CHARGER_MAX_CHARGING_CURRENT_POST_KEY,
@@ -81,32 +84,33 @@ CHARGER_STATUS: dict[int, ChargerStatus] = {
 type WallboxConfigEntry = ConfigEntry[WallboxCoordinator]
 
 
+def _insufficient_rights_issue_id(config_entry_id: str) -> str:
+    """Return the insufficient rights issue id for a config entry."""
+    return f"insufficient_rights_{config_entry_id}"
+
+
 def _require_authentication[_WallboxCoordinatorT: WallboxCoordinator, **_P](
     func: Callable[Concatenate[_WallboxCoordinatorT, _P], Any],
 ) -> Callable[Concatenate[_WallboxCoordinatorT, _P], Any]:
     """Authenticate with decorator using Wallbox API."""
 
-    def require_authentication(
+    async def require_authentication(
         self: _WallboxCoordinatorT, *args: _P.args, **kwargs: _P.kwargs
     ) -> Any:
         """Authenticate using Wallbox API."""
-        try:
-            self.authenticate()
-            return func(self, *args, **kwargs)
-        except requests.exceptions.HTTPError as wallbox_connection_error:
-            if wallbox_connection_error.response.status_code == HTTPStatus.FORBIDDEN:
-                raise ConfigEntryAuthFailed(
-                    translation_domain=DOMAIN, translation_key="invalid_auth"
-                ) from wallbox_connection_error
-            raise HomeAssistantError(
-                translation_domain=DOMAIN, translation_key="api_failed"
-            ) from wallbox_connection_error
+        await self.async_authenticate()
+        return await func(self, *args, **kwargs)
 
     return require_authentication
 
 
+def check_token_validity(jwt_token_ttl: int, jwt_token_drift: int) -> bool:
+    """Check if the jwtToken is still valid in order to reuse if possible."""
+    return round((jwt_token_ttl / 1000) - jwt_token_drift, 0) > time.time()
+
+
 def _validate(wallbox: Wallbox) -> None:
-    """Authenticate using Wallbox API."""
+    """Authenticate using Wallbox API to check if the used credentials are valid."""
     try:
         wallbox.authenticate()
     except requests.exceptions.HTTPError as wallbox_connection_error:
@@ -142,11 +146,45 @@ class WallboxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=timedelta(seconds=UPDATE_INTERVAL),
         )
 
-    def authenticate(self) -> None:
-        """Authenticate using Wallbox API."""
-        self._wallbox.authenticate()
+    def _authenticate(self) -> dict[str, str]:
+        """Authenticate using Wallbox API. First check token validity."""
+        data = dict(self.config_entry.data)
+        if not check_token_validity(
+            jwt_token_ttl=data.get(CHARGER_JWT_TTL, 0),
+            jwt_token_drift=UPDATE_INTERVAL,
+        ):
+            try:
+                self._wallbox.authenticate()
+            except requests.exceptions.HTTPError as wallbox_connection_error:
+                if (
+                    wallbox_connection_error.response.status_code
+                    == HTTPStatus.FORBIDDEN
+                ):
+                    raise ConfigEntryAuthFailed(
+                        translation_domain=DOMAIN, translation_key="invalid_auth"
+                    ) from wallbox_connection_error
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN, translation_key="api_failed"
+                ) from wallbox_connection_error
+            else:
+                data[CHARGER_JWT_TOKEN] = self._wallbox.jwtToken
+                data[CHARGER_JWT_REFRESH_TOKEN] = self._wallbox.jwtRefreshToken
+                data[CHARGER_JWT_TTL] = self._wallbox.jwtTokenTtl
+                data[CHARGER_JWT_REFRESH_TTL] = self._wallbox.jwtRefreshTokenTtl
+        return data
 
-    @_require_authentication
+    @callback
+    def _async_delete_insufficient_rights_issue(self) -> None:
+        """Delete the insufficient rights issue after a privileged call succeeded."""
+        ir.async_delete_issue(
+            self.hass, DOMAIN, _insufficient_rights_issue_id(self.config_entry.entry_id)
+        )
+
+    async def async_authenticate(self) -> None:
+        """Authenticate using Wallbox API."""
+        data = await self.hass.async_add_executor_job(self._authenticate)
+        self.hass.config_entries.async_update_entry(self.config_entry, data=data)
+
     def _get_data(self) -> dict[str, Any]:
         """Get new sensor data for Wallbox component."""
         try:
@@ -208,8 +246,10 @@ class WallboxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 translation_domain=DOMAIN, translation_key="api_failed"
             ) from wallbox_connection_error
 
+    @_require_authentication
+    @override
     async def _async_update_data(self) -> dict[str, Any]:
-        """Get new sensor data for Wallbox component. Set update interval to be UPDATE_INTERVAL * #wallbox chargers configured, this is necessary due to rate limitations."""
+        """Get new sensor data for Wallbox component."""
 
         self.update_interval = timedelta(
             seconds=UPDATE_INTERVAL
@@ -217,7 +257,6 @@ class WallboxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         return await self.hass.async_add_executor_job(self._get_data)
 
-    @_require_authentication
     def _set_charging_current(
         self, charging_current: float
     ) -> dict[str, dict[str, dict[str, Any]]]:
@@ -237,6 +276,7 @@ class WallboxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     translation_domain=DOMAIN,
                     translation_key="insufficient_rights",
                     hass=self.hass,
+                    config_entry_id=self.config_entry.entry_id,
                 ) from wallbox_connection_error
             if wallbox_connection_error.response.status_code == 429:
                 raise HomeAssistantError(
@@ -246,14 +286,15 @@ class WallboxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 translation_domain=DOMAIN, translation_key="api_failed"
             ) from wallbox_connection_error
 
+    @_require_authentication
     async def async_set_charging_current(self, charging_current: float) -> None:
         """Set maximum charging current for Wallbox."""
         data = await self.hass.async_add_executor_job(
             self._set_charging_current, charging_current
         )
+        self._async_delete_insufficient_rights_issue()
         self.async_set_updated_data(data)
 
-    @_require_authentication
     def _set_icp_current(self, icp_current: float) -> dict[str, Any]:
         """Set maximum icp current for Wallbox."""
         try:
@@ -267,6 +308,7 @@ class WallboxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     translation_domain=DOMAIN,
                     translation_key="insufficient_rights",
                     hass=self.hass,
+                    config_entry_id=self.config_entry.entry_id,
                 ) from wallbox_connection_error
             if wallbox_connection_error.response.status_code == 429:
                 raise HomeAssistantError(
@@ -276,14 +318,15 @@ class WallboxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 translation_domain=DOMAIN, translation_key="api_failed"
             ) from wallbox_connection_error
 
+    @_require_authentication
     async def async_set_icp_current(self, icp_current: float) -> None:
         """Set maximum icp current for Wallbox."""
         data = await self.hass.async_add_executor_job(
             self._set_icp_current, icp_current
         )
+        self._async_delete_insufficient_rights_issue()
         self.async_set_updated_data(data)
 
-    @_require_authentication
     def _set_energy_cost(self, energy_cost: float) -> dict[str, Any]:
         """Set energy cost for Wallbox."""
         try:
@@ -300,6 +343,7 @@ class WallboxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 translation_domain=DOMAIN, translation_key="api_failed"
             ) from wallbox_connection_error
 
+    @_require_authentication
     async def async_set_energy_cost(self, energy_cost: float) -> None:
         """Set energy cost for Wallbox."""
         data = await self.hass.async_add_executor_job(
@@ -307,7 +351,6 @@ class WallboxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.async_set_updated_data(data)
 
-    @_require_authentication
     def _set_lock_unlock(self, lock: bool) -> dict[str, dict[str, dict[str, Any]]]:
         """Set wallbox to locked or unlocked."""
         try:
@@ -326,6 +369,7 @@ class WallboxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     translation_domain=DOMAIN,
                     translation_key="insufficient_rights",
                     hass=self.hass,
+                    config_entry_id=self.config_entry.entry_id,
                 ) from wallbox_connection_error
             if wallbox_connection_error.response.status_code == 429:
                 raise HomeAssistantError(
@@ -335,12 +379,13 @@ class WallboxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 translation_domain=DOMAIN, translation_key="api_failed"
             ) from wallbox_connection_error
 
+    @_require_authentication
     async def async_set_lock_unlock(self, lock: bool) -> None:
         """Set wallbox to locked or unlocked."""
         data = await self.hass.async_add_executor_job(self._set_lock_unlock, lock)
+        self._async_delete_insufficient_rights_issue()
         self.async_set_updated_data(data)
 
-    @_require_authentication
     def _pause_charger(self, pause: bool) -> None:
         """Set wallbox to pause or resume."""
         try:
@@ -357,12 +402,39 @@ class WallboxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 translation_domain=DOMAIN, translation_key="api_failed"
             ) from wallbox_connection_error
 
+    @_require_authentication
     async def async_pause_charger(self, pause: bool) -> None:
         """Set wallbox to pause or resume."""
         await self.hass.async_add_executor_job(self._pause_charger, pause)
         await self.async_request_refresh()
 
+    def _resume_schedule(self) -> None:
+        """Resume schedule and EcoSmart mode after a manual stop."""
+        try:
+            self._wallbox.resumeSchedule(self._station)
+        except requests.exceptions.HTTPError as wallbox_connection_error:
+            if wallbox_connection_error.response.status_code == 403:
+                raise InsufficientRights(
+                    translation_domain=DOMAIN,
+                    translation_key="insufficient_rights",
+                    hass=self.hass,
+                    config_entry_id=self.config_entry.entry_id,
+                ) from wallbox_connection_error
+            if wallbox_connection_error.response.status_code == 429:
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN, translation_key="too_many_requests"
+                ) from wallbox_connection_error
+            raise HomeAssistantError(
+                translation_domain=DOMAIN, translation_key="api_failed"
+            ) from wallbox_connection_error
+
     @_require_authentication
+    async def async_resume_schedule(self) -> None:
+        """Resume schedule and EcoSmart mode after a manual stop."""
+        await self.hass.async_add_executor_job(self._resume_schedule)
+        self._async_delete_insufficient_rights_issue()
+        await self.async_request_refresh()
+
     def _set_eco_smart(self, option: str) -> None:
         """Set wallbox solar charging mode."""
         try:
@@ -381,6 +453,7 @@ class WallboxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 translation_domain=DOMAIN, translation_key="api_failed"
             ) from wallbox_connection_error
 
+    @_require_authentication
     async def async_set_eco_smart(self, option: str) -> None:
         """Set wallbox solar charging mode."""
 
@@ -402,20 +475,22 @@ class InsufficientRights(HomeAssistantError):
         translation_key: str | None = None,
         translation_placeholders: dict[str, str] | None = None,
         hass: HomeAssistant,
+        config_entry_id: str,
     ) -> None:
         """Initialize exception."""
         super().__init__(
             self, *args, translation_domain, translation_key, translation_placeholders
         )
         self.hass = hass
-        self._create_insufficient_rights_issue()
+        self._create_insufficient_rights_issue(config_entry_id)
 
-    def _create_insufficient_rights_issue(self) -> None:
+    def _create_insufficient_rights_issue(self, config_entry_id: str) -> None:
         """Creates an issue for insufficient rights."""
         ir.create_issue(
             self.hass,
             DOMAIN,
-            "insufficient_rights",
+            _insufficient_rights_issue_id(config_entry_id),
+            config_entry_id=config_entry_id,
             is_fixable=False,
             severity=ir.IssueSeverity.ERROR,
             learn_more_url="https://www.home-assistant.io/integrations/wallbox/#troubleshooting",

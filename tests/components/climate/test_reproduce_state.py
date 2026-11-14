@@ -1,6 +1,7 @@
 """The tests for reproduction of state."""
 
 import pytest
+from pytest_homeassistant.common import async_mock_service
 
 from homeassistant.components.climate import (
     ATTR_FAN_MODE,
@@ -23,8 +24,6 @@ from homeassistant.components.climate import (
 from homeassistant.components.climate.reproduce_state import async_reproduce_states
 from homeassistant.const import ATTR_TEMPERATURE
 from homeassistant.core import Context, HomeAssistant, State
-
-from tests.common import async_mock_service
 
 ENTITY_1 = "climate.test1"
 ENTITY_2 = "climate.test2"
@@ -127,6 +126,7 @@ async def test_attribute(hass: HomeAssistant, service, attribute) -> None:
         (SERVICE_SET_SWING_MODE, ATTR_SWING_MODE),
         (SERVICE_SET_SWING_HORIZONTAL_MODE, ATTR_SWING_HORIZONTAL_MODE),
         (SERVICE_SET_FAN_MODE, ATTR_FAN_MODE),
+        (SERVICE_SET_TEMPERATURE, ATTR_TEMPERATURE),
     ],
 )
 async def test_attribute_with_none(hass: HomeAssistant, service, attribute) -> None:

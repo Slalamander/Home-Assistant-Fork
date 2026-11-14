@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from deebot_client.command import Command
 from deebot_client.commands.json import (
     SetAdvancedMode,
+    SetBorderSpin,
     SetBorderSwitch,
     SetCarpetAutoFanBoost,
     SetChildLock,
@@ -14,8 +15,10 @@ from deebot_client.commands.json import (
     SetSafeProtect,
     SetTrueDetect,
 )
+from deebot_client.commands.json.auto_empty import SetAutoEmpty
 from deebot_client.events import (
     AdvancedModeEvent,
+    BorderSpinEvent,
     BorderSwitchEvent,
     CarpetAutoFanBoostEvent,
     ChildLockEvent,
@@ -25,21 +28,15 @@ from deebot_client.events import (
     MoveUpWarningEvent,
     SafeProtectEvent,
     TrueDetectEvent,
+    auto_empty,
 )
 import pytest
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components.ecovacs.const import DOMAIN
 from homeassistant.components.ecovacs.controller import EcovacsController
-from homeassistant.components.switch import DOMAIN as PLATFORM_DOMAIN
-from homeassistant.const import (
-    ATTR_ENTITY_ID,
-    SERVICE_TURN_OFF,
-    SERVICE_TURN_ON,
-    STATE_OFF,
-    STATE_ON,
-    Platform,
-)
+from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN, SwitchService
+from homeassistant.const import STATE_OFF, STATE_ON, CommonServiceArgument, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
@@ -127,8 +124,43 @@ class SwitchTestCase:
                 ),
             ],
         ),
+        (
+            "55uoqe",
+            [
+                SwitchTestCase(
+                    "switch.dbmini_continuous_cleaning",
+                    ContinuousCleaningEvent(True),
+                    SetContinuousCleaning,
+                ),
+                SwitchTestCase(
+                    "switch.dbmini_carpet_auto_boost_suction",
+                    CarpetAutoFanBoostEvent(True),
+                    SetCarpetAutoFanBoost,
+                ),
+                SwitchTestCase(
+                    "switch.dbmini_true_detect",
+                    TrueDetectEvent(True),
+                    SetTrueDetect,
+                ),
+                SwitchTestCase(
+                    "switch.dbmini_child_lock",
+                    ChildLockEvent(True),
+                    SetChildLock,
+                ),
+                SwitchTestCase(
+                    "switch.dbmini_border_spin",
+                    BorderSpinEvent(True),
+                    SetBorderSpin,
+                ),
+                SwitchTestCase(
+                    "switch.dbmini_auto_empty",
+                    auto_empty.AutoEmptyEvent(True, auto_empty.Frequency.AUTO),
+                    SetAutoEmpty,
+                ),
+            ],
+        ),
     ],
-    ids=["yna5x1", "5xu9h3"],
+    ids=["yna5x1", "5xu9h3", "55uoqe"],
 )
 async def test_switch_entities(
     hass: HomeAssistant,
@@ -164,18 +196,18 @@ async def test_switch_entities(
 
         device._execute_command.reset_mock()
         await hass.services.async_call(
-            PLATFORM_DOMAIN,
-            SERVICE_TURN_OFF,
-            {ATTR_ENTITY_ID: entity_id},
+            SWITCH_DOMAIN,
+            SwitchService.TURN_OFF,
+            {CommonServiceArgument.ENTITY_ID: entity_id},
             blocking=True,
         )
         device._execute_command.assert_called_with(test_case.command(False))
 
         device._execute_command.reset_mock()
         await hass.services.async_call(
-            PLATFORM_DOMAIN,
-            SERVICE_TURN_ON,
-            {ATTR_ENTITY_ID: entity_id},
+            SWITCH_DOMAIN,
+            SwitchService.TURN_ON,
+            {CommonServiceArgument.ENTITY_ID: entity_id},
             blocking=True,
         )
         device._execute_command.assert_called_with(test_case.command(True))
@@ -204,8 +236,14 @@ async def test_switch_entities(
                 "switch.goat_g1_safe_protect",
             ],
         ),
+        (
+            "55uoqe",
+            [
+                "switch.dbmini_border_spin",
+            ],
+        ),
     ],
-    ids=["yna5x1", "5xu9h3"],
+    ids=["yna5x1", "5xu9h3", "55uoqe"],
 )
 async def test_disabled_by_default_switch_entities(
     hass: HomeAssistant, entity_registry: er.EntityRegistry, entity_ids: list[str]

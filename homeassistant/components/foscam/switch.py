@@ -1,10 +1,8 @@
 """Component provides support for the Foscam Switch."""
 
-from __future__ import annotations
-
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, override
 
 from libpyfoscamcgi import FoscamCamera
 
@@ -17,14 +15,22 @@ from .entity import FoscamEntity
 
 
 def handle_ir_turn_on(session: FoscamCamera) -> None:
-    """Turn on IR LED: sets IR mode to auto (if supported), then turns off the IR LED."""
+    """Turn on IR LED.
+
+    Sets IR mode to auto (if supported), then turns off
+    the IR LED.
+    """
 
     session.set_infra_led_config(1)
     session.open_infra_led()
 
 
 def handle_ir_turn_off(session: FoscamCamera) -> None:
-    """Turn off IR LED: sets IR mode to manual (if supported), then turns open the IR LED."""
+    """Turn off IR LED.
+
+    Sets IR mode to manual (if supported), then turns
+    open the IR LED.
+    """
 
     session.set_infra_led_config(0)
     session.close_infra_led()
@@ -143,6 +149,7 @@ SWITCH_DESCRIPTIONS: list[FoscamSwitchEntityDescription] = [
         native_value_fn=lambda data: data.is_human_detection_on,
         turn_off_fn=lambda session: set_motion_detection(session, "humanEnable", False),
         turn_on_fn=lambda session: set_motion_detection(session, "humanEnable", True),
+        exists_fn=lambda coordinator: coordinator.data.supports_human_adjustment,
     ),
 ]
 
@@ -181,10 +188,12 @@ class FoscamGenericSwitch(FoscamEntity, SwitchEntity):
         self._attr_unique_id = f"{entry_id}_{description.key}"
 
     @property
+    @override
     def is_on(self) -> bool:
         """Return the state of the switch."""
         return self.entity_description.native_value_fn(self.coordinator.data)
 
+    @override
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off the entity."""
         self.hass.async_add_executor_job(
@@ -192,6 +201,7 @@ class FoscamGenericSwitch(FoscamEntity, SwitchEntity):
         )
         await self.coordinator.async_request_refresh()
 
+    @override
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn on the entity."""
         self.hass.async_add_executor_job(

@@ -5,6 +5,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call
 
 from aiohomeconnect.model import (
+    ApplianceType,
     ArrayOfEvents,
     ArrayOfSettings,
     Event,
@@ -17,6 +18,7 @@ from aiohomeconnect.model import (
 )
 from aiohomeconnect.model.error import HomeConnectApiError, HomeConnectError
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.home_connect.const import (
     BSH_AMBIENT_LIGHT_COLOR_CUSTOM_COLOR,
@@ -42,18 +44,16 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
-from tests.common import MockConfigEntry
-
-TEST_HC_APP = "Hood"
+TEST_HC_APP = ApplianceType.HOOD
 
 
 @pytest.fixture
-def platforms() -> list[str]:
+def platforms() -> list[Platform]:
     """Fixture to specify platforms to test."""
     return [Platform.LIGHT]
 
 
-@pytest.mark.parametrize("appliance", ["Hood"], indirect=True)
+@pytest.mark.parametrize("appliance", [ApplianceType.HOOD], indirect=True)
 async def test_paired_depaired_devices_flow(
     hass: HomeAssistant,
     device_registry: dr.DeviceRegistry,
@@ -63,11 +63,13 @@ async def test_paired_depaired_devices_flow(
     integration_setup: Callable[[MagicMock], Awaitable[bool]],
     appliance: HomeAppliance,
 ) -> None:
-    """Test that removed devices are correctly removed from and added to hass on API events."""
+    """Test device removal and re-addition on API events."""
     assert await integration_setup(client)
     assert config_entry.state is ConfigEntryState.LOADED
 
-    device = device_registry.async_get_device(identifiers={(DOMAIN, appliance.ha_id)})
+    device = device_registry.async_get_device_by_identifier(
+        (DOMAIN, appliance.ha_id), config_entry.entry_id
+    )
     assert device
     entity_entries = entity_registry.entities.get_entries_for_device_id(device.id)
     assert entity_entries
@@ -83,7 +85,9 @@ async def test_paired_depaired_devices_flow(
     )
     await hass.async_block_till_done()
 
-    device = device_registry.async_get_device(identifiers={(DOMAIN, appliance.ha_id)})
+    device = device_registry.async_get_device_by_identifier(
+        (DOMAIN, appliance.ha_id), config_entry.entry_id
+    )
     assert not device
     for entity_entry in entity_entries:
         assert not entity_registry.async_get(entity_entry.entity_id)
@@ -100,7 +104,9 @@ async def test_paired_depaired_devices_flow(
     )
     await hass.async_block_till_done()
 
-    assert device_registry.async_get_device(identifiers={(DOMAIN, appliance.ha_id)})
+    assert device_registry.async_get_device_by_identifier(
+        (DOMAIN, appliance.ha_id), config_entry.entry_id
+    )
     for entity_entry in entity_entries:
         assert entity_registry.async_get(entity_entry.entity_id)
 
@@ -109,7 +115,7 @@ async def test_paired_depaired_devices_flow(
     ("appliance", "keys_to_check"),
     [
         (
-            "Hood",
+            ApplianceType.HOOD,
             (SettingKey.COOKING_COMMON_LIGHTING,),
         )
     ],
@@ -144,7 +150,9 @@ async def test_connected_devices(
     assert config_entry.state is ConfigEntryState.LOADED
     client.get_settings = get_settings_original_mock
 
-    device = device_registry.async_get_device(identifiers={(DOMAIN, appliance.ha_id)})
+    device = device_registry.async_get_device_by_identifier(
+        (DOMAIN, appliance.ha_id), config_entry.entry_id
+    )
     assert device
     for key in keys_to_check:
         assert not entity_registry.async_get_entity_id(
@@ -172,7 +180,7 @@ async def test_connected_devices(
         )
 
 
-@pytest.mark.parametrize("appliance", ["Hood"], indirect=True)
+@pytest.mark.parametrize("appliance", [ApplianceType.HOOD], indirect=True)
 async def test_light_availability(
     hass: HomeAssistant,
     client: MagicMock,
@@ -180,7 +188,7 @@ async def test_light_availability(
     integration_setup: Callable[[MagicMock], Awaitable[bool]],
     appliance: HomeAppliance,
 ) -> None:
-    """Test if light entities availability are based on the appliance connection state."""
+    """Test light entities availability based on appliance connection."""
     entity_ids = [
         "light.hood_functional_light",
     ]
@@ -241,7 +249,7 @@ async def test_light_availability(
             SERVICE_TURN_ON,
             {},
             STATE_ON,
-            "Hood",
+            ApplianceType.HOOD,
         ),
         (
             "light.hood_functional_light",
@@ -252,7 +260,7 @@ async def test_light_availability(
             SERVICE_TURN_ON,
             {ATTR_BRIGHTNESS: 199},
             STATE_ON,
-            "Hood",
+            ApplianceType.HOOD,
         ),
         (
             "light.hood_functional_light",
@@ -262,7 +270,7 @@ async def test_light_availability(
             SERVICE_TURN_OFF,
             {},
             STATE_OFF,
-            "Hood",
+            ApplianceType.HOOD,
         ),
         (
             "light.hood_ambient_light",
@@ -273,7 +281,7 @@ async def test_light_availability(
             SERVICE_TURN_ON,
             {ATTR_BRIGHTNESS: 199},
             STATE_ON,
-            "Hood",
+            ApplianceType.HOOD,
         ),
         (
             "light.hood_ambient_light",
@@ -283,7 +291,7 @@ async def test_light_availability(
             SERVICE_TURN_OFF,
             {},
             STATE_OFF,
-            "Hood",
+            ApplianceType.HOOD,
         ),
         (
             "light.hood_ambient_light",
@@ -293,13 +301,15 @@ async def test_light_availability(
             SERVICE_TURN_ON,
             {},
             STATE_ON,
-            "Hood",
+            ApplianceType.HOOD,
         ),
         (
             "light.hood_ambient_light",
             {
                 SettingKey.BSH_COMMON_AMBIENT_LIGHT_ENABLED: True,
-                SettingKey.BSH_COMMON_AMBIENT_LIGHT_COLOR: BSH_AMBIENT_LIGHT_COLOR_CUSTOM_COLOR,
+                SettingKey.BSH_COMMON_AMBIENT_LIGHT_COLOR: (
+                    BSH_AMBIENT_LIGHT_COLOR_CUSTOM_COLOR
+                ),
                 SettingKey.BSH_COMMON_AMBIENT_LIGHT_CUSTOM_COLOR: "#ffff00",
             },
             SERVICE_TURN_ON,
@@ -307,13 +317,15 @@ async def test_light_availability(
                 ATTR_RGB_COLOR: (255, 255, 0),
             },
             STATE_ON,
-            "Hood",
+            ApplianceType.HOOD,
         ),
         (
             "light.hood_ambient_light",
             {
                 SettingKey.BSH_COMMON_AMBIENT_LIGHT_ENABLED: True,
-                SettingKey.BSH_COMMON_AMBIENT_LIGHT_COLOR: BSH_AMBIENT_LIGHT_COLOR_CUSTOM_COLOR,
+                SettingKey.BSH_COMMON_AMBIENT_LIGHT_COLOR: (
+                    BSH_AMBIENT_LIGHT_COLOR_CUSTOM_COLOR
+                ),
                 SettingKey.BSH_COMMON_AMBIENT_LIGHT_CUSTOM_COLOR: "#b5adcc",
             },
             SERVICE_TURN_ON,
@@ -322,7 +334,7 @@ async def test_light_availability(
                 ATTR_BRIGHTNESS: 199,
             },
             STATE_ON,
-            "Hood",
+            ApplianceType.HOOD,
         ),
         (
             "light.fridgefreezer_external_light",
@@ -332,7 +344,7 @@ async def test_light_availability(
             SERVICE_TURN_ON,
             {},
             STATE_ON,
-            "FridgeFreezer",
+            ApplianceType.FRIDGE_FREEZER,
         ),
     ],
     indirect=["appliance"],
@@ -384,9 +396,11 @@ async def test_light_functionality(
         (
             "light.hood_ambient_light",
             {
-                EventKey.BSH_COMMON_SETTING_AMBIENT_LIGHT_COLOR: "BSH.Common.EnumType.AmbientLightColor.Color1",
+                EventKey.BSH_COMMON_SETTING_AMBIENT_LIGHT_COLOR: (
+                    "BSH.Common.EnumType.AmbientLightColor.Color1"
+                ),
             },
-            "Hood",
+            ApplianceType.HOOD,
         ),
     ],
     indirect=["appliance"],
@@ -400,7 +414,7 @@ async def test_light_color_different_than_custom(
     events: dict[EventKey, Any],
     appliance: HomeAppliance,
 ) -> None:
-    """Test that light color attributes are not set if color is different than custom."""
+    """Test light color attributes not set if color differs from custom."""
     assert await integration_setup(client)
     assert config_entry.state is ConfigEntryState.LOADED
     await hass.services.async_call(
@@ -529,7 +543,9 @@ async def test_light_color_different_than_custom(
             {
                 SettingKey.BSH_COMMON_AMBIENT_LIGHT_ENABLED: True,
                 SettingKey.BSH_COMMON_AMBIENT_LIGHT_BRIGHTNESS: 70,
-                SettingKey.BSH_COMMON_AMBIENT_LIGHT_COLOR: BSH_AMBIENT_LIGHT_COLOR_CUSTOM_COLOR,
+                SettingKey.BSH_COMMON_AMBIENT_LIGHT_COLOR: (
+                    BSH_AMBIENT_LIGHT_COLOR_CUSTOM_COLOR
+                ),
                 SettingKey.BSH_COMMON_AMBIENT_LIGHT_CUSTOM_COLOR: "#ffff00",
             },
             SERVICE_TURN_ON,
@@ -541,7 +557,9 @@ async def test_light_color_different_than_custom(
             "light.hood_ambient_light",
             {
                 SettingKey.BSH_COMMON_AMBIENT_LIGHT_ENABLED: True,
-                SettingKey.BSH_COMMON_AMBIENT_LIGHT_COLOR: BSH_AMBIENT_LIGHT_COLOR_CUSTOM_COLOR,
+                SettingKey.BSH_COMMON_AMBIENT_LIGHT_COLOR: (
+                    BSH_AMBIENT_LIGHT_COLOR_CUSTOM_COLOR
+                ),
                 SettingKey.BSH_COMMON_AMBIENT_LIGHT_CUSTOM_COLOR: "#b5adcc",
             },
             SERVICE_TURN_ON,

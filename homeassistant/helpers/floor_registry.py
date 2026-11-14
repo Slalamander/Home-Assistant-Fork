@@ -1,15 +1,14 @@
 """Provide a way to assign areas to floors in one's home."""
 
-from __future__ import annotations
-
 from collections import defaultdict
 from collections.abc import Iterable
 import dataclasses
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Literal, TypedDict
+import math
+from typing import Any, Literal, TypedDict, override
 
-from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.core import Event, HomeAssistant, callback, verify_event_loop_thread
 from homeassistant.util.dt import utc_from_timestamp, utcnow
 from homeassistant.util.event_type import EventType
 from homeassistant.util.hass_dict import HassKey
@@ -22,7 +21,7 @@ from .normalized_name_base_registry import (
 from .registry import BaseRegistry, RegistryIndexType
 from .singleton import singleton
 from .storage import Store
-from .typing import UNDEFINED, UndefinedType
+from .typing import Undefined
 
 DATA_REGISTRY: HassKey[FloorRegistry] = HassKey("floor_registry")
 EVENT_FLOOR_REGISTRY_UPDATED: EventType[EventFloorRegistryUpdatedData] = EventType(
@@ -30,7 +29,7 @@ EVENT_FLOOR_REGISTRY_UPDATED: EventType[EventFloorRegistryUpdatedData] = EventTy
 )
 STORAGE_KEY = "core.floor_registry"
 STORAGE_VERSION_MAJOR = 1
-STORAGE_VERSION_MINOR = 2
+STORAGE_VERSION_MINOR = 3
 
 
 class _FloorStoreData(TypedDict):
@@ -51,12 +50,23 @@ class FloorRegistryStoreData(TypedDict):
     floors: list[_FloorStoreData]
 
 
-class EventFloorRegistryUpdatedData(TypedDict):
+class _EventFloorRegistryUpdatedData_Create_Remove_Update(TypedDict):
     """Event data for when the floor registry is updated."""
 
     action: Literal["create", "remove", "update"]
     floor_id: str
 
+
+class _EventFloorRegistryUpdatedData_Reorder(TypedDict):
+    """Event data for when the floor registry is updated."""
+
+    action: Literal["reorder"]
+
+
+type EventFloorRegistryUpdatedData = (
+    _EventFloorRegistryUpdatedData_Create_Remove_Update
+    | _EventFloorRegistryUpdatedData_Reorder
+)
 
 type EventFloorRegistryUpdated = Event[EventFloorRegistryUpdatedData]
 
@@ -74,6 +84,7 @@ class FloorEntry(NormalizedNameBaseRegistryEntry):
 class FloorRegistryStore(Store[FloorRegistryStoreData]):
     """Store floor registry data."""
 
+    @override
     async def _async_migrate_func(
         self,
         old_major_version: int,
@@ -82,7 +93,7 @@ class FloorRegistryStore(Store[FloorRegistryStoreData]):
     ) -> FloorRegistryStoreData:
         """Migrate to the new version."""
         if old_major_version > STORAGE_VERSION_MAJOR:
-            raise ValueError("Can't migrate to future version")
+            raise NotImplementedError
 
         if old_major_version == 1:
             if old_minor_version < 2:
@@ -90,6 +101,16 @@ class FloorRegistryStore(Store[FloorRegistryStoreData]):
                 created_at = utc_from_timestamp(0).isoformat()
                 for floor in old_data["floors"]:
                     floor["created_at"] = floor["modified_at"] = created_at
+
+            if old_minor_version < 3:
+                # Version 1.3 sorts the floors by their level attribute, then by name
+                old_data["floors"] = sorted(
+                    old_data["floors"],
+                    key=lambda floor: (
+                        math.inf if floor["level"] is None else -floor["level"],
+                        floor["name"].casefold(),
+                    ),
+                )
 
         return old_data  # type: ignore[return-value]
 
@@ -102,12 +123,14 @@ class FloorRegistryItems(NormalizedNameBaseRegistryItems[FloorEntry]):
         super().__init__()
         self._aliases_index: RegistryIndexType = defaultdict(dict)
 
+    @override
     def _index_entry(self, key: str, entry: FloorEntry) -> None:
         """Index an entry."""
         super()._index_entry(key, entry)
         for normalized_alias in {normalize_name(alias) for alias in entry.aliases}:
             self._aliases_index[normalized_alias][key] = True
 
+    @override
     def _unindex_entry(
         self, key: str, replacement_entry: FloorEntry | None = None
     ) -> None:
@@ -171,6 +194,7 @@ class FloorRegistry(BaseRegistry[FloorRegistryStoreData]):
         return self.floors.generate_id_from_name(name)
 
     @callback
+    @verify_event_loop_thread("floor_registry.async_create")
     def async_create(
         self,
         name: str,
@@ -180,8 +204,6 @@ class FloorRegistry(BaseRegistry[FloorRegistryStoreData]):
         level: int | None = None,
     ) -> FloorEntry:
         """Create a new floor."""
-        self.hass.verify_event_loop_thread("floor_registry.async_create")
-
         if floor := self.async_get_floor_by_name(name):
             raise ValueError(
                 f"The name {name} ({floor.normalized_name}) is already in use"
@@ -200,18 +222,20 @@ class FloorRegistry(BaseRegistry[FloorRegistryStoreData]):
 
         self.hass.bus.async_fire_internal(
             EVENT_FLOOR_REGISTRY_UPDATED,
-            EventFloorRegistryUpdatedData(action="create", floor_id=floor_id),
+            _EventFloorRegistryUpdatedData_Create_Remove_Update(
+                action="create", floor_id=floor_id
+            ),
         )
         return floor
 
     @callback
+    @verify_event_loop_thread("floor_registry.async_delete")
     def async_delete(self, floor_id: str) -> None:
         """Delete floor."""
-        self.hass.verify_event_loop_thread("floor_registry.async_delete")
         del self.floors[floor_id]
         self.hass.bus.async_fire_internal(
             EVENT_FLOOR_REGISTRY_UPDATED,
-            EventFloorRegistryUpdatedData(
+            _EventFloorRegistryUpdatedData_Create_Remove_Update(
                 action="remove",
                 floor_id=floor_id,
             ),
@@ -219,14 +243,15 @@ class FloorRegistry(BaseRegistry[FloorRegistryStoreData]):
         self.async_schedule_save()
 
     @callback
+    @verify_event_loop_thread("floor_registry.async_update")
     def async_update(
         self,
         floor_id: str,
         *,
-        aliases: set[str] | UndefinedType = UNDEFINED,
-        icon: str | None | UndefinedType = UNDEFINED,
-        level: int | UndefinedType = UNDEFINED,
-        name: str | UndefinedType = UNDEFINED,
+        aliases: set[str] | Undefined = Undefined,
+        icon: str | Undefined | None = Undefined,
+        level: int | Undefined = Undefined,
+        name: str | Undefined = Undefined,
     ) -> FloorEntry:
         """Update name of the floor."""
         old = self.floors[floor_id]
@@ -237,9 +262,9 @@ class FloorRegistry(BaseRegistry[FloorRegistryStoreData]):
                 ("icon", icon),
                 ("level", level),
             )
-            if value is not UNDEFINED and value != getattr(old, attr_name)
+            if value is not Undefined and value != getattr(old, attr_name)
         }
-        if name is not UNDEFINED and name != old.name:
+        if name is not Undefined and name != old.name:
             changes["name"] = name
 
         if not changes:
@@ -247,13 +272,12 @@ class FloorRegistry(BaseRegistry[FloorRegistryStoreData]):
 
         changes["modified_at"] = utcnow()
 
-        self.hass.verify_event_loop_thread("floor_registry.async_update")
         new = self.floors[floor_id] = dataclasses.replace(old, **changes)
 
         self.async_schedule_save()
         self.hass.bus.async_fire_internal(
             EVENT_FLOOR_REGISTRY_UPDATED,
-            EventFloorRegistryUpdatedData(
+            _EventFloorRegistryUpdatedData_Create_Remove_Update(
                 action="update",
                 floor_id=floor_id,
             ),
@@ -261,7 +285,29 @@ class FloorRegistry(BaseRegistry[FloorRegistryStoreData]):
 
         return new
 
-    async def async_load(self) -> None:
+    @callback
+    @verify_event_loop_thread("floor_registry.async_reorder")
+    def async_reorder(self, floor_ids: list[str]) -> None:
+        """Reorder floors."""
+        if set(floor_ids) != set(self.floors.data.keys()):
+            raise ValueError(
+                "The floor_ids list must contain all existing floor IDs exactly once"
+            )
+
+        reordered_data = {
+            floor_id: self.floors.data[floor_id] for floor_id in floor_ids
+        }
+        self.floors.data.clear()
+        self.floors.data.update(reordered_data)
+
+        self.async_schedule_save()
+        self.hass.bus.async_fire_internal(
+            EVENT_FLOOR_REGISTRY_UPDATED,
+            _EventFloorRegistryUpdatedData_Reorder(action="reorder"),
+        )
+
+    @override
+    async def _async_load(self) -> None:
         """Load the floor registry."""
         data = await self._store.async_load()
         floors = FloorRegistryItems()
@@ -282,6 +328,7 @@ class FloorRegistry(BaseRegistry[FloorRegistryStoreData]):
         self._floor_data = floors.data
 
     @callback
+    @override
     def _data_to_save(self) -> FloorRegistryStoreData:
         """Return data of floor registry to store in a file."""
         return {
@@ -307,7 +354,7 @@ def async_get(hass: HomeAssistant) -> FloorRegistry:
     return FloorRegistry(hass)
 
 
-async def async_load(hass: HomeAssistant) -> None:
+async def async_load(hass: HomeAssistant, *, load_empty: bool = False) -> None:
     """Load floor registry."""
     assert DATA_REGISTRY not in hass.data
-    await async_get(hass).async_load()
+    await async_get(hass).async_load(load_empty=load_empty)

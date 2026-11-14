@@ -1,13 +1,11 @@
 """Config flow for Droplet integration."""
 
-from __future__ import annotations
+from typing import Any, override
 
-from typing import Any
-
+import probatio
 from pydroplet.droplet import DropletConnection, DropletDiscovery
-import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import SOURCE_IGNORE, ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_CODE, CONF_DEVICE_ID, CONF_IP_ADDRESS, CONF_PORT
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
@@ -15,11 +13,17 @@ from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from .const import DOMAIN
 
 
+def normalize_pairing_code(code: str) -> str:
+    """Normalize pairing code by removing spaces and capitalizing."""
+    return code.replace(" ", "").upper()
+
+
 class DropletConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle Droplet config flow."""
 
     _droplet_discovery: DropletDiscovery
 
+    @override
     async def async_step_zeroconf(
         self, discovery_info: ZeroconfServiceInfo
     ) -> ConfigFlowResult:
@@ -36,9 +40,32 @@ class DropletConfigFlow(ConfigFlow, domain=DOMAIN):
         device_id: str = await self._droplet_discovery.get_device_id()
         await self.async_set_unique_id(device_id)
 
-        self._abort_if_unique_id_configured(
-            updates={CONF_IP_ADDRESS: self._droplet_discovery.host},
+        host = self._droplet_discovery.host
+        entry = self.hass.config_entries.async_entry_for_domain_unique_id(
+            DOMAIN, device_id
         )
+
+        if entry is not None:
+            if entry.source == SOURCE_IGNORE:
+                return self.async_abort(reason="already_configured")
+
+            if entry.data[CONF_IP_ADDRESS] != host:
+                id_matches = False
+                discovery = DropletDiscovery(host, self._droplet_discovery.port, "")
+                session = async_get_clientsession(self.hass)
+                try:
+                    if (
+                        await discovery.try_connect(session, entry.data[CONF_CODE])
+                        and await discovery.get_device_id() == device_id
+                    ):
+                        id_matches = True
+                finally:
+                    await discovery.close()
+
+                if not id_matches:
+                    return self.async_abort(reason="already_configured")
+
+        self._abort_if_unique_id_configured(updates={CONF_IP_ADDRESS: host})
 
         self.context.update({"title_placeholders": {"name": device_id}})
         return await self.async_step_confirm()
@@ -52,14 +79,17 @@ class DropletConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             # Test if we can connect before returning
             session = async_get_clientsession(self.hass)
-            if await self._droplet_discovery.try_connect(
-                session, user_input[CONF_CODE]
-            ):
+            code = normalize_pairing_code(user_input[CONF_CODE])
+            try:
+                connected = await self._droplet_discovery.try_connect(session, code)
+            finally:
+                await self._droplet_discovery.close()
+            if connected:
                 device_data = {
                     CONF_IP_ADDRESS: self._droplet_discovery.host,
                     CONF_PORT: self._droplet_discovery.port,
                     CONF_DEVICE_ID: device_id,
-                    CONF_CODE: user_input[CONF_CODE],
+                    CONF_CODE: code,
                 }
 
                 return self.async_create_entry(
@@ -69,9 +99,9 @@ class DropletConfigFlow(ConfigFlow, domain=DOMAIN):
             errors["base"] = "cannot_connect"
         return self.async_show_form(
             step_id="confirm",
-            data_schema=vol.Schema(
+            data_schema=probatio.Schema(
                 {
-                    vol.Required(CONF_CODE): str,
+                    probatio.Required(CONF_CODE): str,
                 }
             ),
             description_placeholders={
@@ -80,6 +110,7 @@ class DropletConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    @override
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -90,18 +121,23 @@ class DropletConfigFlow(ConfigFlow, domain=DOMAIN):
                 user_input[CONF_IP_ADDRESS], DropletConnection.DEFAULT_PORT, ""
             )
             session = async_get_clientsession(self.hass)
-            if await self._droplet_discovery.try_connect(
-                session, user_input[CONF_CODE]
-            ) and (device_id := await self._droplet_discovery.get_device_id()):
+            code = normalize_pairing_code(user_input[CONF_CODE])
+            device_id = ""
+            try:
+                if await self._droplet_discovery.try_connect(session, code):
+                    device_id = await self._droplet_discovery.get_device_id()
+            finally:
+                await self._droplet_discovery.close()
+            if device_id:
                 device_data = {
                     CONF_IP_ADDRESS: self._droplet_discovery.host,
                     CONF_PORT: self._droplet_discovery.port,
                     CONF_DEVICE_ID: device_id,
-                    CONF_CODE: user_input[CONF_CODE],
+                    CONF_CODE: code,
                 }
                 await self.async_set_unique_id(device_id, raise_on_progress=False)
                 self._abort_if_unique_id_configured(
-                    description_placeholders={CONF_DEVICE_ID: device_id},
+                    description_placeholders={"device_id": device_id},
                 )
 
                 return self.async_create_entry(
@@ -111,8 +147,11 @@ class DropletConfigFlow(ConfigFlow, domain=DOMAIN):
             errors["base"] = "cannot_connect"
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema(
-                {vol.Required(CONF_IP_ADDRESS): str, vol.Required(CONF_CODE): str}
+            data_schema=probatio.Schema(
+                {
+                    probatio.Required(CONF_IP_ADDRESS): str,
+                    probatio.Required(CONF_CODE): str,
+                }
             ),
             errors=errors,
         )

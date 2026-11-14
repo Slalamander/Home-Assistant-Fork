@@ -1,26 +1,26 @@
 """Config flow for OpenRouter integration."""
 
-from __future__ import annotations
-
 import logging
-from typing import Any
+from typing import Any, override
 
+import probatio
 from python_open_router import (
     Model,
     OpenRouterClient,
     OpenRouterError,
+    ReasoningEffort,
     SupportedParameter,
 )
-import voluptuous as vol
 
 from homeassistant.config_entries import (
-    ConfigEntry,
+    SOURCE_USER,
+    ConfigEntryState,
     ConfigFlow,
     ConfigFlowResult,
     ConfigSubentryFlow,
     SubentryFlowResult,
 )
-from homeassistant.const import CONF_API_KEY, CONF_LLM_HASS_API, CONF_MODEL
+from homeassistant.const import CONF_API_KEY, CONF_LLM_HASS_API, CONF_MODEL, CONF_PROMPT
 from homeassistant.core import callback
 from homeassistant.helpers import llm
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -32,20 +32,61 @@ from homeassistant.helpers.selector import (
     TemplateSelector,
 )
 
-from .const import CONF_PROMPT, DOMAIN, RECOMMENDED_CONVERSATION_OPTIONS
+from . import OpenRouterConfigEntry
+from .const import (
+    CONF_OUTPUT_MODALITIES,
+    CONF_REASONING,
+    CONF_WEB_SEARCH,
+    DOMAIN,
+    RECOMMENDED_CONVERSATION_OPTIONS,
+)
 
 _LOGGER = logging.getLogger(__name__)
+
+# No "none" effort: off covers it, also for models without effort levels.
+REASONING_OPTIONS = [
+    "auto",
+    "off",
+    "on",
+    ReasoningEffort.MINIMAL,
+    ReasoningEffort.LOW,
+    ReasoningEffort.MEDIUM,
+    ReasoningEffort.HIGH,
+    ReasoningEffort.XHIGH,
+    ReasoningEffort.MAX,
+]
+
+
+def _reasoning_supported(model: Model, reasoning: str) -> bool:
+    """Return if the model accepts the reasoning setting."""
+    if reasoning == "auto":
+        return True
+    if model.reasoning is None:
+        # Routers such as openrouter/auto have no reasoning options of their
+        # own. They pass the setting on to the model they pick, which may not
+        # allow turning reasoning off.
+        return (
+            reasoning != "off"
+            and SupportedParameter.REASONING in model.supported_parameters
+        )
+    if reasoning == "off":
+        return not model.reasoning.mandatory
+    if reasoning == "on":
+        return True
+    return reasoning in (model.reasoning.supported_efforts or [])
 
 
 class OpenRouterConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for OpenRouter."""
 
     VERSION = 1
+    MINOR_VERSION = 4
 
     @classmethod
     @callback
+    @override
     def async_get_supported_subentry_types(
-        cls, config_entry: ConfigEntry
+        cls, config_entry: OpenRouterConfigEntry
     ) -> dict[str, type[ConfigSubentryFlow]]:
         """Return subentries supported by this handler."""
         return {
@@ -53,6 +94,7 @@ class OpenRouterConfigFlow(ConfigFlow, domain=DOMAIN):
             "ai_task_data": AITaskDataFlowHandler,
         }
 
+    @override
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -64,7 +106,7 @@ class OpenRouterConfigFlow(ConfigFlow, domain=DOMAIN):
                 user_input[CONF_API_KEY], async_get_clientsession(self.hass)
             )
             try:
-                await client.get_key_data()
+                key_data = await client.get_key_data()
             except OpenRouterError:
                 errors["base"] = "cannot_connect"
             except Exception:
@@ -72,14 +114,14 @@ class OpenRouterConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
             else:
                 return self.async_create_entry(
-                    title="OpenRouter",
+                    title=key_data.label,
                     data=user_input,
                 )
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema(
+            data_schema=probatio.Schema(
                 {
-                    vol.Required(CONF_API_KEY): str,
+                    probatio.Required(probatio.Secret(CONF_API_KEY)): str,
                 }
             ),
             errors=errors,
@@ -104,18 +146,56 @@ class OpenRouterSubentryFlowHandler(ConfigSubentryFlow):
 
 
 class ConversationFlowHandler(OpenRouterSubentryFlowHandler):
-    """Handle subentry flow."""
+    """Handle conversation subentry flow."""
+
+    def __init__(self) -> None:
+        """Initialize the subentry flow."""
+        super().__init__()
+        self.options: dict[str, Any] = {}
+
+    @property
+    def _is_new(self) -> bool:
+        """Return if this is a new subentry."""
+        return self.source == SOURCE_USER
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """User flow to create a sensor subentry."""
+        """User flow to create a conversation agent."""
+        self.options = RECOMMENDED_CONVERSATION_OPTIONS.copy()
+        return await self.async_step_init(user_input)
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Handle reconfiguration of a conversation agent."""
+        self.options = self._get_reconfigure_subentry().data.copy()
+        return await self.async_step_init(user_input)
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Manage conversation agent configuration."""
+        if self._get_entry().state is not ConfigEntryState.LOADED:
+            return self.async_abort(reason="entry_not_loaded")
+
+        errors: dict[str, str] = {}
         if user_input is not None:
-            if not user_input.get(CONF_LLM_HASS_API):
+            if user_input.get(CONF_LLM_HASS_API) is None:
                 user_input.pop(CONF_LLM_HASS_API, None)
-            return self.async_create_entry(
-                title=self.models[user_input[CONF_MODEL]].name, data=user_input
-            )
+            model = self.models[user_input[CONF_MODEL]]
+            if not _reasoning_supported(model, user_input[CONF_REASONING]):
+                errors[CONF_REASONING] = "reasoning_not_supported"
+                self.options = user_input
+            elif self._is_new:
+                return self.async_create_entry(title=model.name, data=user_input)
+            else:
+                return self.async_update_and_abort(
+                    self._get_entry(),
+                    self._get_reconfigure_subentry(),
+                    data=user_input,
+                )
+
         try:
             await self._get_models()
         except OpenRouterError:
@@ -123,6 +203,7 @@ class ConversationFlowHandler(OpenRouterSubentryFlowHandler):
         except Exception:
             _LOGGER.exception("Unexpected exception")
             return self.async_abort(reason="unknown")
+
         options = [
             SelectOptionDict(value=model.id, label=model.name)
             for model in self.models.values()
@@ -135,45 +216,134 @@ class ConversationFlowHandler(OpenRouterSubentryFlowHandler):
             )
             for api in llm.async_get_apis(self.hass)
         ]
+
+        if suggested_llm_apis := self.options.get(CONF_LLM_HASS_API):
+            valid_api_ids = {api["value"] for api in hass_apis}
+            self.options[CONF_LLM_HASS_API] = [
+                api for api in suggested_llm_apis if api in valid_api_ids
+            ]
+
         return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema(
+            step_id="init",
+            data_schema=probatio.Schema(
                 {
-                    vol.Required(CONF_MODEL): SelectSelector(
+                    probatio.Required(
+                        CONF_MODEL, default=self.options.get(CONF_MODEL)
+                    ): SelectSelector(
                         SelectSelectorConfig(
                             options=options, mode=SelectSelectorMode.DROPDOWN, sort=True
                         ),
                     ),
-                    vol.Optional(
+                    probatio.Optional(
                         CONF_PROMPT,
                         description={
-                            "suggested_value": RECOMMENDED_CONVERSATION_OPTIONS[
-                                CONF_PROMPT
-                            ]
+                            "suggested_value": self.options.get(
+                                CONF_PROMPT,
+                                RECOMMENDED_CONVERSATION_OPTIONS[CONF_PROMPT],
+                            )
                         },
                     ): TemplateSelector(),
-                    vol.Optional(
+                    probatio.Optional(
                         CONF_LLM_HASS_API,
-                        default=RECOMMENDED_CONVERSATION_OPTIONS[CONF_LLM_HASS_API],
+                        default=self.options.get(
+                            CONF_LLM_HASS_API,
+                            RECOMMENDED_CONVERSATION_OPTIONS[CONF_LLM_HASS_API],
+                        ),
                     ): SelectSelector(
-                        SelectSelectorConfig(options=hass_apis, multiple=True)
+                        SelectSelectorConfig(
+                            options=hass_apis,
+                            multiple=True,
+                            mode=SelectSelectorMode.LIST,
+                        )
+                    ),
+                    probatio.Optional(
+                        CONF_WEB_SEARCH,
+                        default=self.options.get(
+                            CONF_WEB_SEARCH,
+                            RECOMMENDED_CONVERSATION_OPTIONS[CONF_WEB_SEARCH],
+                        ),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[
+                                "off",
+                                "plugin",
+                                "tool",
+                                "tool_native",
+                                "tool_exa",
+                                "tool_firecrawl",
+                                "tool_parallel",
+                                "tool_perplexity",
+                            ],
+                            translation_key="web_search_modes",
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                    probatio.Optional(
+                        CONF_REASONING,
+                        default=self.options.get(
+                            CONF_REASONING,
+                            RECOMMENDED_CONVERSATION_OPTIONS[CONF_REASONING],
+                        ),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=REASONING_OPTIONS,
+                            translation_key=CONF_REASONING,
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
                     ),
                 }
             ),
+            errors=errors,
         )
 
 
 class AITaskDataFlowHandler(OpenRouterSubentryFlowHandler):
-    """Handle subentry flow."""
+    """Handle AI task subentry flow."""
+
+    def __init__(self) -> None:
+        """Initialize the subentry flow."""
+        super().__init__()
+        self.options: dict[str, Any] = {}
+
+    @property
+    def _is_new(self) -> bool:
+        """Return if this is a new subentry."""
+        return self.source == SOURCE_USER
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """User flow to create a sensor subentry."""
+        """User flow to create an AI task."""
+        self.options = {}
+        return await self.async_step_init(user_input)
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Handle reconfiguration of an AI task."""
+        self.options = self._get_reconfigure_subentry().data.copy()
+        return await self.async_step_init(user_input)
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Manage AI task configuration."""
+        if self._get_entry().state is not ConfigEntryState.LOADED:
+            return self.async_abort(reason="entry_not_loaded")
+
         if user_input is not None:
-            return self.async_create_entry(
-                title=self.models[user_input[CONF_MODEL]].name, data=user_input
+            model = self.models[user_input[CONF_MODEL]]
+            user_input[CONF_OUTPUT_MODALITIES] = [
+                str(modality) for modality in model.architecture.output_modalities
+            ]
+            if self._is_new:
+                return self.async_create_entry(title=model.name, data=user_input)
+            return self.async_update_and_abort(
+                self._get_entry(),
+                self._get_reconfigure_subentry(),
+                data=user_input,
             )
+
         try:
             await self._get_models()
         except OpenRouterError:
@@ -181,16 +351,20 @@ class AITaskDataFlowHandler(OpenRouterSubentryFlowHandler):
         except Exception:
             _LOGGER.exception("Unexpected exception")
             return self.async_abort(reason="unknown")
+
         options = [
             SelectOptionDict(value=model.id, label=model.name)
             for model in self.models.values()
             if SupportedParameter.STRUCTURED_OUTPUTS in model.supported_parameters
         ]
+
         return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema(
+            step_id="init",
+            data_schema=probatio.Schema(
                 {
-                    vol.Required(CONF_MODEL): SelectSelector(
+                    probatio.Required(
+                        CONF_MODEL, default=self.options.get(CONF_MODEL)
+                    ): SelectSelector(
                         SelectSelectorConfig(
                             options=options, mode=SelectSelectorMode.DROPDOWN, sort=True
                         ),

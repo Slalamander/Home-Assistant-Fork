@@ -4,12 +4,11 @@ from typing import Any
 
 from freezegun.api import FrozenDateTimeFactory
 import pytest
+from pytest_homeassistant.common import async_fire_time_changed
 
 from homeassistant.core import CoreState, HomeAssistant
 from homeassistant.helpers import storage
 from homeassistant.helpers.registry import SAVE_DELAY, SAVE_DELAY_LONG, BaseRegistry
-
-from tests.common import async_fire_time_changed
 
 
 class SampleRegistry(BaseRegistry):
@@ -20,6 +19,9 @@ class SampleRegistry(BaseRegistry):
         self.hass = hass
         self._store = storage.Store(hass, 1, "test")
         self.save_calls = 0
+
+    async def _async_load(self) -> None:
+        """Load the registry."""
 
     def _data_to_save(self) -> dict[str, Any]:
         """Return data of registry to save."""

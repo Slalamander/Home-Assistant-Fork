@@ -10,6 +10,7 @@ from unittest import mock
 from freezegun.api import FrozenDateTimeFactory
 from pymodbus.exceptions import ModbusException
 import pytest
+from pytest_homeassistant.common import async_fire_time_changed, mock_restore_cache
 
 from homeassistant.components.modbus.const import DOMAIN, TCP
 from homeassistant.const import (
@@ -24,8 +25,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 from homeassistant.util.hass_dict import HassKey
-
-from tests.common import async_fire_time_changed, mock_restore_cache
 
 TEST_MODBUS_NAME = "modbusTest"
 TEST_ENTITY_NAME = "test entity"
@@ -79,7 +78,7 @@ def mock_pymodbus_fixture(do_exception, register_words):
     """Mock pymodbus."""
     mock_pb = mock.AsyncMock()
     mock_pb.close = mock.MagicMock()
-    read_result = ReadResult(register_words if register_words else [])
+    read_result = ReadResult(register_words or [])
     mock_pb.read_coils.return_value = read_result
     mock_pb.read_discrete_inputs.return_value = read_result
     mock_pb.read_input_registers.return_value = read_result
@@ -168,8 +167,45 @@ async def mock_modbus_fixture(
     assert hub.event_connected.is_set()
     freezer.tick(timedelta(seconds=1))
     async_fire_time_changed(hass)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     return mock_pymodbus
+
+
+@pytest.fixture(name="mock_modbus_to_test_errors_config")
+async def mock_modbus_to_test_errors_config_fixture(
+    hass: HomeAssistant,
+    check_config_loaded,
+    config_addon,
+    do_config,
+    mock_pymodbus,
+):
+    """Load integration a base hub modbus."""
+    conf = copy.deepcopy(do_config)
+    for key in conf:
+        if config_addon:
+            conf[key][0].update(config_addon)
+
+    config = {
+        DOMAIN: [
+            {
+                CONF_TYPE: TCP,
+                CONF_HOST: TEST_MODBUS_HOST,
+                CONF_PORT: TEST_PORT_TCP,
+                CONF_NAME: TEST_MODBUS_NAME,
+                **conf,
+            }
+        ]
+    }
+    now = dt_util.utcnow()
+    with mock.patch(
+        "homeassistant.helpers.event.dt_util.utcnow",
+        return_value=now,
+        autospec=True,
+    ):
+        result = await async_setup_component(hass, DOMAIN, config)
+
+    await hass.async_block_till_done()
+    return result
 
 
 @pytest.fixture(name="mock_do_cycle")
@@ -181,7 +217,7 @@ async def mock_do_cycle_fixture(
     """Trigger update call with time_changed event."""
     freezer.tick(timedelta(seconds=1))
     async_fire_time_changed(hass)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     return freezer
 
 
@@ -191,7 +227,7 @@ async def do_next_cycle(
     """Trigger update call with time_changed event."""
     freezer.tick(timedelta(seconds=cycle))
     async_fire_time_changed(hass)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
 
 
 @pytest.fixture(name="mock_test_state")

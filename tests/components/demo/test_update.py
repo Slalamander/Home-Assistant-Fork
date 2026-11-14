@@ -13,15 +13,15 @@ from homeassistant.components.update import (
     ATTR_TITLE,
     ATTR_UPDATE_PERCENTAGE,
     DOMAIN as UPDATE_DOMAIN,
-    SERVICE_INSTALL,
     UpdateDeviceClass,
+    UpdateService,
 )
 from homeassistant.const import (
     ATTR_DEVICE_CLASS,
-    ATTR_ENTITY_ID,
     ATTR_ENTITY_PICTURE,
     STATE_OFF,
     STATE_ON,
+    CommonServiceArgument,
     Platform,
 )
 from homeassistant.core import HomeAssistant, callback
@@ -61,8 +61,7 @@ def test_setup_params(hass: HomeAssistant) -> None:
     )
     assert state.attributes[ATTR_RELEASE_URL] == "https://www.example.com/release/1.0.1"
     assert (
-        state.attributes[ATTR_ENTITY_PICTURE]
-        == "https://brands.home-assistant.io/_/demo/icon.png"
+        state.attributes[ATTR_ENTITY_PICTURE] == "/api/brands/integration/demo/icon.png"
     )
 
     state = hass.states.get("update.demo_no_update")
@@ -74,8 +73,7 @@ def test_setup_params(hass: HomeAssistant) -> None:
     assert state.attributes[ATTR_RELEASE_SUMMARY] is None
     assert state.attributes[ATTR_RELEASE_URL] is None
     assert (
-        state.attributes[ATTR_ENTITY_PICTURE]
-        == "https://brands.home-assistant.io/_/demo/icon.png"
+        state.attributes[ATTR_ENTITY_PICTURE] == "/api/brands/integration/demo/icon.png"
     )
 
     state = hass.states.get("update.demo_add_on")
@@ -89,8 +87,7 @@ def test_setup_params(hass: HomeAssistant) -> None:
     )
     assert state.attributes[ATTR_RELEASE_URL] == "https://www.example.com/release/1.0.1"
     assert (
-        state.attributes[ATTR_ENTITY_PICTURE]
-        == "https://brands.home-assistant.io/_/demo/icon.png"
+        state.attributes[ATTR_ENTITY_PICTURE] == "/api/brands/integration/demo/icon.png"
     )
 
     state = hass.states.get("update.demo_living_room_bulb_update")
@@ -105,8 +102,7 @@ def test_setup_params(hass: HomeAssistant) -> None:
     )
     assert state.attributes[ATTR_DEVICE_CLASS] == UpdateDeviceClass.FIRMWARE
     assert (
-        state.attributes[ATTR_ENTITY_PICTURE]
-        == "https://brands.home-assistant.io/_/demo/icon.png"
+        state.attributes[ATTR_ENTITY_PICTURE] == "/api/brands/integration/demo/icon.png"
     )
 
     state = hass.states.get("update.demo_update_with_progress")
@@ -121,8 +117,7 @@ def test_setup_params(hass: HomeAssistant) -> None:
     )
     assert state.attributes[ATTR_DEVICE_CLASS] == UpdateDeviceClass.FIRMWARE
     assert (
-        state.attributes[ATTR_ENTITY_PICTURE]
-        == "https://brands.home-assistant.io/_/demo/icon.png"
+        state.attributes[ATTR_ENTITY_PICTURE] == "/api/brands/integration/demo/icon.png"
     )
 
 
@@ -154,8 +149,8 @@ async def test_update_with_progress(
     with patch("homeassistant.components.demo.update.FAKE_INSTALL_SLEEP_TIME", new=0):
         await hass.services.async_call(
             UPDATE_DOMAIN,
-            SERVICE_INSTALL,
-            {ATTR_ENTITY_ID: entity_id},
+            UpdateService.INSTALL,
+            {CommonServiceArgument.ENTITY_ID: entity_id},
             blocking=True,
         )
 
@@ -206,8 +201,8 @@ async def test_update_with_progress_raising(
     ):
         await hass.services.async_call(
             UPDATE_DOMAIN,
-            SERVICE_INSTALL,
-            {ATTR_ENTITY_ID: entity_id},
+            UpdateService.INSTALL,
+            {CommonServiceArgument.ENTITY_ID: entity_id},
             blocking=True,
         )
     await hass.async_block_till_done()

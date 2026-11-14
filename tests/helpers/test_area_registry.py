@@ -1,28 +1,23 @@
 """Tests for the Area Registry."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from functools import partial
 from typing import Any
 
 from freezegun.api import FrozenDateTimeFactory
 import pytest
+from pytest_homeassistant.common import ANY, async_capture_events, flush_store
 
 from homeassistant.components.sensor import SensorDeviceClass
-from homeassistant.const import (
-    ATTR_DEVICE_CLASS,
-    ATTR_UNIT_OF_MEASUREMENT,
-    PERCENTAGE,
-    UnitOfTemperature,
-)
+from homeassistant.const import PERCENTAGE, EntityStateAttribute, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import (
     area_registry as ar,
+    entity_registry as er,
     floor_registry as fr,
     label_registry as lr,
 )
 from homeassistant.util.dt import utcnow
-
-from tests.common import ANY, async_capture_events, flush_store
 
 
 @pytest.fixture
@@ -32,16 +27,16 @@ async def mock_temperature_humidity_entity(hass: HomeAssistant) -> None:
         "sensor.mock_temperature",
         "20",
         {
-            ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
-            ATTR_UNIT_OF_MEASUREMENT: UnitOfTemperature.CELSIUS,
+            EntityStateAttribute.DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
+            EntityStateAttribute.UNIT_OF_MEASUREMENT: UnitOfTemperature.CELSIUS,
         },
     )
     hass.states.async_set(
         "sensor.mock_humidity",
         "50",
         {
-            ATTR_DEVICE_CLASS: SensorDeviceClass.HUMIDITY,
-            ATTR_UNIT_OF_MEASUREMENT: PERCENTAGE,
+            EntityStateAttribute.DEVICE_CLASS: SensorDeviceClass.HUMIDITY,
+            EntityStateAttribute.UNIT_OF_MEASUREMENT: PERCENTAGE,
         },
     )
 
@@ -438,15 +433,64 @@ async def test_migration_from_1_1(
     """Test migration from version 1.1."""
     hass_storage[ar.STORAGE_KEY] = {
         "version": 1,
-        "data": {"areas": [{"id": "12345A", "name": "mock"}]},
+        "data": {
+            "areas": [
+                {"id": "12345A", "name": "AAA"},
+                {"id": "12345B", "name": "CCC"},
+                {"id": "12345C", "name": "bbb"},
+            ]
+        },
     }
 
     await ar.async_load(hass)
     registry = ar.async_get(hass)
 
     # Test data was loaded
-    entry = registry.async_get_or_create("mock")
+    entry = registry.async_get_or_create("AAA")
     assert entry.id == "12345A"
+
+    # Check sort order
+    assert list(registry.async_list_areas()) == [
+        ar.AreaEntry(
+            name="AAA",
+            created_at=datetime(1970, 1, 1, 0, 0, tzinfo=UTC),
+            modified_at=datetime(1970, 1, 1, 0, 0, tzinfo=UTC),
+            aliases=set(),
+            floor_id=None,
+            humidity_entity_id=None,
+            icon=None,
+            id="12345A",
+            labels=set(),
+            picture=None,
+            temperature_entity_id=None,
+        ),
+        ar.AreaEntry(
+            name="bbb",
+            created_at=datetime(1970, 1, 1, 0, 0, tzinfo=UTC),
+            modified_at=datetime(1970, 1, 1, 0, 0, tzinfo=UTC),
+            aliases=set(),
+            floor_id=None,
+            humidity_entity_id=None,
+            icon=None,
+            id="12345C",
+            labels=set(),
+            picture=None,
+            temperature_entity_id=None,
+        ),
+        ar.AreaEntry(
+            name="CCC",
+            created_at=datetime(1970, 1, 1, 0, 0, tzinfo=UTC),
+            modified_at=datetime(1970, 1, 1, 0, 0, tzinfo=UTC),
+            aliases=set(),
+            floor_id=None,
+            humidity_entity_id=None,
+            icon=None,
+            id="12345B",
+            labels=set(),
+            picture=None,
+            temperature_entity_id=None,
+        ),
+    ]
 
     # Check we store migrated data
     await flush_store(registry._store)
@@ -458,17 +502,43 @@ async def test_migration_from_1_1(
             "areas": [
                 {
                     "aliases": [],
+                    "created_at": "1970-01-01T00:00:00+00:00",
                     "floor_id": None,
+                    "humidity_entity_id": None,
                     "icon": None,
                     "id": "12345A",
                     "labels": [],
-                    "name": "mock",
-                    "picture": None,
-                    "created_at": "1970-01-01T00:00:00+00:00",
                     "modified_at": "1970-01-01T00:00:00+00:00",
+                    "name": "AAA",
+                    "picture": None,
                     "temperature_entity_id": None,
+                },
+                {
+                    "aliases": [],
+                    "created_at": "1970-01-01T00:00:00+00:00",
+                    "floor_id": None,
                     "humidity_entity_id": None,
-                }
+                    "icon": None,
+                    "id": "12345C",
+                    "labels": [],
+                    "modified_at": "1970-01-01T00:00:00+00:00",
+                    "name": "bbb",
+                    "picture": None,
+                    "temperature_entity_id": None,
+                },
+                {
+                    "aliases": [],
+                    "created_at": "1970-01-01T00:00:00+00:00",
+                    "floor_id": None,
+                    "humidity_entity_id": None,
+                    "icon": None,
+                    "id": "12345B",
+                    "labels": [],
+                    "modified_at": "1970-01-01T00:00:00+00:00",
+                    "name": "CCC",
+                    "picture": None,
+                    "temperature_entity_id": None,
+                },
             ]
         },
     }
@@ -649,6 +719,69 @@ async def test_removing_labels(
 
     assert not area_registry.async_get_area(kitchen.id).labels
     assert not area_registry.async_get_area(bedroom.id).labels
+
+
+@pytest.mark.parametrize(
+    ("attribute", "device_class"),
+    [
+        pytest.param(
+            "temperature_entity_id", SensorDeviceClass.TEMPERATURE, id="temperature"
+        ),
+        pytest.param("humidity_entity_id", SensorDeviceClass.HUMIDITY, id="humidity"),
+    ],
+)
+async def test_entity_renamed(
+    hass: HomeAssistant,
+    area_registry: ar.AreaRegistry,
+    entity_registry: er.EntityRegistry,
+    attribute: str,
+    device_class: SensorDeviceClass,
+) -> None:
+    """Test area sensor references follow entity_id renames."""
+    entry = entity_registry.async_get_or_create("sensor", "test", "1234")
+    hass.states.async_set(
+        entry.entity_id, "20", {EntityStateAttribute.DEVICE_CLASS: device_class}
+    )
+    kitchen = area_registry.async_create("Kitchen", **{attribute: entry.entity_id})
+    bedroom = area_registry.async_create("Bedroom")
+    update_events = async_capture_events(hass, ar.EVENT_AREA_REGISTRY_UPDATED)
+
+    entity_registry.async_update_entity(entry.entity_id, new_entity_id="sensor.renamed")
+    await hass.async_block_till_done()
+
+    assert getattr(area_registry.async_get_area(kitchen.id), attribute) == (
+        "sensor.renamed"
+    )
+    assert getattr(area_registry.async_get_area(bedroom.id), attribute) is None
+    assert [event.data for event in update_events] == [
+        {"action": "update", "area_id": kitchen.id}
+    ]
+
+
+async def test_entity_removed_or_unrelated_entity_renamed(
+    hass: HomeAssistant,
+    area_registry: ar.AreaRegistry,
+    entity_registry: er.EntityRegistry,
+) -> None:
+    """Test area sensor references are kept on removal and unrelated renames."""
+    referenced = entity_registry.async_get_or_create("sensor", "test", "1")
+    unrelated = entity_registry.async_get_or_create("sensor", "test", "2")
+    hass.states.async_set(
+        referenced.entity_id,
+        "20",
+        {EntityStateAttribute.DEVICE_CLASS: SensorDeviceClass.TEMPERATURE},
+    )
+    kitchen = area_registry.async_create(
+        "Kitchen", temperature_entity_id=referenced.entity_id
+    )
+    update_events = async_capture_events(hass, ar.EVENT_AREA_REGISTRY_UPDATED)
+
+    entity_registry.async_update_entity(unrelated.entity_id, new_entity_id="sensor.new")
+    entity_registry.async_remove(referenced.entity_id)
+    await hass.async_block_till_done()
+
+    assert area_registry.async_get_area(kitchen.id) == kitchen
+    assert not update_events
 
 
 @pytest.mark.usefixtures("hass")

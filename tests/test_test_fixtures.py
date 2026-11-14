@@ -1,6 +1,6 @@
 """Test test fixture configuration."""
 
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from http import HTTPStatus
 import pathlib
 import socket
@@ -8,29 +8,71 @@ import socket
 from _pytest.compat import get_real_func
 from aiohttp import web
 import pytest
+from pytest_homeassistant import _paths
+from pytest_homeassistant.common import MockModule, get_fixture_path, mock_integration
+from pytest_homeassistant.plugins import HASocketBlockedError, evict_faked_translations
+from pytest_homeassistant.typing import ClientSessionGenerator
 import pytest_socket
 
+from homeassistant import loader
 from homeassistant.core import HomeAssistant, async_get_hass
 from homeassistant.helpers import translation
 from homeassistant.helpers.http import HomeAssistantView
 from homeassistant.setup import async_setup_component
 
-from .common import MockModule, mock_integration
-from .conftest import evict_faked_translations
-from .typing import ClientSessionGenerator
+
+@pytest.mark.parametrize(
+    ("filename", "integration", "expected"),
+    [
+        ("responses/device.json", None, "nested"),
+        ("responses/device.json", "custom", "nested"),
+        ("device.json", "custom", "flat"),
+        ("core/device.json", None, "core"),
+        ("test_domain/device.json", None, "domain"),
+        ("device.json", "test_domain", "domain"),
+    ],
+)
+def test_fixture_path_fallback(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    filename: str,
+    integration: str | None,
+    expected: str,
+) -> None:
+    """Preserve nested fixture paths when no integration directory exists."""
+    monkeypatch.setattr(_paths, "TESTS_DIR", tmp_path)
+    for name, content in {
+        "fixtures/responses/device.json": "nested",
+        "fixtures/device.json": "flat",
+        "fixtures/core/device.json": "core",
+        "components/test_domain/fixtures/device.json": "domain",
+    }.items():
+        fixture = tmp_path / name
+        fixture.parent.mkdir(parents=True, exist_ok=True)
+        fixture.write_text(content)
+
+    assert get_fixture_path(filename, integration).read_text() == expected
 
 
 def test_sockets_disabled() -> None:
     """Test we can't open sockets."""
+    assert not HASocketBlockedError.instances
     with pytest.raises(pytest_socket.SocketBlockedError):
         socket.socket()
+    assert len(HASocketBlockedError.instances) == 1
+
+    # Clear the instances to not fail the test when exiting the
+    # verify_cleanup fixture.
+    HASocketBlockedError.instances.clear()
 
 
 @pytest.mark.usefixtures("socket_enabled")
 def test_sockets_enabled() -> None:
     """Test we can't connect to an address different from 127.0.0.1."""
-    mysocket = socket.socket()
-    with pytest.raises(pytest_socket.SocketConnectBlockedError):
+    with (
+        socket.socket() as mysocket,
+        pytest.raises(pytest_socket.SocketConnectBlockedError),
+    ):
         mysocket.connect(("127.0.0.2", 1234))
 
 
@@ -41,6 +83,20 @@ async def test_hass_cv(hass: HomeAssistant) -> None:
     in the fixture and that async_get_hass() works correctly.
     """
     assert async_get_hass() is hass
+
+
+async def test_custom_integrations_disabled(hass: HomeAssistant) -> None:
+    """Test the default custom integration policy."""
+    with pytest.raises(loader.IntegrationNotFound):
+        await loader.async_get_integration(hass, "test_package")
+
+
+@pytest.mark.parametrize("custom_integrations_enabled", [True])
+async def test_custom_integrations_enabled(hass: HomeAssistant) -> None:
+    """Load a custom integration using the enabling policy."""
+    integration = await loader.async_get_integration(hass, "test_package")
+    assert not integration.is_built_in
+    assert await async_setup_component(hass, "test_package", {})
 
 
 def register_view(hass: HomeAssistant) -> None:
@@ -84,20 +140,43 @@ async def test_evict_faked_translations_assumptions(hass: HomeAssistant) -> None
     If this test fails, the evict_faked_translations may need to be updated.
     """
     integration = mock_integration(hass, MockModule("test"), built_in=True)
-    assert integration.file_path == pathlib.Path("")
+    assert integration.file_path == pathlib.Path("homeassistant/components/test")
+
+    integration = mock_integration(hass, MockModule("test"), built_in=False)
+    assert integration.file_path == pathlib.Path("custom_components/test")
 
 
-async def test_evict_faked_translations(hass: HomeAssistant, translations_once) -> None:
-    """Test the evict_faked_translations fixture."""
+@pytest.mark.parametrize(
+    "prepare_integration",
+    [
+        # Fake integration backed by a module
+        lambda hass: mock_integration(hass, MockModule("test"), built_in=True),
+        # fake integration not backed by a module
+        lambda hass: None,
+    ],
+)
+async def test_evict_faked_translations(
+    hass: HomeAssistant,
+    translations_once,
+    prepare_integration: Callable[[HomeAssistant], None],
+) -> None:
+    """Test the evict_faked_translations fixture.
+
+    In this test, we load translations for a fake integration, then ensure that
+    after the fixture is torn down, only the real integration remains in the
+    translations cache.
+    """
     cache: translation._TranslationsCacheData = translations_once.kwargs["return_value"]
     fake_domain = "test"
     real_domain = "homeassistant"
 
-    # Evict the real domain from the cache in case it's been loaded before
-    cache.loaded["en"].discard(real_domain)
+    # pylint: disable-next=home-assistant-test-non-deterministic
+    if "en" in cache.loaded:
+        # Evict the real domain from the cache in case it's been loaded before
+        cache.loaded["en"].discard(real_domain)
 
-    assert fake_domain not in cache.loaded["en"]
-    assert real_domain not in cache.loaded["en"]
+        assert fake_domain not in cache.loaded["en"]
+        assert real_domain not in cache.loaded["en"]
 
     # The evict_faked_translations fixture has module scope, so we set it up and
     # tear it down manually
@@ -107,7 +186,8 @@ async def test_evict_faked_translations(hass: HomeAssistant, translations_once) 
     # Set up the evict_faked_translations fixture
     next(gen)
 
-    mock_integration(hass, MockModule(fake_domain), built_in=True)
+    # Try loading translations for mock integration
+    prepare_integration(hass)
     await translation.async_load_integrations(hass, {fake_domain, real_domain})
     assert fake_domain in cache.loaded["en"]
     assert real_domain in cache.loaded["en"]
@@ -116,6 +196,7 @@ async def test_evict_faked_translations(hass: HomeAssistant, translations_once) 
     with pytest.raises(StopIteration):
         next(gen)
 
-    # The mock integration should be removed from the cache, the real domain should still be there
+    # The mock integration should be removed from the cache,
+    # the real domain should still be there
     assert fake_domain not in cache.loaded["en"]
     assert real_domain in cache.loaded["en"]

@@ -1,7 +1,5 @@
 """Support for Spotify media browsing."""
 
-from __future__ import annotations
-
 from enum import StrEnum
 import logging
 from typing import TYPE_CHECKING, Any, TypedDict
@@ -26,7 +24,13 @@ from homeassistant.components.media_player import (
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN, MEDIA_PLAYER_PREFIX, MEDIA_TYPE_SHOW, PLAYABLE_MEDIA_TYPES
+from .const import (
+    DOMAIN,
+    MEDIA_PLAYER_PREFIX,
+    MEDIA_TYPE_SHOW,
+    MEDIA_TYPE_USER_SAVED_TRACKS,
+    PLAYABLE_MEDIA_TYPES,
+)
 from .util import fetch_image_url
 
 BROWSE_LIMIT = 48
@@ -107,24 +111,22 @@ class BrowsableMedia(StrEnum):
     CURRENT_USER_PLAYLISTS = "current_user_playlists"
     CURRENT_USER_FOLLOWED_ARTISTS = "current_user_followed_artists"
     CURRENT_USER_SAVED_ALBUMS = "current_user_saved_albums"
-    CURRENT_USER_SAVED_TRACKS = "current_user_saved_tracks"
+    CURRENT_USER_SAVED_TRACKS = MEDIA_TYPE_USER_SAVED_TRACKS
     CURRENT_USER_SAVED_SHOWS = "current_user_saved_shows"
     CURRENT_USER_RECENTLY_PLAYED = "current_user_recently_played"
     CURRENT_USER_TOP_ARTISTS = "current_user_top_artists"
     CURRENT_USER_TOP_TRACKS = "current_user_top_tracks"
-    NEW_RELEASES = "new_releases"
 
 
 LIBRARY_MAP = {
     BrowsableMedia.CURRENT_USER_PLAYLISTS.value: "Playlists",
     BrowsableMedia.CURRENT_USER_FOLLOWED_ARTISTS.value: "Artists",
     BrowsableMedia.CURRENT_USER_SAVED_ALBUMS.value: "Albums",
-    BrowsableMedia.CURRENT_USER_SAVED_TRACKS.value: "Tracks",
+    BrowsableMedia.CURRENT_USER_SAVED_TRACKS.value: "Liked songs",
     BrowsableMedia.CURRENT_USER_SAVED_SHOWS.value: "Podcasts",
     BrowsableMedia.CURRENT_USER_RECENTLY_PLAYED.value: "Recently played",
     BrowsableMedia.CURRENT_USER_TOP_ARTISTS.value: "Top Artists",
     BrowsableMedia.CURRENT_USER_TOP_TRACKS.value: "Top Tracks",
-    BrowsableMedia.NEW_RELEASES.value: "New Releases",
 }
 
 CONTENT_TYPE_MEDIA_CLASS: dict[str, Any] = {
@@ -159,10 +161,6 @@ CONTENT_TYPE_MEDIA_CLASS: dict[str, Any] = {
     BrowsableMedia.CURRENT_USER_TOP_TRACKS.value: {
         "parent": MediaClass.DIRECTORY,
         "children": MediaClass.TRACK,
-    },
-    BrowsableMedia.NEW_RELEASES.value: {
-        "parent": MediaClass.DIRECTORY,
-        "children": MediaClass.ALBUM,
     },
     MediaType.PLAYLIST: {
         "parent": MediaClass.PLAYLIST,
@@ -206,7 +204,7 @@ async def async_browse_media(
                 media_class=MediaClass.APP,
                 media_content_id=f"{MEDIA_PLAYER_PREFIX}{config_entry.entry_id}",
                 media_content_type=f"{MEDIA_PLAYER_PREFIX}library",
-                thumbnail="https://brands.home-assistant.io/_/spotify/logo.png",
+                thumbnail="/api/brands/integration/spotify/logo.png",
                 can_play=False,
                 can_expand=True,
             )
@@ -217,14 +215,17 @@ async def async_browse_media(
             media_class=MediaClass.APP,
             media_content_id=MEDIA_PLAYER_PREFIX,
             media_content_type="spotify",
-            thumbnail="https://brands.home-assistant.io/_/spotify/logo.png",
+            thumbnail="/api/brands/integration/spotify/logo.png",
             can_play=False,
             can_expand=True,
             children=children,
         )
 
     if media_content_id is None or not media_content_id.startswith(MEDIA_PLAYER_PREFIX):
-        raise BrowseError("Invalid Spotify URL specified")
+        raise BrowseError(
+            translation_domain=DOMAIN,
+            translation_key="invalid_url",
+        )
 
     # The config entry id is the host name of the URL, the Spotify URI is the name
     parsed_url = yarl.URL(media_content_id)
@@ -241,7 +242,10 @@ async def async_browse_media(
         is None
         or entry.state is not ConfigEntryState.LOADED
     ):
-        raise BrowseError("Invalid Spotify account specified")
+        raise BrowseError(
+            translation_domain=DOMAIN,
+            translation_key="invalid_account",
+        )
     media_content_id = parsed_url.name
     info = entry.runtime_data
 
@@ -287,7 +291,14 @@ async def async_browse_media_internal(
         can_play_artist=can_play_artist,
     )
     if response is None:
-        raise BrowseError(f"Media not found: {media_content_type} / {media_content_id}")
+        raise BrowseError(
+            translation_domain=DOMAIN,
+            translation_key="media_not_found",
+            translation_placeholders={
+                "media_content_type": str(media_content_type),
+                "media_content_id": str(media_content_id),
+            },
+        )
     return response
 
 
@@ -321,6 +332,7 @@ async def build_item_response(  # noqa: C901
                 for saved_album in saved_albums
             ]
     elif media_content_type == BrowsableMedia.CURRENT_USER_SAVED_TRACKS:
+        title = LIBRARY_MAP.get(media_content_type)
         if saved_tracks := await spotify.get_saved_tracks():
             items = [
                 _get_track_item_payload(saved_track.track)
@@ -349,41 +361,36 @@ async def build_item_response(  # noqa: C901
     elif media_content_type == BrowsableMedia.CURRENT_USER_TOP_TRACKS:
         if top_tracks := await spotify.get_top_tracks():
             items = [_get_track_item_payload(track) for track in top_tracks]
-    elif media_content_type == BrowsableMedia.NEW_RELEASES:
-        if new_releases := await spotify.get_new_releases():
-            items = [_get_album_item_payload(album) for album in new_releases]
     elif media_content_type == MediaType.PLAYLIST:
-        if playlist := await spotify.get_playlist(media_content_id):
-            title = playlist.name
-            image = playlist.images[0].url if playlist.images else None
-            for playlist_item in playlist.tracks.items:
-                if playlist_item.track.type is ItemType.TRACK:
-                    if TYPE_CHECKING:
-                        assert isinstance(playlist_item.track, Track)
-                    items.append(_get_track_item_payload(playlist_item.track))
-                elif playlist_item.track.type is ItemType.EPISODE:
-                    if TYPE_CHECKING:
-                        assert isinstance(playlist_item.track, Episode)
-                    items.append(_get_episode_item_payload(playlist_item.track))
+        playlist = await spotify.get_playlist(media_content_id)
+        title = playlist.name
+        image = playlist.images[0].url if playlist.images else None
+        for playlist_item in playlist.items.items:
+            if playlist_item.track.type is ItemType.TRACK:
+                if TYPE_CHECKING:
+                    assert isinstance(playlist_item.track, Track)
+                items.append(_get_track_item_payload(playlist_item.track))
+            elif playlist_item.track.type is ItemType.EPISODE:
+                if TYPE_CHECKING:
+                    assert isinstance(playlist_item.track, Episode)
+                items.append(_get_episode_item_payload(playlist_item.track))
     elif media_content_type == MediaType.ALBUM:
-        if album := await spotify.get_album(media_content_id):
-            title = album.name
-            image = album.images[0].url if album.images else None
-            items = [
-                _get_track_item_payload(track, show_thumbnails=False)
-                for track in album.tracks
-            ]
+        album = await spotify.get_album(media_content_id)
+        title = album.name
+        image = album.images[0].url if album.images else None
+        items = [
+            _get_track_item_payload(track, show_thumbnails=False)
+            for track in album.tracks
+        ]
     elif media_content_type == MediaType.ARTIST:
-        if (artist_albums := await spotify.get_artist_albums(media_content_id)) and (
-            artist := await spotify.get_artist(media_content_id)
-        ):
+        if artist_albums := await spotify.get_artist_albums(media_content_id):
+            artist = await spotify.get_artist(media_content_id)
             title = artist.name
             image = artist.images[0].url if artist.images else None
             items = [_get_album_item_payload(album) for album in artist_albums]
     elif media_content_type == MEDIA_TYPE_SHOW:
-        if (show_episodes := await spotify.get_show_episodes(media_content_id)) and (
-            show := await spotify.get_show(media_content_id)
-        ):
+        if show_episodes := await spotify.get_show_episodes(media_content_id):
+            show = await spotify.get_show(media_content_id)
             title = show.name
             image = show.images[0].url if show.images else None
             items = [_get_episode_item_payload(episode) for episode in show_episodes]
@@ -420,7 +427,7 @@ async def build_item_response(  # noqa: C901
             browse_media.children.append(
                 item_payload(item, can_play_artist=can_play_artist)
             )
-        except (MissingMediaInformation, UnknownMediaType):
+        except MissingMediaInformation, UnknownMediaType:
             continue
 
     return browse_media
@@ -445,8 +452,10 @@ def item_payload(item: ItemPayload, *, can_play_artist: bool) -> BrowseMedia:
         MediaType.EPISODE,
     ]
 
-    can_play = media_type in PLAYABLE_MEDIA_TYPES and (
-        media_type != MediaType.ARTIST or can_play_artist
+    can_play = (
+        media_type in PLAYABLE_MEDIA_TYPES
+        and (media_type != MediaType.ARTIST or can_play_artist)
+        and media_type != BrowsableMedia.CURRENT_USER_SAVED_TRACKS
     )
 
     return BrowseMedia(

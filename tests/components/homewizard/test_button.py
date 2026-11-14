@@ -7,7 +7,7 @@ import pytest
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components import button
-from homeassistant.const import ATTR_ENTITY_ID
+from homeassistant.const import CommonServiceArgument
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr, entity_registry as er
@@ -47,8 +47,8 @@ async def test_identify_button(
     assert len(mock_homewizardenergy.identify.mock_calls) == 0
     await hass.services.async_call(
         button.DOMAIN,
-        button.SERVICE_PRESS,
-        {ATTR_ENTITY_ID: state.entity_id},
+        button.ButtonService.PRESS,
+        {CommonServiceArgument.ENTITY_ID: state.entity_id},
         blocking=True,
     )
     assert len(mock_homewizardenergy.identify.mock_calls) == 1
@@ -61,12 +61,12 @@ async def test_identify_button(
 
     with pytest.raises(
         HomeAssistantError,
-        match=r"^An error occurred while communicating with your HomeWizard Energy device$",
+        match=r"^An error occurred while communicating with your HomeWizard device$",
     ):
         await hass.services.async_call(
             button.DOMAIN,
-            button.SERVICE_PRESS,
-            {ATTR_ENTITY_ID: state.entity_id},
+            button.ButtonService.PRESS,
+            {CommonServiceArgument.ENTITY_ID: state.entity_id},
             blocking=True,
         )
     assert len(mock_homewizardenergy.identify.mock_calls) == 2
@@ -83,8 +83,8 @@ async def test_identify_button(
     ):
         await hass.services.async_call(
             button.DOMAIN,
-            button.SERVICE_PRESS,
-            {ATTR_ENTITY_ID: state.entity_id},
+            button.ButtonService.PRESS,
+            {CommonServiceArgument.ENTITY_ID: state.entity_id},
             blocking=True,
         )
 

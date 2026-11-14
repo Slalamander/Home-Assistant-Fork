@@ -1,7 +1,5 @@
 """The tests for the InfluxDB sensor."""
 
-from __future__ import annotations
-
 from collections.abc import Generator
 from dataclasses import dataclass
 from datetime import timedelta
@@ -10,8 +8,9 @@ from unittest.mock import MagicMock, patch
 
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
 from influxdb_client.rest import ApiException
+from probatio import Invalid
 import pytest
-from voluptuous import Invalid
+from pytest_homeassistant.common import async_fire_time_changed
 
 from homeassistant.components import sensor
 from homeassistant.components.influxdb.const import (
@@ -29,8 +28,6 @@ from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers.entity_platform import PLATFORM_NOT_READY_BASE_WAIT_TIME
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
-
-from tests.common import async_fire_time_changed
 
 INFLUXDB_PATH = "homeassistant.components.influxdb"
 INFLUXDB_CLIENT_PATH = f"{INFLUXDB_PATH}.InfluxDBClient"
@@ -195,7 +192,6 @@ async def _setup(
 ) -> list[State]:
     """Create client and test expected sensors."""
     config = {
-        DOMAIN: config_ext,
         sensor.DOMAIN: {"platform": DOMAIN},
     }
     influx_config = config[sensor.DOMAIN]
@@ -217,8 +213,18 @@ async def _setup(
 @pytest.mark.parametrize(
     ("mock_client", "config_ext", "queries", "set_query_mock"),
     [
-        (DEFAULT_API_VERSION, BASE_V1_CONFIG, BASE_V1_QUERY, _set_query_mock_v1),
-        (API_VERSION_2, BASE_V2_CONFIG, BASE_V2_QUERY, _set_query_mock_v2),
+        (
+            DEFAULT_API_VERSION,
+            BASE_V1_CONFIG,
+            BASE_V1_QUERY,
+            _set_query_mock_v1,
+        ),
+        (
+            API_VERSION_2,
+            BASE_V2_CONFIG,
+            BASE_V2_QUERY,
+            _set_query_mock_v2,
+        ),
     ],
     indirect=["mock_client"],
 )
@@ -313,7 +319,13 @@ async def test_config_failure(hass: HomeAssistant, config_ext) -> None:
 
 
 @pytest.mark.parametrize(
-    ("mock_client", "config_ext", "queries", "set_query_mock", "make_resultset"),
+    (
+        "mock_client",
+        "config_ext",
+        "queries",
+        "set_query_mock",
+        "make_resultset",
+    ),
     [
         (
             DEFAULT_API_VERSION,
@@ -349,7 +361,13 @@ async def test_state_matches_query_result(
 
 
 @pytest.mark.parametrize(
-    ("mock_client", "config_ext", "queries", "set_query_mock", "make_resultset"),
+    (
+        "mock_client",
+        "config_ext",
+        "queries",
+        "set_query_mock",
+        "make_resultset",
+    ),
     [
         (
             DEFAULT_API_VERSION,
@@ -396,7 +414,12 @@ async def test_state_matches_first_query_result_for_multiple_return(
             BASE_V1_QUERY,
             _set_query_mock_v1,
         ),
-        (API_VERSION_2, BASE_V2_CONFIG, BASE_V2_QUERY, _set_query_mock_v2),
+        (
+            API_VERSION_2,
+            BASE_V2_CONFIG,
+            BASE_V2_QUERY,
+            _set_query_mock_v2,
+        ),
     ],
     indirect=["mock_client"],
 )
@@ -419,7 +442,13 @@ async def test_state_for_no_results(
 
 
 @pytest.mark.parametrize(
-    ("mock_client", "config_ext", "queries", "set_query_mock", "query_exception"),
+    (
+        "mock_client",
+        "config_ext",
+        "queries",
+        "set_query_mock",
+        "query_exception",
+    ),
     [
         (
             DEFAULT_API_VERSION,
@@ -486,7 +515,14 @@ async def test_error_querying_influx(
 
 
 @pytest.mark.parametrize(
-    ("mock_client", "config_ext", "queries", "set_query_mock", "make_resultset", "key"),
+    (
+        "mock_client",
+        "config_ext",
+        "queries",
+        "set_query_mock",
+        "make_resultset",
+        "key",
+    ),
     [
         (
             DEFAULT_API_VERSION,

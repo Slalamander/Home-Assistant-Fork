@@ -1,8 +1,5 @@
 """The Overseerr integration."""
 
-from __future__ import annotations
-
-import json
 from typing import cast
 
 from aiohttp.hdrs import METH_POST
@@ -39,7 +36,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: OverseerrConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: OverseerrConfigEntry) -> None:
     """Set up Overseerr from a config entry."""
 
     coordinator = OverseerrCoordinator(hass, entry)
@@ -59,12 +56,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: OverseerrConfigEntry) ->
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    return True
 
-
-async def async_unload_entry(hass: HomeAssistant, entry: OverseerrConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: OverseerrConfigEntry) -> None:
     """Unload a config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    await hass.config_entries.async_unload_platforms_or_raise(entry, PLATFORMS)
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: OverseerrConfigEntry) -> None:
@@ -135,7 +130,7 @@ class OverseerrWebhookManager:
         return (
             not current_config.enabled
             or current_config.options.webhook_url not in self.webhook_urls
-            or current_config.options.json_payload != json.loads(JSON_PAYLOAD)
+            or current_config.options.json_payload != JSON_PAYLOAD
             or current_config.types != REGISTERED_NOTIFICATIONS
         )
 
@@ -159,7 +154,8 @@ class OverseerrWebhookManager:
         """Handle webhook."""
         data = await request.json()
         LOGGER.debug("Received webhook payload: %s", data)
-        if data["notification_type"].startswith("MEDIA"):
+        notification_type = data["notification_type"]
+        if notification_type.startswith(("REQUEST_", "ISSUE_", "MEDIA_")):
             await self.entry.runtime_data.async_refresh()
         async_dispatcher_send(hass, EVENT_KEY, data)
         return HomeAssistantView.json({"message": "ok"})

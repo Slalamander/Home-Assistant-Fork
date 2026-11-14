@@ -11,6 +11,7 @@ from homeassistant.const import (
     UnitOfElectricPotential,
     UnitOfEnergy,
     UnitOfPower,
+    UnitOfPrecipitationDepth,
     UnitOfSpeed,
     UnitOfTemperature,
     UnitOfTime,
@@ -31,6 +32,7 @@ HOMEE_UNIT_TO_HA_UNIT = {
     "n/a": None,
     "text": None,
     "%": PERCENTAGE,
+    "Lux": LIGHT_LUX,
     "lx": LIGHT_LUX,
     "klx": LIGHT_LUX,
     "1/min": REVOLUTIONS_PER_MINUTE,
@@ -48,6 +50,7 @@ HOMEE_UNIT_TO_HA_UNIT = {
     "min": UnitOfTime.MINUTES,
     "h": UnitOfTime.HOURS,
     "L": UnitOfVolume.LITERS,
+    "mm": UnitOfPrecipitationDepth.MILLIMETERS,
 }
 OPEN_CLOSE_MAP = {
     0.0: "open",

@@ -1,8 +1,13 @@
 {
   "domain": "yale",
-  "name": "Yale",
+  "name": "Yale Home",
+  "categories": [
+    "security_safety.locks_access",
+    "security_safety.doorbells_intercoms"
+  ],
   "codeowners": ["@bdraco"],
   "config_flow": true,
+  "connectivity": ["cloud"],
   "dependencies": ["application_credentials", "cloud"],
   "dhcp": [
     {
@@ -11,7 +16,8 @@
     }
   ],
   "documentation": "https://www.home-assistant.io/integrations/yale",
+  "integration_type": "hub",
   "iot_class": "cloud_push",
   "loggers": ["socketio", "engineio", "yalexs"],
-  "requirements": ["yalexs==9.2.0", "yalexs-ble==3.1.2"]
+  "requirements": ["yalexs==9.2.13", "yalexs-ble==4.1.2"]
 }

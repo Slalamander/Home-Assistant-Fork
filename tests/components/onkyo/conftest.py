@@ -6,12 +6,20 @@ from unittest.mock import AsyncMock, patch
 
 from aioonkyo import Code, Instruction, Kind, Receiver, Status, Zone, status
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.onkyo.const import DOMAIN
 
 from . import RECEIVER_INFO, RECEIVER_INFO_2, mock_discovery
 
-from tests.common import MockConfigEntry
+
+@pytest.fixture
+def ignore_missing_translations() -> str | list[str]:
+    """Ignore specific missing translations.
+
+    Legacy onkyo service uses media_player domain
+    """
+    return ["component.media_player.services.onkyo_select_hdmi_output."]
 
 
 @pytest.fixture(autouse=True)
@@ -33,7 +41,7 @@ def mock_setup_entry() -> Generator[AsyncMock]:
     """Mock integration setup."""
     with patch(
         "homeassistant.components.onkyo.async_setup_entry",
-        return_value=True,
+        return_value=None,
     ) as mock_setup_entry:
         yield mock_setup_entry
 

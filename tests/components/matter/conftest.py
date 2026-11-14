@@ -1,22 +1,26 @@
 """Provide common fixtures."""
 
-from __future__ import annotations
-
 import asyncio
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from matter_server.client.models.node import MatterNode
+from matter_server.client.models.node import MatterEndpoint, MatterNode
 from matter_server.common.const import SCHEMA_VERSION
 from matter_server.common.models import ServerInfoMessage
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
+from homeassistant.components.matter import DOMAIN
+from homeassistant.components.matter.discovery import async_discover_entities
+from homeassistant.components.matter.models import MatterEntityInfo
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
-from .common import setup_integration_with_node_fixture
-
-from tests.common import MockConfigEntry
+from .common import (
+    setup_integration_with_node_fixture,
+    setup_integration_with_node_fixtures,
+)
 
 MOCK_FABRIC_ID = 12341234
 MOCK_COMPR_FABRIC_ID = 1234
@@ -64,7 +68,7 @@ async def integration_fixture(
     hass: HomeAssistant, matter_client: MagicMock
 ) -> MockConfigEntry:
     """Set up the Matter integration."""
-    entry = MockConfigEntry(domain="matter", data={"url": "ws://localhost:5580/ws"})
+    entry = MockConfigEntry(domain=DOMAIN, data={"url": "ws://localhost:5580/ws"})
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
@@ -72,81 +76,32 @@ async def integration_fixture(
     return entry
 
 
-@pytest.fixture(
-    params=[
-        "air_purifier",
-        "air_quality_sensor",
-        "aqara_door_window_p2",
-        "aqara_motion_p2",
-        "aqara_u200",
-        "battery_storage",
-        "color_temperature_light",
-        "cooktop",
-        "dimmable_light",
-        "dimmable_plugin_unit",
-        "door_lock",
-        "door_lock_with_unbolt",
-        "eve_contact_sensor",
-        "eve_energy_20ecn4101",
-        "eve_energy_plug",
-        "eve_energy_plug_patched",
-        "eve_thermo",
-        "eve_weather_sensor",
-        "extended_color_light",
-        "extractor_hood",
-        "fan",
-        "flow_sensor",
-        "generic_switch",
-        "generic_switch_multi",
-        "haijai_switch",
-        "humidity_sensor",
-        "inovelli_vtm30",
-        "laundry_dryer",
-        "leak_sensor",
-        "light_sensor",
-        "microwave_oven",
-        "mounted_dimmable_load_control_fixture",
-        "multi_endpoint_light",
-        "occupancy_sensor",
-        "on_off_plugin_unit",
-        "onoff_light",
-        "onoff_light_alt_name",
-        "onoff_light_no_name",
-        "onoff_light_with_levelcontrol_present",
-        "oven",
-        "pressure_sensor",
-        "pump",
-        "room_airconditioner",
-        "silabs_dishwasher",
-        "silabs_evse_charging",
-        "silabs_laundrywasher",
-        "silabs_light_switch",
-        "silabs_refrigerator",
-        "silabs_water_heater",
-        "smoke_detector",
-        "solar_inverter",
-        "speaker",
-        "switchbot_k11_plus",
-        "switch_unit",
-        "tado_smart_radiator_thermostat_x",
-        "temperature_sensor",
-        "thermostat",
-        "vacuum_cleaner",
-        "valve",
-        "window_covering_full",
-        "window_covering_lift",
-        "window_covering_pa_lift",
-        "window_covering_pa_tilt",
-        "window_covering_tilt",
-        "yandex_smart_socket",
-        "zemismart_mt25b",
-    ]
-)
+@pytest.fixture
 async def matter_devices(
-    hass: HomeAssistant, matter_client: MagicMock, request: pytest.FixtureRequest
-) -> MatterNode:
-    """Fixture for a Matter device."""
-    return await setup_integration_with_node_fixture(hass, request.param, matter_client)
+    hass: HomeAssistant, matter_client: MagicMock, platform: Platform
+) -> AsyncGenerator[None]:
+    """Fixture for all Matter devices, with only the entities of one platform."""
+
+    def discover_platform_entities(
+        endpoint: MatterEndpoint, server_schema: int
+    ) -> Generator[MatterEntityInfo]:
+        # Discovery must see the schemas of all platforms, because a schema can
+        # claim an attribute before the schemas of later platforms see it.
+        return (
+            entity_info
+            for entity_info in async_discover_entities(endpoint, server_schema)
+            if entity_info.platform == platform
+        )
+
+    with (
+        patch("homeassistant.components.matter.SUPPORTED_PLATFORMS", (platform,)),
+        patch(
+            "homeassistant.components.matter.adapter.async_discover_entities",
+            discover_platform_entities,
+        ),
+    ):
+        await setup_integration_with_node_fixtures(hass, matter_client)
+        yield
 
 
 @pytest.fixture

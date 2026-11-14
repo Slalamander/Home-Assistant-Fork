@@ -18,7 +18,7 @@ from homeassistant.components.fan import (
 )
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
-from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
+from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN, SwitchService
 from homeassistant.const import (
     ATTR_ENTITY_ID,
     CONF_ENTITIES,
@@ -26,6 +26,7 @@ from homeassistant.const import (
     SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
     STATE_ON,
+    CommonServiceArgument,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
@@ -178,8 +179,12 @@ async def test_float(hass: HomeAssistant) -> None:
 
     # Turn switch on
     await hass.services.async_call(
-        SWITCH_DOMAIN, SERVICE_TURN_ON, {ATTR_ENTITY_ID: ENTITY_SWITCH}, blocking=True
+        SWITCH_DOMAIN,
+        SwitchService.TURN_ON,
+        {CommonServiceArgument.ENTITY_ID: ENTITY_SWITCH},
+        blocking=True,
     )
+    await hass.async_block_till_done()
 
     switch = hass.states.get(ENTITY_SWITCH)
     assert switch.state == STATE_ON
@@ -193,8 +198,12 @@ async def test_float(hass: HomeAssistant) -> None:
 
     # Turn off
     await hass.services.async_call(
-        SWITCH_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: ENTITY_SWITCH}, blocking=True
+        SWITCH_DOMAIN,
+        SwitchService.TURN_OFF,
+        {CommonServiceArgument.ENTITY_ID: ENTITY_SWITCH},
+        blocking=True,
     )
+    await hass.async_block_till_done()
 
     plug_it = emulated_kasa.get_plug_devices(hass, config)
     plug = next(plug_it).generate_response()
@@ -221,12 +230,18 @@ async def test_switch_power(hass: HomeAssistant) -> None:
 
     # Turn switch on
     await hass.services.async_call(
-        SWITCH_DOMAIN, SERVICE_TURN_ON, {ATTR_ENTITY_ID: ENTITY_SWITCH}, blocking=True
+        SWITCH_DOMAIN,
+        SwitchService.TURN_ON,
+        {CommonServiceArgument.ENTITY_ID: ENTITY_SWITCH},
+        blocking=True,
     )
 
     # Turn off
     await hass.services.async_call(
-        SWITCH_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: ENTITY_SWITCH}, blocking=True
+        SWITCH_DOMAIN,
+        SwitchService.TURN_OFF,
+        {CommonServiceArgument.ENTITY_ID: ENTITY_SWITCH},
+        blocking=True,
     )
 
     plug_it = emulated_kasa.get_plug_devices(hass, config)
@@ -260,6 +275,7 @@ async def test_template(hass: HomeAssistant) -> None:
         {ATTR_ENTITY_ID: ENTITY_FAN, ATTR_PERCENTAGE: 33},
         blocking=True,
     )
+    await hass.async_block_till_done()
 
     fan = hass.states.get(ENTITY_FAN)
     assert fan.state == STATE_ON
@@ -278,6 +294,7 @@ async def test_template(hass: HomeAssistant) -> None:
         {ATTR_ENTITY_ID: ENTITY_FAN, ATTR_PERCENTAGE: 100},
         blocking=True,
     )
+    await hass.async_block_till_done()
     plug_it = emulated_kasa.get_plug_devices(hass, config)
     plug = next(plug_it).generate_response()
     assert nested_value(plug, "system", "get_sysinfo", "alias") == ENTITY_FAN_NAME
@@ -288,6 +305,7 @@ async def test_template(hass: HomeAssistant) -> None:
     await hass.services.async_call(
         FAN_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: ENTITY_FAN}, blocking=True
     )
+    await hass.async_block_till_done()
     plug_it = emulated_kasa.get_plug_devices(hass, config)
     plug = next(plug_it).generate_response()
     assert nested_value(plug, "system", "get_sysinfo", "alias") == ENTITY_FAN_NAME
@@ -420,13 +438,16 @@ async def test_multiple_devices(hass: HomeAssistant) -> None:
         "sense_energy.SenseLink",
         return_value=Mock(start=AsyncMock(), close=AsyncMock()),
     ):
-        assert await emulated_kasa.async_setup(hass, CONFIG) is True
+        assert await async_setup_component(hass, DOMAIN, CONFIG) is True
     await hass.async_block_till_done()
     await emulated_kasa.validate_configs(hass, config)
 
     # Turn all devices on to known state
     await hass.services.async_call(
-        SWITCH_DOMAIN, SERVICE_TURN_ON, {ATTR_ENTITY_ID: ENTITY_SWITCH}, blocking=True
+        SWITCH_DOMAIN,
+        SwitchService.TURN_ON,
+        {CommonServiceArgument.ENTITY_ID: ENTITY_SWITCH},
+        blocking=True,
     )
     await hass.services.async_call(
         LIGHT_DOMAIN, SERVICE_TURN_ON, {ATTR_ENTITY_ID: ENTITY_LIGHT}, blocking=True
@@ -441,6 +462,7 @@ async def test_multiple_devices(hass: HomeAssistant) -> None:
         {ATTR_ENTITY_ID: ENTITY_FAN, ATTR_PERCENTAGE: 66},
         blocking=True,
     )
+    await hass.async_block_till_done()
 
     # All of them should now be on
     switch = hass.states.get(ENTITY_SWITCH)

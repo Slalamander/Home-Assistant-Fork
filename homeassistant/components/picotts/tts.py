@@ -1,78 +1,71 @@
 """Support for the Pico TTS speech service."""
 
-import logging
-import os
-import shutil
-import subprocess
-import tempfile
+import io
+from typing import Any, override
+import wave
 
-import voluptuous as vol
+from py_nanotts import NanoTTS
 
-from homeassistant.components.tts import (
-    CONF_LANG,
-    PLATFORM_SCHEMA as TTS_PLATFORM_SCHEMA,
-    Provider,
-)
+from homeassistant.components.tts import CONF_LANG, TextToSpeechEntity, TtsAudioType
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-_LOGGER = logging.getLogger(__name__)
+from .const import DOMAIN, SUPPORT_LANGUAGES
 
-SUPPORT_LANGUAGES = ["en-US", "en-GB", "de-DE", "es-ES", "fr-FR", "it-IT"]
-
-DEFAULT_LANG = "en-US"
-
-PLATFORM_SCHEMA = TTS_PLATFORM_SCHEMA.extend(
-    {vol.Optional(CONF_LANG, default=DEFAULT_LANG): vol.In(SUPPORT_LANGUAGES)}
-)
+SAMPLE_RATE = 16000
+SAMPLE_WIDTH = 2
+SAMPLE_CHANNELS = 1
 
 
-def get_engine(hass, config, discovery_info=None):
-    """Set up Pico speech component."""
-    if shutil.which("pico2wave") is None:
-        _LOGGER.error("'pico2wave' was not found")
-        return False
-    return PicoProvider(config[CONF_LANG])
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+) -> None:
+    """Set up Pico TTS speech component via config entry."""
+    async_add_entities([PicoTTSEntity(config_entry, config_entry.data[CONF_LANG])])
 
 
-class PicoProvider(Provider):
-    """The Pico TTS API provider."""
+class PicoTTSEntity(TextToSpeechEntity):
+    """The Pico TTS API entity."""
 
-    def __init__(self, lang):
-        """Initialize Pico TTS provider."""
-        self._lang = lang
-        self.name = "PicoTTS"
+    _attr_supported_languages = SUPPORT_LANGUAGES
 
-    @property
-    def default_language(self):
-        """Return the default language."""
-        return self._lang
+    def __init__(self, config_entry: ConfigEntry, lang: str) -> None:
+        """Initialize Pico TTS service."""
+        self._attr_default_language = lang
+        self._attr_name = f"Pico TTS {lang}"
+        self._attr_unique_id = config_entry.entry_id
+        self._attr_device_info = DeviceInfo(
+            entry_type=DeviceEntryType.SERVICE,
+            identifiers={(DOMAIN, config_entry.entry_id)},
+            model="Pico TTS",
+            name=f"Pico TTS {lang}",
+        )
+        self._engine = NanoTTS()
 
-    @property
-    def supported_languages(self):
-        """Return list of supported languages."""
-        return SUPPORT_LANGUAGES
-
-    def get_tts_audio(self, message, language, options):
-        """Load TTS using pico2wave."""
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmpf:
-            fname = tmpf.name
-
-        cmd = ["pico2wave", "--wave", fname, "-l", language]
-        result = subprocess.run(cmd, text=True, input=message, check=False)
-        data = None
+    @override
+    def get_tts_audio(
+        self, message: str, language: str, options: dict[str, Any]
+    ) -> TtsAudioType:
+        """Synthesize speech with NanoTTS."""
         try:
-            if result.returncode != 0:
-                _LOGGER.error(
-                    "Error running pico2wave, return code: %s", result.returncode
-                )
-                return (None, None)
-            with open(fname, "rb") as voice:
-                data = voice.read()
-        except OSError:
-            _LOGGER.error("Error trying to read %s", fname)
-            return (None, None)
-        finally:
-            os.remove(fname)
+            audio = self._engine.speak(message, voice=language)
+        except RuntimeError as exc:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="synthesis_error",
+                translation_placeholders={"error": str(exc)},
+            ) from exc
 
-        if data:
-            return ("wav", data)
-        return (None, None)
+        with io.BytesIO() as wav_io:
+            with wave.open(wav_io, "wb") as wav_file:
+                wav_file.setframerate(SAMPLE_RATE)
+                wav_file.setsampwidth(SAMPLE_WIDTH)
+                wav_file.setnchannels(SAMPLE_CHANNELS)
+                wav_file.writeframes(audio)
+
+            return "wav", wav_io.getvalue()

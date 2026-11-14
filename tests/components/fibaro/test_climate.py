@@ -2,14 +2,14 @@
 
 from unittest.mock import Mock, patch
 
+from pytest_homeassistant.common import MockConfigEntry
+
 from homeassistant.components.climate import ClimateEntityFeature, HVACMode
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from .conftest import init_integration
-
-from tests.common import MockConfigEntry
 
 
 async def test_climate_setup(
@@ -30,15 +30,45 @@ async def test_climate_setup(
         # Act
         await init_integration(hass, mock_config_entry)
         # Assert
-        entry = entity_registry.async_get("climate.room_1_test_climate_4")
+        entry = entity_registry.async_get("climate.test_climate_room_1_test_climate")
         assert entry
-        assert entry.unique_id == "hc2_111111.4"
+        assert entry.unique_id == "hc2_111111.13"
         assert entry.original_name == "Room 1 Test climate"
         assert entry.supported_features == (
             ClimateEntityFeature.TURN_ON
             | ClimateEntityFeature.TURN_OFF
             | ClimateEntityFeature.PRESET_MODE
         )
+
+
+async def test_climate_setup_2_quickapps(
+    hass: HomeAssistant,
+    entity_registry: er.EntityRegistry,
+    mock_fibaro_client: Mock,
+    mock_config_entry: MockConfigEntry,
+    mock_thermostat_quickapp_1: Mock,
+    mock_thermostat_quickapp_2: Mock,
+    mock_room: Mock,
+) -> None:
+    """Test that the climate creates entities for more than one QuickApp."""
+
+    # Arrange
+    mock_fibaro_client.read_rooms.return_value = [mock_room]
+    mock_fibaro_client.read_devices.return_value = [
+        mock_thermostat_quickapp_1,
+        mock_thermostat_quickapp_2,
+    ]
+
+    with patch("homeassistant.components.fibaro.PLATFORMS", [Platform.CLIMATE]):
+        # Act
+        await init_integration(hass, mock_config_entry)
+        # Assert
+        entry1 = entity_registry.async_get("climate.test_climate_room_1_test_climate")
+        assert entry1
+        entry2 = entity_registry.async_get(
+            "climate.test_climate_2_room_1_test_climate_2"
+        )
+        assert entry2
 
 
 async def test_hvac_mode_preset(
@@ -58,7 +88,7 @@ async def test_hvac_mode_preset(
         # Act
         await init_integration(hass, mock_config_entry)
         # Assert
-        state = hass.states.get("climate.room_1_test_climate_4")
+        state = hass.states.get("climate.test_climate_room_1_test_climate")
         assert state.state == HVACMode.AUTO
         assert state.attributes["preset_mode"] == "CustomerSpecific"
 
@@ -81,7 +111,7 @@ async def test_hvac_mode_heat(
         # Act
         await init_integration(hass, mock_config_entry)
         # Assert
-        state = hass.states.get("climate.room_1_test_climate_4")
+        state = hass.states.get("climate.test_climate_room_1_test_climate")
         assert state.state == HVACMode.HEAT
         assert state.attributes["preset_mode"] is None
 
@@ -105,7 +135,10 @@ async def test_set_hvac_mode(
         await hass.services.async_call(
             "climate",
             "set_hvac_mode",
-            {"entity_id": "climate.room_1_test_climate_4", "hvac_mode": HVACMode.HEAT},
+            {
+                "entity_id": "climate.test_climate_room_1_test_climate",
+                "hvac_mode": HVACMode.HEAT,
+            },
             blocking=True,
         )
 
@@ -130,7 +163,7 @@ async def test_hvac_mode_with_operation_mode_support(
         # Act
         await init_integration(hass, mock_config_entry)
         # Assert
-        state = hass.states.get("climate.room_1_test_climate_6")
+        state = hass.states.get("climate.my_fibaro_home_center_room_1_test_climate")
         assert state.state == HVACMode.AUTO
 
 
@@ -153,7 +186,10 @@ async def test_set_hvac_mode_with_operation_mode_support(
         await hass.services.async_call(
             "climate",
             "set_hvac_mode",
-            {"entity_id": "climate.room_1_test_climate_6", "hvac_mode": HVACMode.HEAT},
+            {
+                "entity_id": "climate.my_fibaro_home_center_room_1_test_climate",
+                "hvac_mode": HVACMode.HEAT,
+            },
             blocking=True,
         )
 
@@ -184,7 +220,7 @@ async def test_fan_mode(
         # Act
         await init_integration(hass, mock_config_entry)
         # Assert
-        state = hass.states.get("climate.room_1_test_climate_6")
+        state = hass.states.get("climate.test_climate_room_1_test_climate")
         assert state.attributes["fan_mode"] == "low"
         assert state.attributes["fan_modes"] == ["off", "low", "auto_high"]
 
@@ -214,7 +250,10 @@ async def test_set_fan_mode(
         await hass.services.async_call(
             "climate",
             "set_fan_mode",
-            {"entity_id": "climate.room_1_test_climate_6", "fan_mode": "off"},
+            {
+                "entity_id": "climate.test_climate_room_1_test_climate",
+                "fan_mode": "off",
+            },
             blocking=True,
         )
 
@@ -245,7 +284,7 @@ async def test_target_temperature(
         # Act
         await init_integration(hass, mock_config_entry)
         # Assert
-        state = hass.states.get("climate.room_1_test_climate_6")
+        state = hass.states.get("climate.test_climate_room_1_test_climate")
         assert state.attributes["temperature"] == 23
 
 
@@ -274,7 +313,10 @@ async def test_set_target_temperature(
         await hass.services.async_call(
             "climate",
             "set_temperature",
-            {"entity_id": "climate.room_1_test_climate_6", "temperature": 25.5},
+            {
+                "entity_id": "climate.test_climate_room_1_test_climate",
+                "temperature": 25.5,
+            },
             blocking=True,
         )
 

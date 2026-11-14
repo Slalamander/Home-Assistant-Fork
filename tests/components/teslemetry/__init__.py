@@ -1,27 +1,106 @@
 """Tests for the Teslemetry integration."""
 
+import time
 from unittest.mock import patch
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from pytest_homeassistant.common import MockConfigEntry
 from syrupy.assertion import SnapshotAssertion
 
-from homeassistant.components.teslemetry.const import DOMAIN
-from homeassistant.const import Platform
+from homeassistant.components.teslemetry.const import (
+    CONF_SITE_ID,
+    CONF_VIN,
+    DOMAIN,
+    SUBENTRY_TYPE_ENERGY_SITE,
+    SUBENTRY_TYPE_VEHICLE,
+)
+from homeassistant.config_entries import ConfigSubentryData
+from homeassistant.const import CONF_ADDRESS, CONF_HOST, CONF_PASSWORD, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
-from .const import CONFIG
+from .const import ADDRESS, VIN
 
-from tests.common import MockConfigEntry
+SITE_ID = 123456
+
+# PowerwallClient parses the PEM at construction time, so tests
+# that build one need a real (if undersized, for speed) RSA key rather than
+# arbitrary bytes.
+_TEST_RSA_KEY_PEM = rsa.generate_private_key(
+    public_exponent=65537, key_size=1024
+).private_bytes(
+    encoding=serialization.Encoding.PEM,
+    format=serialization.PrivateFormat.TraditionalOpenSSL,
+    encryption_algorithm=serialization.NoEncryption(),
+)
+
+
+def mock_config_entry() -> MockConfigEntry:
+    """Create a mock config entry."""
+
+    return MockConfigEntry(
+        domain=DOMAIN,
+        version=2,
+        unique_id="abc-123",
+        data={
+            "auth_implementation": DOMAIN,
+            "token": {
+                "access_token": "test_access_token",
+                "refresh_token": "test_refresh_token",
+                "expires_at": int(time.time()) + 3600,
+            },
+        },
+    )
+
+
+def mock_ble_config_entry() -> MockConfigEntry:
+    """Create a mock config entry whose vehicle subentry is already BLE paired."""
+
+    entry = mock_config_entry()
+    return MockConfigEntry(
+        domain=entry.domain,
+        version=entry.version,
+        minor_version=entry.minor_version,
+        unique_id=entry.unique_id,
+        data=dict(entry.data),
+        subentries_data=[
+            ConfigSubentryData(
+                subentry_type=SUBENTRY_TYPE_VEHICLE,
+                unique_id=VIN,
+                title="Test",
+                data={CONF_VIN: VIN, CONF_ADDRESS: ADDRESS},
+            )
+        ],
+    )
+
+
+async def setup_ble_platform(
+    hass: HomeAssistant,
+    platforms: list[Platform] | None = None,
+) -> MockConfigEntry:
+    """Set up the Teslemetry platform for a BLE paired vehicle."""
+
+    entry = mock_ble_config_entry()
+    entry.add_to_hass(hass)
+
+    if platforms is None:
+        await hass.config_entries.async_setup(entry.entry_id)
+    else:
+        with patch("homeassistant.components.teslemetry.PLATFORMS", platforms):
+            await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    return entry
 
 
 async def setup_platform(
-    hass: HomeAssistant, platforms: list[Platform] | None = None
+    hass: HomeAssistant,
+    platforms: list[Platform] | None = None,
 ) -> MockConfigEntry:
     """Set up the Teslemetry platform."""
 
-    mock_entry = MockConfigEntry(
-        domain=DOMAIN, data=CONFIG, minor_version=2, unique_id="abc-123"
-    )
+    mock_entry = mock_config_entry()
     mock_entry.add_to_hass(hass)
 
     if platforms is None:
@@ -32,6 +111,43 @@ async def setup_platform(
     await hass.async_block_till_done()
 
     return mock_entry
+
+
+async def setup_paired_platform(
+    hass: HomeAssistant, platforms: list[Platform]
+) -> MockConfigEntry:
+    """Set up the Teslemetry platform with the energy site paired locally."""
+    entry = mock_config_entry()
+    entry = MockConfigEntry(
+        domain=entry.domain,
+        version=entry.version,
+        minor_version=entry.minor_version,
+        unique_id=entry.unique_id,
+        data=dict(entry.data),
+        subentries_data=[
+            ConfigSubentryData(
+                subentry_type=SUBENTRY_TYPE_ENERGY_SITE,
+                unique_id=str(SITE_ID),
+                title="Energy Site",
+                data={
+                    CONF_SITE_ID: SITE_ID,
+                    CONF_HOST: "192.168.91.1",
+                    CONF_PASSWORD: "abcde",
+                },
+            )
+        ],
+    )
+    entry.add_to_hass(hass)
+    with (
+        patch(
+            "homeassistant.components.teslemetry._async_get_rsa_key_pem",
+            return_value=_TEST_RSA_KEY_PEM,
+        ),
+        patch("homeassistant.components.teslemetry.PLATFORMS", platforms),
+    ):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    return entry
 
 
 async def reload_platform(
@@ -70,7 +186,13 @@ def assert_entities_alt(
     entity_registry: er.EntityRegistry,
     snapshot: SnapshotAssertion,
 ) -> None:
-    """Test that all entities match their alt snapshot."""
+    """Test that all entities match their alt snapshot.
+
+    The `_alt` test variants use VEHICLE_DATA_ALT fixture data to verify
+    entity behavior with alternative vehicle state values (different charge
+    levels, door states, climate settings, etc.). This ensures entities
+    handle varied data correctly.
+    """
     entity_entries = er.async_entries_for_config_entry(entity_registry, entry_id)
 
     assert entity_entries

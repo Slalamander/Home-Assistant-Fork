@@ -7,11 +7,10 @@ from unittest.mock import AsyncMock, Mock, patch
 from opower import Account, Forecast, MeterType, ReadResolution, UnitOfMeasure
 from opower.utilities.pge import PGE
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.opower.const import DOMAIN
 from homeassistant.core import HomeAssistant
-
-from tests.common import MockConfigEntry
 
 
 @pytest.fixture
@@ -37,7 +36,7 @@ def mock_opower_api() -> Generator[AsyncMock]:
         "homeassistant.components.opower.coordinator.Opower", autospec=True
     ) as mock_api:
         api = mock_api.return_value
-        api.utility = PGE
+        api.utility = PGE()
 
         api.async_get_accounts.return_value = [
             Account(

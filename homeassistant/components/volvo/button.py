@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 import logging
+from typing import override
 
 from volvocarsapi.models import VolvoApiException
 
@@ -24,6 +25,7 @@ class VolvoButtonDescription(VolvoEntityDescription, ButtonEntityDescription):
 
     api_command: str
     required_command_key: str
+    data: dict[str, int] | None = None
 
 
 _DESCRIPTIONS: tuple[VolvoButtonDescription, ...] = (
@@ -36,6 +38,17 @@ _DESCRIPTIONS: tuple[VolvoButtonDescription, ...] = (
         key="climatization_stop",
         api_command="climatization-stop",
         required_command_key="CLIMATIZATION_STOP",
+    ),
+    VolvoButtonDescription(
+        key="engine_start",
+        api_command="engine-start",
+        required_command_key="ENGINE_START",
+        data={"runtimeMinutes": 15},
+    ),
+    VolvoButtonDescription(
+        key="engine_stop",
+        api_command="engine-stop",
+        required_command_key="ENGINE_STOP",
     ),
     VolvoButtonDescription(
         key="flash",
@@ -51,6 +64,11 @@ _DESCRIPTIONS: tuple[VolvoButtonDescription, ...] = (
         key="honk_flash",
         api_command="honk-flash",
         required_command_key="HONK_AND_FLASH",
+    ),
+    VolvoButtonDescription(
+        key="lock_reduced_guard",
+        api_command="lock-reduced-guard",
+        required_command_key="LOCK_REDUCED_GUARD",
     ),
 )
 
@@ -76,6 +94,7 @@ class VolvoButton(VolvoBaseEntity, ButtonEntity):
 
     entity_description: VolvoButtonDescription
 
+    @override
     async def async_press(self) -> None:
         """Handle the button press."""
 
@@ -84,7 +103,7 @@ class VolvoButton(VolvoBaseEntity, ButtonEntity):
 
         try:
             result = await self.entry.runtime_data.context.api.async_execute_command(
-                self.entity_description.api_command
+                self.entity_description.api_command, self.entity_description.data
             )
         except VolvoApiException as ex:
             _LOGGER.debug("Command '%s' error", command)

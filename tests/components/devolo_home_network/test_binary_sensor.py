@@ -5,9 +5,10 @@ from unittest.mock import AsyncMock
 from devolo_plc_api.exceptions.device import DeviceUnavailable
 from freezegun.api import FrozenDateTimeFactory
 import pytest
+from pytest_homeassistant.common import async_fire_time_changed
 from syrupy.assertion import SnapshotAssertion
 
-from homeassistant.components.binary_sensor import DOMAIN as PLATFORM
+from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.devolo_home_network.const import LONG_UPDATE_INTERVAL
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_ON, STATE_UNAVAILABLE
@@ -17,8 +18,6 @@ from homeassistant.helpers import entity_registry as er
 from . import configure_integration
 from .const import PLCNET_ATTACHED
 from .mock import MockDevice
-
-from tests.common import async_fire_time_changed
 
 
 @pytest.mark.usefixtures("mock_device")
@@ -34,7 +33,7 @@ async def test_binary_sensor_setup(
     assert entry.state is ConfigEntryState.LOADED
 
     assert entity_registry.async_get(
-        f"{PLATFORM}.{device_name}_connected_to_router"
+        f"{BINARY_SENSOR_DOMAIN}.{device_name}_connected_to_router"
     ).disabled
 
 
@@ -49,13 +48,13 @@ async def test_update_attached_to_router(
     """Test state change of a attached_to_router binary sensor device."""
     entry = configure_integration(hass)
     device_name = entry.title.replace(" ", "_").lower()
-    state_key = f"{PLATFORM}.{device_name}_connected_to_router"
+    entity_id = f"{BINARY_SENSOR_DOMAIN}.{device_name}_connected_to_router"
 
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert hass.states.get(state_key) == snapshot
-    assert entity_registry.async_get(state_key) == snapshot
+    assert hass.states.get(entity_id) == snapshot
+    assert entity_registry.async_get(entity_id) == snapshot
 
     # Emulate device failure
     mock_device.plcnet.async_get_network_overview = AsyncMock(
@@ -65,7 +64,7 @@ async def test_update_attached_to_router(
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
 
-    state = hass.states.get(state_key)
+    state = hass.states.get(entity_id)
     assert state is not None
     assert state.state == STATE_UNAVAILABLE
 
@@ -77,6 +76,6 @@ async def test_update_attached_to_router(
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
 
-    state = hass.states.get(state_key)
+    state = hass.states.get(entity_id)
     assert state is not None
     assert state.state == STATE_ON

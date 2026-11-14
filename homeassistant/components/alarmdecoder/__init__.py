@@ -18,12 +18,15 @@ from homeassistant.const import (
     Platform,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.dispatcher import dispatcher_send
 from homeassistant.helpers.event import async_call_later
+from homeassistant.helpers.typing import ConfigType
 
 from .const import (
     CONF_DEVICE_BAUD,
     CONF_DEVICE_PATH,
+    DOMAIN,
     PROTOCOL_SERIAL,
     PROTOCOL_SOCKET,
     SIGNAL_PANEL_MESSAGE,
@@ -32,9 +35,11 @@ from .const import (
     SIGNAL_ZONE_FAULT,
     SIGNAL_ZONE_RESTORE,
 )
+from .services import async_setup_services
 
 _LOGGER = logging.getLogger(__name__)
 
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 PLATFORMS = [
     Platform.ALARM_CONTROL_PANEL,
     Platform.BINARY_SENSOR,
@@ -54,9 +59,15 @@ class AlarmDecoderData:
     restart: bool
 
 
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up the component."""
+    async_setup_services(hass)
+    return True
+
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: AlarmDecoderConfigEntry
-) -> bool:
+) -> None:
     """Set up AlarmDecoder config flow."""
     undo_listener = entry.add_update_listener(_update_listener)
 
@@ -140,26 +151,19 @@ async def async_setup_entry(
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    return True
-
 
 async def async_unload_entry(
     hass: HomeAssistant, entry: AlarmDecoderConfigEntry
-) -> bool:
+) -> None:
     """Unload a AlarmDecoder entry."""
     data = entry.runtime_data
     data.restart = False
 
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-
-    if not unload_ok:
-        return False
+    await hass.config_entries.async_unload_platforms_or_raise(entry, PLATFORMS)
 
     data.remove_update_listener()
     data.remove_stop_listener()
     await hass.async_add_executor_job(data.client.close)
-
-    return True
 
 
 async def _update_listener(hass: HomeAssistant, entry: AlarmDecoderConfigEntry) -> None:

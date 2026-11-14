@@ -1,21 +1,16 @@
 """Typings for the xiaomi_miio integration."""
 
 from dataclasses import dataclass
-from typing import Any, NamedTuple
+from typing import TYPE_CHECKING, Any
 
 from miio import Device as MiioDevice
 from miio.gateway.gateway import Gateway
-import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-
-class ServiceMethodDetails(NamedTuple):
-    """Details for SERVICE_TO_METHOD mapping."""
-
-    method: str
-    schema: vol.Schema | None = None
+if TYPE_CHECKING:
+    from .coordinator import GatewayDeviceCoordinator
 
 
 @dataclass
@@ -30,7 +25,7 @@ class XiaomiMiioRuntimeData:
     device_coordinator: DataUpdateCoordinator[Any] = None  # type: ignore[assignment]
 
     gateway: Gateway = None  # type: ignore[assignment]
-    gateway_coordinators: dict[str, DataUpdateCoordinator[dict[str, bool]]] = None  # type: ignore[assignment]
+    gateway_coordinators: dict[str, GatewayDeviceCoordinator] = None  # type: ignore[assignment]
 
 
 type XiaomiMiioConfigEntry = ConfigEntry[XiaomiMiioRuntimeData]

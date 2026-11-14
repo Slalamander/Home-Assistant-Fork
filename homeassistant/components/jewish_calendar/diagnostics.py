@@ -8,7 +8,7 @@ from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE
 from homeassistant.core import HomeAssistant
 
 from .const import CONF_ALTITUDE
-from .entity import JewishCalendarConfigEntry
+from .coordinator import JewishCalendarConfigEntry
 
 TO_REDACT = [
     CONF_ALTITUDE,
@@ -24,5 +24,5 @@ async def async_get_config_entry_diagnostics(
 
     return {
         "entry_data": async_redact_data(entry.data, TO_REDACT),
-        "data": async_redact_data(asdict(entry.runtime_data), TO_REDACT),
+        "data": async_redact_data(asdict(entry.runtime_data.data), TO_REDACT),
     }

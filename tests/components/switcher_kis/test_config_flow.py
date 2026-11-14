@@ -1,14 +1,16 @@
 """Test the Switcher config flow."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant import config_entries
 from homeassistant.components.switcher_kis.const import DOMAIN
 from homeassistant.const import CONF_TOKEN, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .consts import (
     DUMMY_DUAL_SHUTTER_SINGLE_LIGHT_DEVICE,
@@ -18,8 +20,6 @@ from .consts import (
     DUMMY_USERNAME,
     DUMMY_WATER_HEATER_DEVICE,
 )
-
-from tests.common import MockConfigEntry
 
 
 @pytest.mark.parametrize(
@@ -35,7 +35,7 @@ from tests.common import MockConfigEntry
     indirect=True,
 )
 async def test_user_setup(
-    hass: HomeAssistant, mock_setup_entry: AsyncMock, mock_bridge
+    hass: HomeAssistant, mock_setup_entry: AsyncMock, mock_bridge: MagicMock
 ) -> None:
     """Test we can finish a config flow."""
     with patch("homeassistant.components.switcher_kis.utils.DISCOVERY_TIME_SEC", 0):
@@ -69,7 +69,7 @@ async def test_user_setup(
     indirect=True,
 )
 async def test_user_setup_found_token_device_valid_token(
-    hass: HomeAssistant, mock_setup_entry: AsyncMock, mock_bridge
+    hass: HomeAssistant, mock_setup_entry: AsyncMock, mock_bridge: MagicMock
 ) -> None:
     """Test we can finish a config flow with token device found."""
     with patch("homeassistant.components.switcher_kis.utils.DISCOVERY_TIME_SEC", 0):
@@ -89,18 +89,23 @@ async def test_user_setup_found_token_device_valid_token(
     with patch(
         "homeassistant.components.switcher_kis.config_flow.validate_token",
         return_value=True,
-    ):
+    ) as mock_validate_token:
         result3 = await hass.config_entries.flow.async_configure(
             result2["flow_id"],
             {CONF_USERNAME: DUMMY_USERNAME, CONF_TOKEN: DUMMY_TOKEN},
         )
 
+    mock_validate_token.assert_called_once_with(
+        DUMMY_USERNAME, DUMMY_TOKEN, async_get_clientsession(hass)
+    )
     assert result3["type"] is FlowResultType.CREATE_ENTRY
     assert result3["title"] == "Switcher"
     assert result3["result"].data == {
         CONF_USERNAME: DUMMY_USERNAME,
         CONF_TOKEN: DUMMY_TOKEN,
     }
+
+    assert len(mock_setup_entry.mock_calls) == 1
 
 
 @pytest.mark.parametrize(
@@ -113,8 +118,9 @@ async def test_user_setup_found_token_device_valid_token(
     ],
     indirect=True,
 )
+@pytest.mark.usefixtures("mock_bridge")
 async def test_user_setup_found_token_device_invalid_token(
-    hass: HomeAssistant, mock_setup_entry: AsyncMock, mock_bridge
+    hass: HomeAssistant, mock_setup_entry: AsyncMock
 ) -> None:
     """Test we can finish a config flow with token device found."""
     with patch("homeassistant.components.switcher_kis.utils.DISCOVERY_TIME_SEC", 0):
@@ -142,9 +148,27 @@ async def test_user_setup_found_token_device_invalid_token(
     assert result3["type"] is FlowResultType.FORM
     assert result3["errors"] == {"base": "invalid_auth"}
 
+    with patch(
+        "homeassistant.components.switcher_kis.config_flow.validate_token",
+        return_value=True,
+    ):
+        result4 = await hass.config_entries.flow.async_configure(
+            result3["flow_id"],
+            {CONF_USERNAME: DUMMY_USERNAME, CONF_TOKEN: DUMMY_TOKEN},
+        )
+
+        assert result4["type"] is FlowResultType.CREATE_ENTRY
+        assert result4["title"] == "Switcher"
+        assert result4["result"].data == {
+            CONF_USERNAME: DUMMY_USERNAME,
+            CONF_TOKEN: DUMMY_TOKEN,
+        }
+
+    assert len(mock_setup_entry.mock_calls) == 1
+
 
 async def test_user_setup_abort_no_devices_found(
-    hass: HomeAssistant, mock_setup_entry: AsyncMock, mock_bridge
+    hass: HomeAssistant, mock_setup_entry: AsyncMock, mock_bridge: MagicMock
 ) -> None:
     """Test we abort a config flow if no devices found."""
     with patch("homeassistant.components.switcher_kis.utils.DISCOVERY_TIME_SEC", 0):
@@ -187,6 +211,7 @@ async def test_single_instance(hass: HomeAssistant) -> None:
 )
 async def test_reauth_successful(
     hass: HomeAssistant,
+    mock_setup_entry: AsyncMock,
     user_input: dict[str, str],
 ) -> None:
     """Test starting a reauthentication flow."""
@@ -203,17 +228,27 @@ async def test_reauth_successful(
     with patch(
         "homeassistant.components.switcher_kis.config_flow.validate_token",
         return_value=True,
-    ):
+    ) as mock_validate_token:
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             user_input=user_input,
         )
 
+    mock_validate_token.assert_called_once_with(
+        user_input[CONF_USERNAME],
+        user_input[CONF_TOKEN],
+        async_get_clientsession(hass),
+    )
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
 
+    await hass.async_block_till_done()
+    mock_setup_entry.assert_awaited_once()
 
-async def test_reauth_invalid_auth(hass: HomeAssistant) -> None:
+
+async def test_reauth_invalid_auth(
+    hass: HomeAssistant, mock_setup_entry: AsyncMock
+) -> None:
     """Test reauthentication flow with invalid credentials."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -236,3 +271,18 @@ async def test_reauth_invalid_auth(hass: HomeAssistant) -> None:
 
     assert result2["type"] is FlowResultType.FORM
     assert result2["errors"] == {"base": "invalid_auth"}
+
+    with patch(
+        "homeassistant.components.switcher_kis.config_flow.validate_token",
+        return_value=True,
+    ):
+        result3 = await hass.config_entries.flow.async_configure(
+            result2["flow_id"],
+            {CONF_USERNAME: DUMMY_USERNAME, CONF_TOKEN: DUMMY_TOKEN},
+        )
+
+        assert result3["type"] is FlowResultType.ABORT
+        assert result3["reason"] == "reauth_successful"
+
+    await hass.async_block_till_done()
+    mock_setup_entry.assert_awaited_once()

@@ -1,32 +1,31 @@
 """Helper classes for Google Assistant SDK integration."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from http import HTTPStatus
 import logging
 from typing import Any
 import uuid
 
-import aiohttp
 from aiohttp import web
-from gassist_text import TextAssistant
+from gassist_text import TextAssistantAsync
 from google.oauth2.credentials import Credentials
 from grpc import RpcError
 
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.components.media_player import (
-    ATTR_MEDIA_ANNOUNCE,
-    ATTR_MEDIA_CONTENT_ID,
-    ATTR_MEDIA_CONTENT_TYPE,
-    DOMAIN as DOMAIN_MP,
-    SERVICE_PLAY_MEDIA,
+    DOMAIN as MP_DOMAIN,
+    MediaPlayerService,
+    MediaPlayerServiceArgument,
     MediaType,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID, CONF_ACCESS_TOKEN
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.exceptions import (
+    HomeAssistantError,
+    OAuth2TokenRequestReauthError,
+    ServiceValidationError,
+)
 from homeassistant.helpers.config_entry_oauth2_flow import OAuth2Session
 from homeassistant.helpers.event import async_call_later
 
@@ -79,28 +78,24 @@ async def async_send_text_commands(
     session = entry.runtime_data.session
     try:
         await session.async_ensure_token_valid()
-    except aiohttp.ClientResponseError as err:
-        if 400 <= err.status < 500:
-            entry.async_start_reauth(hass)
+    except OAuth2TokenRequestReauthError:
+        entry.async_start_reauth(hass)
         raise
 
     credentials = Credentials(session.token[CONF_ACCESS_TOKEN])  # type: ignore[no-untyped-call]
     language_code = entry.options.get(CONF_LANGUAGE_CODE, default_language_code(hass))
     command_response_list = []
-    with TextAssistant(
+    async with TextAssistantAsync(
         credentials, language_code, audio_out=bool(media_players)
     ) as assistant:
         for command in commands:
             try:
-                resp = await hass.async_add_executor_job(assistant.assist, command)
+                resp = await assistant.assist(command)
             except RpcError as err:
-                _LOGGER.error(
-                    "Failed to send command '%s' to Google Assistant: %s",
-                    command,
-                    err,
-                )
                 raise HomeAssistantError(
-                    translation_domain=DOMAIN, translation_key="grpc_error"
+                    translation_domain=DOMAIN,
+                    translation_key="grpc_error",
+                    translation_placeholders={"command": command},
                 ) from err
             text_response = resp[0]
             _LOGGER.debug("command: %s\nresponse: %s", command, text_response)
@@ -112,13 +107,13 @@ async def async_send_text_commands(
                     )
                 )
                 await hass.services.async_call(
-                    DOMAIN_MP,
-                    SERVICE_PLAY_MEDIA,
+                    MP_DOMAIN,
+                    MediaPlayerService.PLAY_MEDIA,
                     {
                         ATTR_ENTITY_ID: media_players,
-                        ATTR_MEDIA_CONTENT_ID: audio_url,
-                        ATTR_MEDIA_CONTENT_TYPE: MediaType.MUSIC,
-                        ATTR_MEDIA_ANNOUNCE: True,
+                        MediaPlayerServiceArgument.MEDIA_CONTENT_ID: audio_url,
+                        MediaPlayerServiceArgument.MEDIA_CONTENT_TYPE: MediaType.MUSIC,
+                        MediaPlayerServiceArgument.ANNOUNCE: True,
                     },
                     blocking=True,
                 )
@@ -137,12 +132,16 @@ def default_language_code(hass: HomeAssistant) -> str:
 def best_matching_language_code(
     hass: HomeAssistant, assist_language: str, agent_language: str | None = None
 ) -> str:
-    """Get the best matching language, based on the preferred assist language and the configured agent language."""
+    """Get the best matching language.
+
+    Based on the preferred assist language and the configured
+    agent language.
+    """
 
     # Use the assist language if supported
     if assist_language in SUPPORTED_LANGUAGE_CODES:
         return assist_language
-    language = assist_language.split("-")[0]
+    language = assist_language.split("-", maxsplit=1)[0]
 
     # Use the agent language if assist and agent start with the same language part
     if agent_language is not None and agent_language.startswith(language):
@@ -195,8 +194,8 @@ class GoogleAssistantSDKAudioView(HomeAssistantView):
     """Google Assistant SDK view to serve audio responses."""
 
     requires_auth = True
-    url = "/api/google_assistant_sdk/audio/{filename}"
-    name = "api:google_assistant_sdk:audio"
+    url = f"/api/{DOMAIN}/audio/{{filename}}"
+    name = f"api:{DOMAIN}:audio"
 
     def __init__(self, mem_storage: InMemoryStorage) -> None:
         """Initialize GoogleAssistantSDKView."""

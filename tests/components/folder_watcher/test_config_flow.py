@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant import config_entries
 from homeassistant.components.folder_watcher.const import (
@@ -13,8 +14,6 @@ from homeassistant.components.folder_watcher.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-
-from tests.common import MockConfigEntry
 
 pytestmark = pytest.mark.usefixtures("mock_setup_entry")
 
@@ -26,7 +25,7 @@ async def test_form(hass: HomeAssistant, tmp_path: Path) -> None:
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
-    assert result["type"] == FlowResultType.FORM
+    assert result["type"] is FlowResultType.FORM
 
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
@@ -34,7 +33,7 @@ async def test_form(hass: HomeAssistant, tmp_path: Path) -> None:
     )
     await hass.async_block_till_done()
 
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == f"Folder Watcher {path}"
     assert result["options"] == {CONF_FOLDER: path, CONF_PATTERNS: ["*"]}
 
@@ -51,7 +50,7 @@ async def test_form_not_allowed_path(hass: HomeAssistant, tmp_path: Path) -> Non
         {CONF_FOLDER: path},
     )
 
-    assert result["type"] == FlowResultType.FORM
+    assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "not_allowed_dir"}
 
     hass.config.allowlist_external_dirs = {tmp_path}
@@ -62,7 +61,7 @@ async def test_form_not_allowed_path(hass: HomeAssistant, tmp_path: Path) -> Non
     )
     await hass.async_block_till_done()
 
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == f"Folder Watcher {path}"
     assert result["options"] == {CONF_FOLDER: path, CONF_PATTERNS: ["*"]}
 
@@ -79,7 +78,7 @@ async def test_form_not_directory(hass: HomeAssistant, tmp_path: Path) -> None:
         {CONF_FOLDER: "not_a_directory"},
     )
 
-    assert result["type"] == FlowResultType.FORM
+    assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "not_dir"}
 
     hass.config.allowlist_external_dirs = {path}
@@ -90,7 +89,7 @@ async def test_form_not_directory(hass: HomeAssistant, tmp_path: Path) -> None:
     )
     await hass.async_block_till_done()
 
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == f"Folder Watcher {path}"
     assert result["options"] == {CONF_FOLDER: path, CONF_PATTERNS: ["*"]}
 
@@ -109,7 +108,7 @@ async def test_form_not_readable_dir(hass: HomeAssistant, tmp_path: Path) -> Non
         )
         await hass.async_block_till_done()
 
-    assert result["type"] == FlowResultType.FORM
+    assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "not_readable_dir"}
 
     hass.config.allowlist_external_dirs = {path}
@@ -120,7 +119,7 @@ async def test_form_not_readable_dir(hass: HomeAssistant, tmp_path: Path) -> Non
     )
     await hass.async_block_till_done()
 
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == f"Folder Watcher {path}"
     assert result["options"] == {CONF_FOLDER: path, CONF_PATTERNS: ["*"]}
 
@@ -146,5 +145,5 @@ async def test_form_already_configured(hass: HomeAssistant, tmp_path: Path) -> N
         {CONF_FOLDER: path},
     )
 
-    assert result["type"] == FlowResultType.ABORT
+    assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"

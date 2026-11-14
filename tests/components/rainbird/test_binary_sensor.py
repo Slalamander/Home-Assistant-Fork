@@ -3,6 +3,8 @@
 from http import HTTPStatus
 
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
+from pytest_homeassistant.test_util.aiohttp import AiohttpClientMockResponse
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import Platform
@@ -15,9 +17,6 @@ from .conftest import (
     RAIN_SENSOR_ON,
     mock_response_error,
 )
-
-from tests.common import MockConfigEntry
-from tests.test_util.aiohttp import AiohttpClientMockResponse
 
 
 @pytest.fixture
@@ -70,7 +69,7 @@ async def test_no_unique_id(
     """Test rainsensor binary sensor with no unique id."""
 
     # Failure to migrate config entry to a unique id
-    responses.insert(0, mock_response_error(HTTPStatus.SERVICE_UNAVAILABLE))
+    responses.insert(1, mock_response_error(HTTPStatus.SERVICE_UNAVAILABLE))
 
     await hass.config_entries.async_setup(config_entry.entry_id)
     assert config_entry.state is ConfigEntryState.LOADED

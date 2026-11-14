@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, call
 
 from chip.clusters import Objects as clusters
 from matter_server.client.models.node import MatterNode
+from matter_server.common import custom_clusters
 from matter_server.common.helpers.util import create_attribute_path_from_attribute
 import pytest
 from syrupy.assertion import SnapshotAssertion
@@ -19,6 +20,12 @@ from .common import (
 )
 
 
+@pytest.fixture
+def platform() -> Platform:
+    """Return the platform under test."""
+    return Platform.SELECT
+
+
 @pytest.mark.usefixtures("matter_devices")
 async def test_selects(
     hass: HomeAssistant,
@@ -29,7 +36,7 @@ async def test_selects(
     snapshot_matter_entities(hass, entity_registry, snapshot, Platform.SELECT)
 
 
-@pytest.mark.parametrize("node_fixture", ["dimmable_light"])
+@pytest.mark.parametrize("node_fixture", ["mock_dimmable_light"])
 async def test_mode_select_entities(
     hass: HomeAssistant,
     matter_client: MagicMock,
@@ -79,22 +86,19 @@ async def test_mode_select_entities(
     )
 
 
-@pytest.mark.parametrize("node_fixture", ["dimmable_light"])
+@pytest.mark.parametrize("node_fixture", ["mock_dimmable_light"])
 async def test_attribute_select_entities(
     hass: HomeAssistant,
     matter_client: MagicMock,
     matter_node: MatterNode,
 ) -> None:
     """Test select entities are created for attribute based discovery schema(s)."""
-    entity_id = "select.mock_dimmable_light_power_on_behavior_on_startup"
+    entity_id = "select.mock_dimmable_light_power_on_behavior"
     state = hass.states.get(entity_id)
     assert state
     assert state.state == "previous"
     assert state.attributes["options"] == ["on", "off", "toggle", "previous"]
-    assert (
-        state.attributes["friendly_name"]
-        == "Mock Dimmable Light Power-on behavior on startup"
-    )
+    assert state.attributes["friendly_name"] == "Mock Dimmable Light Power-on behavior"
     set_node_attribute(matter_node, 1, 6, 16387, 1)
     await trigger_subscription_callback(hass, matter_client)
     state = hass.states.get(entity_id)
@@ -130,7 +134,7 @@ async def test_list_select_entities(
     matter_client: MagicMock,
     matter_node: MatterNode,
 ) -> None:
-    """Test ListSelect entities are discovered and working from a laundrywasher fixture."""
+    """Test ListSelect entities from a laundrywasher fixture."""
     state = hass.states.get("select.laundrywasher_temperature_level")
     assert state
     assert state.state == "Colors"
@@ -206,7 +210,7 @@ async def test_map_select_entities(
     matter_client: MagicMock,
     matter_node: MatterNode,
 ) -> None:
-    """Test MatterMapSelectEntity entities are discovered and working from a laundrywasher fixture."""
+    """Test MatterMapSelectEntity entities from a laundrywasher fixture."""
     # NumberOfRinses
     state = hass.states.get("select.laundrywasher_number_of_rinses")
     assert state
@@ -218,13 +222,13 @@ async def test_map_select_entities(
     assert state.state == "normal"
 
 
-@pytest.mark.parametrize("node_fixture", ["pump"])
+@pytest.mark.parametrize("node_fixture", ["mock_pump"])
 async def test_pump(
     hass: HomeAssistant,
     matter_client: MagicMock,
     matter_node: MatterNode,
 ) -> None:
-    """Test MatterAttributeSelectEntity entities are discovered and working from a pump fixture."""
+    """Test MatterAttributeSelectEntity entities from a pump fixture."""
     # OperationMode
     state = hass.states.get("select.mock_pump_mode")
     assert state
@@ -237,18 +241,106 @@ async def test_pump(
     assert state.state == "local"
 
 
-@pytest.mark.parametrize("node_fixture", ["microwave_oven"])
+@pytest.mark.parametrize("node_fixture", ["aqara_camera_hub_g350"])
+async def test_camera_night_vision(
+    hass: HomeAssistant,
+    matter_client: MagicMock,
+    matter_node: MatterNode,
+) -> None:
+    """Test the CameraAvStreamManagement night vision select."""
+    entity_id = "select.aqara_camera_hub_g350_night_vision"
+    # fixture reports NightVision as TriStateAutoEnum.kAuto
+    state = hass.states.get(entity_id)
+    assert state
+    assert state.state == "auto"
+    assert state.attributes["options"] == ["off", "on", "auto"]
+
+    attribute_path = create_attribute_path_from_attribute(
+        endpoint_id=2,
+        attribute=clusters.CameraAvStreamManagement.Attributes.NightVision,
+    )
+    set_node_attribute(matter_node, 2, 1361, 22, 0)
+    await trigger_subscription_callback(
+        hass,
+        matter_client,
+        data=0,
+        node_id=matter_node.node_id,
+        attribute_path=attribute_path,
+    )
+    state = hass.states.get(entity_id)
+    assert state
+    assert state.state == "off"
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": entity_id, "option": "on"},
+        blocking=True,
+    )
+    assert matter_client.write_attribute.call_args_list == [
+        call(node_id=matter_node.node_id, attribute_path=attribute_path, value=1)
+    ]
+
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": entity_id, "option": "auto"},
+        blocking=True,
+    )
+    assert matter_client.write_attribute.call_args_list[1] == call(
+        node_id=matter_node.node_id, attribute_path=attribute_path, value=2
+    )
+    assert matter_client.write_attribute.call_count == 2
+
+    # an unrecognized raw value should not be reported as a known state
+    set_node_attribute(matter_node, 2, 1361, 22, 253)
+    await trigger_subscription_callback(
+        hass,
+        matter_client,
+        data=253,
+        node_id=matter_node.node_id,
+        attribute_path=attribute_path,
+    )
+    state = hass.states.get(entity_id)
+    assert state.state == "unknown"
+
+
+@pytest.mark.parametrize("node_fixture", ["aqara_camera_hub_g350"])
+@pytest.mark.parametrize(
+    ("attributes", "night_vision_entity_expected"),
+    [
+        pytest.param({}, True, id="night-vision-feature-set"),
+        pytest.param(
+            {
+                "2/1361/65532": 1055
+                & ~int(clusters.CameraAvStreamManagement.Bitmaps.Feature.kNightVision)
+            },
+            False,
+            id="night-vision-feature-unset",
+        ),
+    ],
+)
+async def test_camera_night_vision_discovery(
+    hass: HomeAssistant,
+    matter_node: MatterNode,
+    night_vision_entity_expected: bool,
+) -> None:
+    """Test the night vision select is only discovered when its feature bit is set."""
+    entity_id = "select.aqara_camera_hub_g350_night_vision"
+    assert (hass.states.get(entity_id) is not None) == night_vision_entity_expected
+
+
+@pytest.mark.parametrize("node_fixture", ["mock_microwave_oven"])
 async def test_microwave_oven(
     hass: HomeAssistant,
     matter_client: MagicMock,
     matter_node: MatterNode,
 ) -> None:
-    """Test ListSelect entity is discovered and working from a microwave oven fixture."""
+    """Test ListSelect entity from a microwave oven fixture."""
 
     # SupportedWatts    from MicrowaveOvenControl cluster (1/96/6)
     # SelectedWattIndex from MicrowaveOvenControl cluster (1/96/7)
     matter_client.write_attribute.reset_mock()
-    state = hass.states.get("select.microwave_oven_power_level_w")
+    state = hass.states.get("select.mock_microwave_oven_power_level_w")
     assert state
     assert state.state == "1000"
     assert state.attributes["options"] == [
@@ -269,7 +361,7 @@ async def test_microwave_oven(
         "select",
         "select_option",
         {
-            "entity_id": "select.microwave_oven_power_level_w",
+            "entity_id": "select.mock_microwave_oven_power_level_w",
             "option": "900",
         },
         blocking=True,
@@ -284,6 +376,7 @@ async def test_microwave_oven(
     )
 
 
+@pytest.mark.usefixtures("entity_registry_enabled_by_default")
 @pytest.mark.parametrize("node_fixture", ["aqara_door_window_p2"])
 async def test_aqara_door_window_p2(
     hass: HomeAssistant,
@@ -302,3 +395,334 @@ async def test_aqara_door_window_p2(
     await trigger_subscription_callback(hass, matter_client)
     state = hass.states.get("select.aqara_door_and_window_sensor_p2_sensitivity")
     assert state.state == "20 mm"
+
+
+@pytest.mark.parametrize("node_fixture", ["secuyou_smart_lock"])
+async def test_door_lock_operating_mode_select(
+    hass: HomeAssistant,
+    matter_client: MagicMock,
+    matter_node: MatterNode,
+) -> None:
+    """Test Door Lock Operating Mode select entity discovery and interaction.
+
+    Verifies:
+    - Options are filtered based on SupportedOperatingModes bitmap
+    - Attribute updates reflect current option
+    - Selecting an option writes correct enum value
+    """
+    entity_id = "select.secuyou_smart_lock_operating_mode"
+    state = hass.states.get(entity_id)
+    assert state, "Missing operating mode select entity"
+    # According to the spec, bit=0 means supported and bit=1 means not supported.
+    # The fixture bitmap clears bits 0, 2, and 3, so the supported modes are
+    # Normal, Privacy, and NoRemoteLockUnlock; the other bits are set (not
+    # supported).
+    assert set(state.attributes["options"]) == {
+        "normal",
+        "privacy",
+        "no_remote_lock_unlock",
+    }
+    # Verify that the initial state is part of the allowed options
+    assert state.state in state.attributes["options"]
+
+    # Dynamically obtain ids instead of hardcoding
+    door_lock_cluster_id = clusters.DoorLock.Attributes.OperatingMode.cluster_id
+    operating_mode_attr_id = clusters.DoorLock.Attributes.OperatingMode.attribute_id
+
+    # Change OperatingMode attribute on the node to a supported mode ('privacy')
+    set_node_attribute(
+        matter_node,
+        1,
+        door_lock_cluster_id,
+        operating_mode_attr_id,
+        clusters.DoorLock.Enums.OperatingModeEnum.kPrivacy,
+    )
+    await trigger_subscription_callback(hass, matter_client)
+    state = hass.states.get(entity_id)
+    assert state.state == "privacy"
+
+    # Select another supported option (NoRemoteLockUnlock) via service
+    # to validate mapping
+    matter_client.write_attribute.reset_mock()
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": entity_id, "option": "no_remote_lock_unlock"},
+        blocking=True,
+    )
+    assert matter_client.write_attribute.call_count == 1
+    assert matter_client.write_attribute.call_args == call(
+        node_id=matter_node.node_id,
+        attribute_path=create_attribute_path_from_attribute(
+            endpoint_id=1,
+            attribute=clusters.DoorLock.Attributes.OperatingMode,
+        ),
+        value=clusters.DoorLock.Enums.OperatingModeEnum.kNoRemoteLockUnlock,
+    )
+
+
+@pytest.mark.parametrize("node_fixture", ["mock_chime"])
+async def test_chime_select(
+    hass: HomeAssistant,
+    matter_client: MagicMock,
+    matter_node: MatterNode,
+) -> None:
+    """Test select entity for the Chime cluster's SelectedChime attribute."""
+    entity_id = "select.mock_chime_chime_sound"
+    state = hass.states.get(entity_id)
+    assert state
+    assert state.state == "Classic Ding Dong"
+    assert state.attributes["options"] == [
+        "Classic Ding Dong",
+        "Merry Melodies",
+        "Digital Alert",
+    ]
+
+    set_node_attribute(matter_node, 1, 1366, 1, 2)
+    await trigger_subscription_callback(hass, matter_client)
+    state = hass.states.get(entity_id)
+    assert state.state == "Merry Melodies"
+
+    matter_client.write_attribute.reset_mock()
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": entity_id, "option": "Classic Ding Dong"},
+        blocking=True,
+    )
+    assert matter_client.write_attribute.call_count == 1
+    assert matter_client.write_attribute.call_args == call(
+        node_id=matter_node.node_id,
+        attribute_path=create_attribute_path_from_attribute(
+            endpoint_id=1,
+            attribute=clusters.Chime.Attributes.SelectedChime,
+        ),
+        value=1,
+    )
+
+
+@pytest.mark.parametrize("node_fixture", ["wago_home_relay_16a"])
+async def test_wago_switch_type_select(
+    hass: HomeAssistant,
+    matter_client: MagicMock,
+    matter_node: MatterNode,
+) -> None:
+    """Test select entity for the WAGO custom cluster SwitchType attribute."""
+    entity_id = "select.home_relay_16a_thread_switch_type"
+    state = hass.states.get(entity_id)
+    assert state
+    assert state.state == "switch"
+    assert state.attributes["options"] == ["switch", "button"]
+
+    set_node_attribute(matter_node, 0, 355793920, 1, 0)
+    await trigger_subscription_callback(hass, matter_client)
+    state = hass.states.get(entity_id)
+    assert state.state == "button"
+
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": entity_id, "option": "switch"},
+        blocking=True,
+    )
+    assert matter_client.write_attribute.call_count == 1
+    assert matter_client.write_attribute.call_args == call(
+        node_id=matter_node.node_id,
+        attribute_path=create_attribute_path_from_attribute(
+            endpoint_id=0,
+            attribute=custom_clusters.WagoCluster.Attributes.SwitchType,
+        ),
+        value=1,
+    )
+
+
+@pytest.mark.parametrize("node_fixture", ["wago_home_relay_16a"])
+async def test_wago_connection_mode_select(
+    hass: HomeAssistant,
+    matter_client: MagicMock,
+    matter_node: MatterNode,
+) -> None:
+    """Test select entity for the WAGO custom cluster DirectlyConnected attribute."""
+    entity_id = "select.home_relay_16a_thread_connection_mode"
+    state = hass.states.get(entity_id)
+    assert state
+    assert state.state == "directly_connected"
+    assert state.attributes["options"] == ["directly_connected", "matter_only"]
+
+    set_node_attribute(matter_node, 0, 355793920, 0, False)
+    await trigger_subscription_callback(hass, matter_client)
+    state = hass.states.get(entity_id)
+    assert state.state == "matter_only"
+
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": entity_id, "option": "matter_only"},
+        blocking=True,
+    )
+    assert matter_client.write_attribute.call_count == 1
+    assert matter_client.write_attribute.call_args == call(
+        node_id=matter_node.node_id,
+        attribute_path=create_attribute_path_from_attribute(
+            endpoint_id=0,
+            attribute=custom_clusters.WagoCluster.Attributes.DirectlyConnected,
+        ),
+        value=False,
+    )
+
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": entity_id, "option": "directly_connected"},
+        blocking=True,
+    )
+    assert matter_client.write_attribute.call_count == 2
+    assert matter_client.write_attribute.call_args == call(
+        node_id=matter_node.node_id,
+        attribute_path=create_attribute_path_from_attribute(
+            endpoint_id=0,
+            attribute=custom_clusters.WagoCluster.Attributes.DirectlyConnected,
+        ),
+        value=True,
+    )
+
+
+@pytest.mark.parametrize("node_fixture", ["wago_home_blind_control"])
+async def test_wago_travel_time_mode_select(
+    hass: HomeAssistant,
+    matter_client: MagicMock,
+    matter_node: MatterNode,
+) -> None:
+    """Test select entity for the WAGO WindowCovering ManualMode attribute."""
+    entity_id = "select.home_blind_wi_fi_travel_time_mode"
+    state = hass.states.get(entity_id)
+    assert state
+    assert state.state == "manual"
+    assert state.attributes["options"] == ["automatic", "manual"]
+
+    set_node_attribute(matter_node, 1, 258, 355729412, False)
+    await trigger_subscription_callback(hass, matter_client)
+    state = hass.states.get(entity_id)
+    assert state.state == "automatic"
+
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": entity_id, "option": "automatic"},
+        blocking=True,
+    )
+    assert matter_client.write_attribute.call_count == 1
+    assert matter_client.write_attribute.call_args == call(
+        node_id=matter_node.node_id,
+        attribute_path=create_attribute_path_from_attribute(
+            endpoint_id=1,
+            attribute=clusters.WindowCovering.Attributes.WagoManualMode,
+        ),
+        value=False,
+    )
+
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": entity_id, "option": "manual"},
+        blocking=True,
+    )
+    assert matter_client.write_attribute.call_count == 2
+    assert matter_client.write_attribute.call_args == call(
+        node_id=matter_node.node_id,
+        attribute_path=create_attribute_path_from_attribute(
+            endpoint_id=1,
+            attribute=clusters.WindowCovering.Attributes.WagoManualMode,
+        ),
+        value=True,
+    )
+
+
+@pytest.mark.parametrize("node_fixture", ["wago_home_blind_control"])
+async def test_wago_blind_type_select(
+    hass: HomeAssistant,
+    matter_client: MagicMock,
+    matter_node: MatterNode,
+) -> None:
+    """Test select entity for the WAGO WindowCovering BlindType attribute."""
+    entity_id = "select.home_blind_wi_fi_blind_type"
+    state = hass.states.get(entity_id)
+    assert state
+    assert state.state == "roller_shutter"
+    assert state.attributes["options"] == ["roller_shutter", "venetian_blind"]
+
+    set_node_attribute(matter_node, 1, 258, 355729413, 1)
+    await trigger_subscription_callback(hass, matter_client)
+    state = hass.states.get(entity_id)
+    assert state.state == "venetian_blind"
+
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": entity_id, "option": "venetian_blind"},
+        blocking=True,
+    )
+    assert matter_client.write_attribute.call_count == 1
+    assert matter_client.write_attribute.call_args == call(
+        node_id=matter_node.node_id,
+        attribute_path=create_attribute_path_from_attribute(
+            endpoint_id=1,
+            attribute=clusters.WindowCovering.Attributes.WagoBlindType,
+        ),
+        value=1,
+    )
+
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": entity_id, "option": "roller_shutter"},
+        blocking=True,
+    )
+    assert matter_client.write_attribute.call_count == 2
+    assert matter_client.write_attribute.call_args == call(
+        node_id=matter_node.node_id,
+        attribute_path=create_attribute_path_from_attribute(
+            endpoint_id=1,
+            attribute=clusters.WindowCovering.Attributes.WagoBlindType,
+        ),
+        value=0,
+    )
+
+
+@pytest.mark.parametrize("node_fixture", ["aqara_led_strip_t2"])
+async def test_aqara_led_strip_t2(
+    hass: HomeAssistant,
+    matter_client: MagicMock,
+    matter_node: MatterNode,
+) -> None:
+    """Test select entities on Aqara LED Strip T2."""
+    state = hass.states.get("select.aqara_led_strip_t2_music_sync_effect")
+    assert state
+    assert state.state == "pulse"
+
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {
+            "entity_id": "select.aqara_led_strip_t2_music_sync_effect",
+            "option": "flash",
+        },
+        blocking=True,
+    )
+
+    assert matter_client.write_attribute.call_count == 1
+    assert matter_client.write_attribute.call_args == call(
+        node_id=matter_node.node_id,
+        attribute_path=create_attribute_path_from_attribute(
+            endpoint_id=1,
+            attribute=custom_clusters.AqaraLedStripCluster.Attributes.MusicSyncEffect,
+        ),
+        value=4,  # = Flash
+    )
+
+    set_node_attribute(matter_node, 1, 291503119, 21, 4)
+    await trigger_subscription_callback(hass, matter_client)
+
+    state = hass.states.get("select.aqara_led_strip_t2_music_sync_effect")
+    assert state
+    assert state.state == "flash"

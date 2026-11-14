@@ -1,7 +1,5 @@
 """Constants for the evohome tests."""
 
-from __future__ import annotations
-
 from typing import Final
 
 ACCESS_TOKEN: Final = "at_1dc7z657UKzbhKA..."
@@ -16,8 +14,10 @@ TEST_INSTALLS: Final = (
     "h032585",  # VisionProWifi: no preset modes for TCS, zoneId=systemId
     "h099625",  # RoundThermostat
     "h139906",  # zone with null schedule
-    "sys_004",  # RoundModulation
+    "h157546",  # tcs with long 8-digit system_id
+    "sys_004",  # RoundModulation; multi-location account, empty gateway
+    "sys_006",  # multi-location account, lots of faults
 )
 #   "botched",  # as default: but with activeFaults, ghost zones & unknown types
 
-TEST_INSTALLS_WITH_DHW: Final = ("default", "botched")
+TEST_INSTALLS_WITH_DHW: Final = ("default", "botched", "sys_006")

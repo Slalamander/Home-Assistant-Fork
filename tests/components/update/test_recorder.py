@@ -1,8 +1,12 @@
 """The tests for update recorder."""
 
-from __future__ import annotations
-
 from datetime import timedelta
+
+from pytest_homeassistant.common import (
+    async_fire_time_changed,
+    setup_test_component_platform,
+)
+from pytest_homeassistant.components.recorder.common import async_wait_recording_done
 
 from homeassistant.components.recorder import Recorder
 from homeassistant.components.recorder.history import get_significant_states
@@ -21,9 +25,6 @@ from homeassistant.util import dt as dt_util
 
 from .common import MockUpdateEntity
 
-from tests.common import async_fire_time_changed, setup_test_component_platform
-from tests.components.recorder.common import async_wait_recording_done
-
 
 async def test_exclude_attributes(
     recorder_mock: Recorder,
@@ -40,8 +41,7 @@ async def test_exclude_attributes(
     assert state.attributes[ATTR_IN_PROGRESS] is True
     assert state.attributes[ATTR_UPDATE_PERCENTAGE] == 50
     assert (
-        state.attributes[ATTR_ENTITY_PICTURE]
-        == "https://brands.home-assistant.io/_/test/icon.png"
+        state.attributes[ATTR_ENTITY_PICTURE] == "/api/brands/integration/test/icon.png"
     )
     await async_setup_component(hass, DOMAIN, {})
 

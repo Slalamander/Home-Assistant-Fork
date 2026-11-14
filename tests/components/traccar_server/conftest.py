@@ -4,6 +4,11 @@ from collections.abc import Generator
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from pytest_homeassistant.common import (
+    MockConfigEntry,
+    load_json_array_fixture,
+    load_json_object_fixture,
+)
 from pytraccar import ApiClient, SubscriptionStatus
 
 from homeassistant.components.traccar_server.const import (
@@ -14,18 +19,11 @@ from homeassistant.components.traccar_server.const import (
     DOMAIN,
 )
 from homeassistant.const import (
+    CONF_API_TOKEN,
     CONF_HOST,
-    CONF_PASSWORD,
     CONF_PORT,
     CONF_SSL,
-    CONF_USERNAME,
     CONF_VERIFY_SSL,
-)
-
-from tests.common import (
-    MockConfigEntry,
-    load_json_array_fixture,
-    load_json_object_fixture,
 )
 
 
@@ -74,8 +72,7 @@ def mock_config_entry() -> MockConfigEntry:
         data={
             CONF_HOST: "1.1.1.1",
             CONF_PORT: "8082",
-            CONF_USERNAME: "test@example.org",
-            CONF_PASSWORD: "ThisIsNotThePasswordYouAreL00kingFor",
+            CONF_API_TOKEN: "ThisIsNotThePasswordYouAreL00kingFor",
             CONF_SSL: False,
             CONF_VERIFY_SSL: True,
         },

@@ -3,11 +3,13 @@
 from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from pyloadapi.types import LoginResponse, StatusServerResponse
+from pyloadapi.types import StatusServerResponse
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.pyload.const import DEFAULT_NAME, DOMAIN
 from homeassistant.const import (
+    CONF_API_KEY,
     CONF_HOST,
     CONF_PASSWORD,
     CONF_PORT,
@@ -18,12 +20,16 @@ from homeassistant.const import (
 )
 from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 
-from tests.common import MockConfigEntry
-
 USER_INPUT = {
     CONF_URL: "https://pyload.local:8000/prefix",
     CONF_PASSWORD: "test-password",
     CONF_USERNAME: "test-username",
+    CONF_VERIFY_SSL: False,
+}
+
+USER_INPUT_API_KEY = {
+    CONF_URL: "https://pyload.local:8000/prefix",
+    CONF_API_KEY: "pl_xxx",
     CONF_VERIFY_SSL: False,
 }
 
@@ -32,10 +38,22 @@ REAUTH_INPUT = {
     CONF_USERNAME: "new-username",
 }
 
+REAUTH_INPUT_API_KEY = {
+    CONF_API_KEY: "pl_xxx",
+}
+
 NEW_INPUT = {
     CONF_URL: "https://pyload.local:8000/prefix",
     CONF_PASSWORD: "new-password",
     CONF_USERNAME: "new-username",
+    CONF_VERIFY_SSL: False,
+}
+
+NEW_INPUT_API_KEY = {
+    CONF_URL: "https://pyload.local:8000/prefix",
+    CONF_API_KEY: "pl_xxx",
+    CONF_PASSWORD: "test-password",
+    CONF_USERNAME: "test-username",
     CONF_VERIFY_SSL: False,
 }
 
@@ -59,7 +77,7 @@ ADDON_SERVICE_INFO = HassioServiceInfo(
 def mock_setup_entry() -> Generator[AsyncMock]:
     """Override async_setup_entry."""
     with patch(
-        "homeassistant.components.pyload.async_setup_entry", return_value=True
+        "homeassistant.components.pyload.async_setup_entry", return_value=None
     ) as mock_setup_entry:
         yield mock_setup_entry
 
@@ -76,18 +94,6 @@ def mock_pyloadapi() -> Generator[MagicMock]:
         client = mock_client.return_value
         client.username = "username"
         client.api_url = "https://pyload.local:8000/"
-        client.login.return_value = LoginResponse(
-            {
-                "_permanent": True,
-                "authenticated": True,
-                "id": 2,
-                "name": "username",
-                "role": 0,
-                "perms": 0,
-                "template": "default",
-                "_flashes": [["message", "Logged in successfully"]],
-            }
-        )
 
         client.get_status.return_value = StatusServerResponse(
             {

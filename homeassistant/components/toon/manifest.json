@@ -2,8 +2,10 @@
   "domain": "toon",
   "name": "Toon",
   "after_dependencies": ["cloud"],
+  "categories": ["climate.thermostats_heating", "energy.meters_monitoring"],
   "codeowners": [],
   "config_flow": true,
+  "connectivity": ["cloud"],
   "dependencies": ["auth"],
   "dhcp": [
     {
@@ -12,6 +14,7 @@
     }
   ],
   "documentation": "https://www.home-assistant.io/integrations/toon",
+  "integration_type": "device",
   "iot_class": "cloud_push",
   "loggers": ["toonapi"],
   "requirements": ["toonapi==0.3.0"]

@@ -2,11 +2,11 @@
 
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, cast, override
 
 from pylamarzocco import LaMarzoccoMachine
 from pylamarzocco.const import MachineMode, ModelName, WidgetType
-from pylamarzocco.exceptions import RequestNotSuccessful
+from pylamarzocco.exceptions import LaMarzoccoError
 from pylamarzocco.models import (
     MachineStatus,
     SteamBoilerLevel,
@@ -35,51 +35,51 @@ class LaMarzoccoSwitchEntityDescription(
     """Description of a La Marzocco Switch."""
 
     control_fn: Callable[[LaMarzoccoMachine, bool], Coroutine[Any, Any, bool]]
-    is_on_fn: Callable[[LaMarzoccoMachine], bool]
+    is_on_fn: Callable[[LaMarzoccoMachine], bool | None]
 
 
 ENTITIES: tuple[LaMarzoccoSwitchEntityDescription, ...] = (
     LaMarzoccoSwitchEntityDescription(
-        key="main",
-        translation_key="main",
-        name=None,
-        control_fn=lambda machine, state: machine.set_power(state),
+        key="steam_boiler_enable",
+        translation_key="steam_boiler",
+        control_fn=lambda machine, state: machine.set_steam(state),
         is_on_fn=(
-            lambda machine: cast(
-                MachineStatus, machine.dashboard.config[WidgetType.CM_MACHINE_STATUS]
-            ).mode
-            is MachineMode.BREWING_MODE
+            lambda machine: (
+                cast(
+                    SteamBoilerLevel,
+                    machine.dashboard.config[WidgetType.CM_STEAM_BOILER_LEVEL],
+                ).enabled
+                if WidgetType.CM_STEAM_BOILER_LEVEL in machine.dashboard.config
+                else None
+            )
         ),
+        supported_fn=(
+            lambda coordinator: (
+                coordinator.device.dashboard.model_name
+                in (ModelName.LINEA_MINI_R, ModelName.LINEA_MICRA)
+            )
+        ),
+        bt_offline_mode=True,
     ),
     LaMarzoccoSwitchEntityDescription(
         key="steam_boiler_enable",
         translation_key="steam_boiler",
         control_fn=lambda machine, state: machine.set_steam(state),
         is_on_fn=(
-            lambda machine: cast(
-                SteamBoilerLevel,
-                machine.dashboard.config[WidgetType.CM_STEAM_BOILER_LEVEL],
-            ).enabled
+            lambda machine: (
+                cast(
+                    SteamBoilerTemperature,
+                    machine.dashboard.config[WidgetType.CM_STEAM_BOILER_TEMPERATURE],
+                ).enabled
+            )
         ),
         supported_fn=(
-            lambda coordinator: coordinator.device.dashboard.model_name
-            in (ModelName.LINEA_MINI_R, ModelName.LINEA_MICRA)
+            lambda coordinator: (
+                coordinator.device.dashboard.model_name
+                not in (ModelName.LINEA_MINI_R, ModelName.LINEA_MICRA)
+            )
         ),
-    ),
-    LaMarzoccoSwitchEntityDescription(
-        key="steam_boiler_enable",
-        translation_key="steam_boiler",
-        control_fn=lambda machine, state: machine.set_steam(state),
-        is_on_fn=(
-            lambda machine: cast(
-                SteamBoilerTemperature,
-                machine.dashboard.config[WidgetType.CM_STEAM_BOILER_TEMPERATURE],
-            ).enabled
-        ),
-        supported_fn=(
-            lambda coordinator: coordinator.device.dashboard.model_name
-            not in (ModelName.LINEA_MINI_R, ModelName.LINEA_MICRA)
-        ),
+        bt_offline_mode=True,
     ),
     LaMarzoccoSwitchEntityDescription(
         key="smart_standby_enabled",
@@ -90,8 +90,27 @@ ENTITIES: tuple[LaMarzoccoSwitchEntityDescription, ...] = (
             mode=machine.schedule.smart_wake_up_sleep.smart_stand_by_after,
             minutes=machine.schedule.smart_wake_up_sleep.smart_stand_by_minutes,
         ),
-        is_on_fn=lambda machine: machine.schedule.smart_wake_up_sleep.smart_stand_by_enabled,
+        is_on_fn=lambda machine: (
+            machine.schedule.smart_wake_up_sleep.smart_stand_by_enabled
+        ),
+        bt_offline_mode=True,
     ),
+)
+
+MAIN_SWITCH_ENTITY = LaMarzoccoSwitchEntityDescription(
+    key="main",
+    translation_key="main",
+    name=None,
+    control_fn=lambda machine, state: machine.set_power(state),
+    is_on_fn=(
+        lambda machine: (
+            cast(
+                MachineStatus, machine.dashboard.config[WidgetType.CM_MACHINE_STATUS]
+            ).mode
+            is MachineMode.BREWING_MODE
+        )
+    ),
+    bt_offline_mode=True,
 )
 
 
@@ -103,17 +122,26 @@ async def async_setup_entry(
     """Set up switch entities and services."""
 
     coordinator = entry.runtime_data.config_coordinator
+    bluetooth_coordinator = entry.runtime_data.bluetooth_coordinator
 
     entities: list[SwitchEntity] = []
     entities.extend(
-        LaMarzoccoSwitchEntity(coordinator, description)
+        LaMarzoccoSwitchEntity(coordinator, description, bluetooth_coordinator)
         for description in ENTITIES
         if description.supported_fn(coordinator)
     )
 
     entities.extend(
         LaMarzoccoAutoOnOffSwitchEntity(coordinator, wake_up_sleep_entry)
-        for wake_up_sleep_entry in coordinator.device.schedule.smart_wake_up_sleep.schedules
+        for wake_up_sleep_entry in (
+            coordinator.device.schedule.smart_wake_up_sleep.schedules
+        )
+    )
+
+    entities.append(
+        LaMarzoccoMainSwitchEntity(
+            coordinator, MAIN_SWITCH_ENTITY, bluetooth_coordinator
+        )
     )
 
     async_add_entities(entities)
@@ -124,11 +152,12 @@ class LaMarzoccoSwitchEntity(LaMarzoccoEntity, SwitchEntity):
 
     entity_description: LaMarzoccoSwitchEntityDescription
 
+    @override
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn device on."""
         try:
             await self.entity_description.control_fn(self.coordinator.device, True)
-        except RequestNotSuccessful as exc:
+        except (LaMarzoccoError, TimeoutError) as exc:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="switch_on_error",
@@ -136,11 +165,12 @@ class LaMarzoccoSwitchEntity(LaMarzoccoEntity, SwitchEntity):
             ) from exc
         self.async_write_ha_state()
 
+    @override
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn device off."""
         try:
             await self.entity_description.control_fn(self.coordinator.device, False)
-        except RequestNotSuccessful as exc:
+        except (LaMarzoccoError, TimeoutError) as exc:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="switch_off_error",
@@ -149,9 +179,22 @@ class LaMarzoccoSwitchEntity(LaMarzoccoEntity, SwitchEntity):
         self.async_write_ha_state()
 
     @property
-    def is_on(self) -> bool:
+    @override
+    def is_on(self) -> bool | None:
         """Return true if device is on."""
         return self.entity_description.is_on_fn(self.coordinator.device)
+
+
+class LaMarzoccoMainSwitchEntity(LaMarzoccoSwitchEntity):
+    """Switch representing espresso machine main power."""
+
+    @property
+    @override
+    def entity_picture(self) -> str | None:
+        """Return the entity picture."""
+
+        image_url = self.coordinator.device.dashboard.image_url
+        return image_url or None  # image URL can be empty string
 
 
 class LaMarzoccoAutoOnOffSwitchEntity(LaMarzoccoBaseEntity, SwitchEntity):
@@ -178,7 +221,7 @@ class LaMarzoccoAutoOnOffSwitchEntity(LaMarzoccoBaseEntity, SwitchEntity):
         self._schedule_entry.enabled = state
         try:
             await self.coordinator.device.set_wakeup_schedule(self._schedule_entry)
-        except RequestNotSuccessful as exc:
+        except (LaMarzoccoError, TimeoutError) as exc:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="auto_on_off_error",
@@ -186,15 +229,18 @@ class LaMarzoccoAutoOnOffSwitchEntity(LaMarzoccoBaseEntity, SwitchEntity):
             ) from exc
         self.async_write_ha_state()
 
+    @override
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn switch on."""
         await self._async_enable(True)
 
+    @override
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn switch off."""
         await self._async_enable(False)
 
     @property
+    @override
     def is_on(self) -> bool:
         """Return true if switch is on."""
         return self._schedule_entry.enabled

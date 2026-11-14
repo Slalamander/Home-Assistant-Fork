@@ -1,9 +1,6 @@
 """The Control4 integration."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
-import json
 import logging
 from typing import Any
 
@@ -16,25 +13,29 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONF_HOST,
     CONF_PASSWORD,
-    CONF_SCAN_INTERVAL,
     CONF_TOKEN,
     CONF_USERNAME,
     Platform,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady
 from homeassistant.helpers import aiohttp_client, device_registry as dr
 
 from .const import (
     API_RETRY_TIMES,
+    CLIMATE_VARIABLES,
     CONF_CONTROLLER_UNIQUE_ID,
-    DEFAULT_SCAN_INTERVAL,
+    CONTROL4_DIMMER_VARS,
+    CONTROL4_NON_DIMMER_VAR,
+    COVER_VARIABLES,
     DOMAIN,
+    ROOM_VARIABLES,
 )
+from .coordinator import Control4DataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.LIGHT, Platform.MEDIA_PLAYER]
+PLATFORMS = [Platform.CLIMATE, Platform.COVER, Platform.LIGHT, Platform.MEDIA_PLAYER]
 
 
 @dataclass
@@ -47,8 +48,12 @@ class Control4RuntimeData:
     director_all_items: list[dict[str, Any]]
     director_model: str
     director_sw_version: str
-    scan_interval: int
     ui_configuration: dict[str, Any] | None
+    climate_coordinator: Control4DataUpdateCoordinator
+    cover_coordinator: Control4DataUpdateCoordinator
+    dimmer_coordinator: Control4DataUpdateCoordinator
+    non_dimmer_coordinator: Control4DataUpdateCoordinator
+    room_coordinator: Control4DataUpdateCoordinator
 
 
 type Control4ConfigEntry = ConfigEntry[Control4RuntimeData]
@@ -61,40 +66,42 @@ async def call_c4_api_retry(func, *func_args):
         try:
             return await func(*func_args)
         except client_exceptions.ClientError as exception:
-            _LOGGER.error(
-                "Try: %d, Error connecting to Control4 account API: %s",
+            _LOGGER.debug(
+                "Attempt %d/%d failed connecting to Control4 account API: %s",
                 i + 1,
+                API_RETRY_TIMES,
                 exception,
             )
             exc = exception
-    raise ConfigEntryNotReady(exc) from exc
+
+    raise ConfigEntryNotReady(
+        "Failed to connect to Control4 account API after"
+        f" {API_RETRY_TIMES} attempts: {exc}"
+    ) from exc
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: Control4ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: Control4ConfigEntry) -> None:
     """Set up Control4 from a config entry."""
     account_session = aiohttp_client.async_get_clientsession(hass)
 
     config = entry.data
     account = C4Account(config[CONF_USERNAME], config[CONF_PASSWORD], account_session)
     try:
-        await account.getAccountBearerToken()
+        await account.get_account_bearer_token()
     except client_exceptions.ClientError as exception:
-        _LOGGER.error("Error connecting to Control4 account API: %s", exception)
-        raise ConfigEntryNotReady from exception
+        raise ConfigEntryNotReady(
+            f"Error connecting to Control4 account API to get bearer token: {exception}"
+        ) from exception
     except BadCredentials as exception:
-        _LOGGER.error(
-            (
-                "Error authenticating with Control4 account API, incorrect username or"
-                " password: %s"
-            ),
-            exception,
-        )
-        return False
+        raise ConfigEntryError(
+            translation_domain=DOMAIN,
+            translation_key="invalid_credentials",
+        ) from exception
 
     controller_unique_id: str = config[CONF_CONTROLLER_UNIQUE_ID]
 
     director_token_dict = await call_c4_api_retry(
-        account.getDirectorBearerToken, controller_unique_id
+        account.get_director_bearer_token, controller_unique_id
     )
 
     director_session = aiohttp_client.async_get_clientsession(hass, verify_ssl=False)
@@ -102,9 +109,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: Control4ConfigEntry) -> 
         config[CONF_HOST], director_token_dict[CONF_TOKEN], director_session
     )
 
-    controller_href = (await call_c4_api_retry(account.getAccountControllers))["href"]
+    controller_href = (await call_c4_api_retry(account.get_account_controllers))["href"]
     director_sw_version = await call_c4_api_retry(
-        account.getControllerOSVersion, controller_href
+        account.get_controller_os_version, controller_href
     )
 
     _, model, mac_address = controller_unique_id.split("_", 3)
@@ -122,17 +129,39 @@ async def async_setup_entry(hass: HomeAssistant, entry: Control4ConfigEntry) -> 
     )
 
     # Store all items found on controller for platforms to use
-    director_all_items: list[dict[str, Any]] = json.loads(
-        await director.getAllItemInfo()
-    )
+    try:
+        director_all_items: list[dict[str, Any]] = await director.get_all_item_info()
+    except (TimeoutError, client_exceptions.ClientError) as err:
+        raise ConfigEntryNotReady(
+            f"Timeout connecting to Control4 controller at {config[CONF_HOST]}"
+        ) from err
 
     # Check if OS version is 3 or higher to get UI configuration
     ui_configuration: dict[str, Any] | None = None
     if int(director_sw_version.split(".")[0]) >= 3:
-        ui_configuration = json.loads(await director.getUiConfiguration())
+        try:
+            ui_configuration = await director.get_ui_configuration()
+        except (TimeoutError, client_exceptions.ClientError) as err:
+            raise ConfigEntryNotReady(
+                "Timeout getting UI configuration from"
+                f" Control4 controller at {config[CONF_HOST]}"
+            ) from err
 
-    # Load options from config entry
-    scan_interval: int = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+    climate_coordinator = Control4DataUpdateCoordinator(
+        hass, entry, "climate", CLIMATE_VARIABLES
+    )
+    cover_coordinator = Control4DataUpdateCoordinator(
+        hass, entry, "cover", COVER_VARIABLES
+    )
+    dimmer_coordinator = Control4DataUpdateCoordinator(
+        hass, entry, "dimmer light", {*CONTROL4_DIMMER_VARS}
+    )
+    non_dimmer_coordinator = Control4DataUpdateCoordinator(
+        hass, entry, "non-dimmer light", {CONTROL4_NON_DIMMER_VAR}
+    )
+    room_coordinator = Control4DataUpdateCoordinator(
+        hass, entry, "room", ROOM_VARIABLES
+    )
 
     entry.runtime_data = Control4RuntimeData(
         account=account,
@@ -141,18 +170,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: Control4ConfigEntry) -> 
         director_all_items=director_all_items,
         director_model=director_model,
         director_sw_version=director_sw_version,
-        scan_interval=scan_interval,
         ui_configuration=ui_configuration,
+        climate_coordinator=climate_coordinator,
+        cover_coordinator=cover_coordinator,
+        dimmer_coordinator=dimmer_coordinator,
+        non_dimmer_coordinator=non_dimmer_coordinator,
+        room_coordinator=room_coordinator,
     )
+
+    for coordinator in (
+        climate_coordinator,
+        cover_coordinator,
+        dimmer_coordinator,
+        non_dimmer_coordinator,
+        room_coordinator,
+    ):
+        await coordinator.async_config_entry_first_refresh()
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    return True
 
-
-async def async_unload_entry(hass: HomeAssistant, entry: Control4ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: Control4ConfigEntry) -> None:
     """Unload a config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    await hass.config_entries.async_unload_platforms_or_raise(entry, PLATFORMS)
 
 
 async def get_items_of_category(

@@ -3,17 +3,13 @@
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
+from pytest_homeassistant.common import snapshot_platform
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components.osoenergy.const import DOMAIN
-from homeassistant.components.osoenergy.water_heater import (
-    ATTR_DURATION_DAYS,
-    ATTR_UNTIL_TEMP_LIMIT,
-    ATTR_V40MIN,
-    SERVICE_GET_PROFILE,
-    SERVICE_SET_PROFILE,
-    SERVICE_SET_V40MIN,
-    SERVICE_TURN_AWAY_MODE_ON,
+from homeassistant.components.osoenergy.services import (
+    OSOEnergyService,
+    OSOEnergyServiceArgument,
 )
 from homeassistant.components.water_heater import (
     ATTR_AWAY_MODE,
@@ -31,8 +27,6 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
-
-from tests.common import snapshot_platform
 
 
 @patch("homeassistant.components.osoenergy.PLATFORMS", [Platform.WATER_HEATER])
@@ -58,16 +52,21 @@ async def test_get_profile(
     await hass.config_entries.async_setup(mock_config_entry.entry_id)
     profile = await hass.services.async_call(
         DOMAIN,
-        SERVICE_GET_PROFILE,
+        OSOEnergyService.GET_PROFILE,
         {ATTR_ENTITY_ID: "water_heater.test_device"},
         blocking=True,
         return_response=True,
     )
 
     # The profile is returned in UTC format from the server
-    # Each index represents an hour from the current day (0-23). For example index 2 - 02:00 UTC
-    # Depending on the time zone and the DST the UTC hour is converted to local time and the value is placed in the correct index
-    # Example: time zone 'US/Pacific' and DST (-7 hours difference) - index 9 (09:00 UTC) will be converted to index 2 (02:00 Local)
+    # Each index represents an hour from the current day (0-23).
+    # For example index 2 - 02:00 UTC.
+    # Depending on the time zone and the DST the UTC hour is
+    # converted to local time and the value is placed in the
+    # correct index.
+    # Example: time zone 'US/Pacific' and DST (-7 hours
+    # difference) - index 9 (09:00 UTC) will be converted to
+    # index 2 (02:00 Local)
     assert profile == {
         "water_heater.test_device": {
             "profile": [
@@ -110,15 +109,20 @@ async def test_set_profile(
     await hass.config_entries.async_setup(mock_config_entry.entry_id)
     await hass.services.async_call(
         DOMAIN,
-        SERVICE_SET_PROFILE,
+        OSOEnergyService.SET_PROFILE,
         {ATTR_ENTITY_ID: "water_heater.test_device", "hour_01": 45},
         blocking=True,
     )
 
     # The server expects to receive the profile in UTC format
-    # Each field represents an hour from the current day (0-23). For example field hour_01 - 01:00 Local time
-    # Depending on the time zone and the DST the Local hour is converted to UTC time and the value is placed in the correct index
-    # Example: time zone 'US/Pacific' and DST (-7 hours difference) - index 1 (01:00 Local) will be converted to index 8 (08:00 Utc)
+    # Each field represents an hour from the current day (0-23).
+    # For example field hour_01 - 01:00 Local time.
+    # Depending on the time zone and the DST the Local hour is
+    # converted to UTC time and the value is placed in the
+    # correct index.
+    # Example: time zone 'US/Pacific' and DST (-7 hours
+    # difference) - index 1 (01:00 Local) will be converted to
+    # index 8 (08:00 Utc)
     mock_osoenergy_client().hotwater.set_profile.assert_called_once_with(
         ANY,
         [
@@ -159,8 +163,11 @@ async def test_set_v40_min(
     await hass.config_entries.async_setup(mock_config_entry.entry_id)
     await hass.services.async_call(
         DOMAIN,
-        SERVICE_SET_V40MIN,
-        {ATTR_ENTITY_ID: "water_heater.test_device", ATTR_V40MIN: 300},
+        OSOEnergyService.SET_V40_MIN,
+        {
+            ATTR_ENTITY_ID: "water_heater.test_device",
+            OSOEnergyServiceArgument.V40_MIN: 300,
+        },
         blocking=True,
     )
 
@@ -255,8 +262,11 @@ async def test_oso_turn_on(
     await hass.config_entries.async_setup(mock_config_entry.entry_id)
     await hass.services.async_call(
         DOMAIN,
-        SERVICE_TURN_ON,
-        {ATTR_ENTITY_ID: "water_heater.test_device", ATTR_UNTIL_TEMP_LIMIT: False},
+        OSOEnergyService.TURN_ON,
+        {
+            ATTR_ENTITY_ID: "water_heater.test_device",
+            OSOEnergyServiceArgument.UNTIL_TEMP_LIMIT: False,
+        },
         blocking=True,
     )
 
@@ -272,8 +282,11 @@ async def test_oso_turn_off(
     await hass.config_entries.async_setup(mock_config_entry.entry_id)
     await hass.services.async_call(
         DOMAIN,
-        SERVICE_TURN_OFF,
-        {ATTR_ENTITY_ID: "water_heater.test_device", ATTR_UNTIL_TEMP_LIMIT: False},
+        OSOEnergyService.TURN_OFF,
+        {
+            ATTR_ENTITY_ID: "water_heater.test_device",
+            OSOEnergyServiceArgument.UNTIL_TEMP_LIMIT: False,
+        },
         blocking=True,
     )
 
@@ -323,10 +336,10 @@ async def test_oso_set_away_mode_on(
     await hass.config_entries.async_setup(mock_config_entry.entry_id)
     await hass.services.async_call(
         DOMAIN,
-        SERVICE_TURN_AWAY_MODE_ON,
+        OSOEnergyService.TURN_AWAY_MODE_ON,
         {
             ATTR_ENTITY_ID: "water_heater.test_device",
-            ATTR_DURATION_DAYS: 10,
+            OSOEnergyServiceArgument.DURATION_DAYS: 10,
         },
         blocking=True,
     )

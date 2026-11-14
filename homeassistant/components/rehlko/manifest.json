@@ -1,8 +1,10 @@
 {
   "domain": "rehlko",
   "name": "Rehlko",
+  "categories": ["energy.backup_power"],
   "codeowners": ["@bdraco", "@peterager"],
   "config_flow": true,
+  "connectivity": ["cloud"],
   "dhcp": [
     {
       "hostname": "kohlergen*",
@@ -10,6 +12,7 @@
     }
   ],
   "documentation": "https://www.home-assistant.io/integrations/rehlko",
+  "integration_type": "hub",
   "iot_class": "cloud_polling",
   "loggers": ["aiokem"],
   "quality_scale": "silver",

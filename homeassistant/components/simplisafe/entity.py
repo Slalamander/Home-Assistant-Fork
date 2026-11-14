@@ -1,10 +1,10 @@
 """Support for SimpliSafe alarm systems."""
 
-from __future__ import annotations
-
 from collections.abc import Iterable
+from typing import override
 
 from simplipy.device import Device, DeviceTypes
+from simplipy.device.sensor.v3 import SensorV3
 from simplipy.system.v3 import SystemV3
 from simplipy.websocket import (
     EVENT_CONNECTION_LOST,
@@ -13,16 +13,15 @@ from simplipy.websocket import (
     EVENT_LOCK_UNLOCKED,
     EVENT_POWER_OUTAGE,
     EVENT_POWER_RESTORED,
+    EVENT_SECRET_ALERT_TRIGGERED,
     WebsocketEvent,
 )
 
 from homeassistant.core import callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    DataUpdateCoordinator,
-)
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import SimpliSafe
 from .const import (
@@ -35,16 +34,21 @@ from .const import (
     DOMAIN,
     LOGGER,
 )
+from .coordinator import SimpliSafeDataUpdateCoordinator
 from .typing import SystemType
 
 DEFAULT_CONFIG_URL = "https://webapp.simplisafe.com/new/#/dashboard"
 DEFAULT_ENTITY_MODEL = "Alarm control panel"
 DEFAULT_ERROR_THRESHOLD = 2
 
-WEBSOCKET_EVENTS_REQUIRING_SERIAL = [EVENT_LOCK_LOCKED, EVENT_LOCK_UNLOCKED]
+WEBSOCKET_EVENTS_REQUIRING_SERIAL = [
+    EVENT_LOCK_LOCKED,
+    EVENT_LOCK_UNLOCKED,
+    EVENT_SECRET_ALERT_TRIGGERED,
+]
 
 
-class SimpliSafeEntity(CoordinatorEntity[DataUpdateCoordinator[None]]):
+class SimpliSafeEntity(CoordinatorEntity[SimpliSafeDataUpdateCoordinator]):
     """Define a base SimpliSafe entity."""
 
     _attr_has_entity_name = True
@@ -85,6 +89,8 @@ class SimpliSafeEntity(CoordinatorEntity[DataUpdateCoordinator[None]]):
         else:
             device_type = DeviceTypes.UNKNOWN
 
+        # Deprecated: last_event_* attributes are maintained for backwards
+        # compatibility. Use the event entity's event attributes instead.
         self._attr_extra_state_attributes = {
             ATTR_LAST_EVENT_INFO: event.get("info"),
             ATTR_LAST_EVENT_SENSOR_NAME: event.get("sensorName"),
@@ -99,7 +105,12 @@ class SimpliSafeEntity(CoordinatorEntity[DataUpdateCoordinator[None]]):
             manufacturer="SimpliSafe",
             model=model,
             name=device_name,
-            via_device=(DOMAIN, str(system.system_id)),
+            serial_number=serial,
+            via_device_id=dr.async_get_device_id_by_identifier(
+                self.coordinator.hass,
+                (DOMAIN, str(system.system_id)),
+                config_entry_id=self.coordinator.config_entry.entry_id,
+            ),
         )
 
         self._attr_unique_id = serial
@@ -117,6 +128,7 @@ class SimpliSafeEntity(CoordinatorEntity[DataUpdateCoordinator[None]]):
             self._websocket_events_to_listen_for += additional_websocket_events
 
     @property
+    @override
     def available(self) -> bool:
         """Return whether the entity is available."""
         # We can easily detect if the V3 system is offline, but no simple check exists
@@ -124,18 +136,24 @@ class SimpliSafeEntity(CoordinatorEntity[DataUpdateCoordinator[None]]):
         # the entity as available if:
         #   1. We can verify that the system is online (assuming True if we can't)
         #   2. We can verify that the entity is online
+        #   3. We can verify that the V3 sensor is online (assuming True if we can't)
         if isinstance(self._system, SystemV3):
             system_offline = self._system.offline
         else:
             system_offline = False
 
+        # Sensors only: cameras are missing from the sensor data this flag reads
+        device_offline = isinstance(self._device, SensorV3) and self._device.offline
+
         return (
             self._error_count < DEFAULT_ERROR_THRESHOLD
             and self._online
             and not system_offline
+            and not device_offline
         )
 
     @callback
+    @override
     def _handle_coordinator_update(self) -> None:
         """Update the entity with new REST API data."""
         if self.coordinator.last_update_success:
@@ -172,6 +190,8 @@ class SimpliSafeEntity(CoordinatorEntity[DataUpdateCoordinator[None]]):
         else:
             sensor_type = None
 
+        # Deprecated: last_event_* attributes are maintained for backwards
+        # compatibility. Use the event entity's event attributes instead.
         self._attr_extra_state_attributes.update(
             {
                 ATTR_LAST_EVENT_INFO: event.info,
@@ -197,6 +217,7 @@ class SimpliSafeEntity(CoordinatorEntity[DataUpdateCoordinator[None]]):
         self.async_update_from_websocket_event(event)
         self.async_write_ha_state()
 
+    @override
     async def async_added_to_hass(self) -> None:
         """Register callbacks."""
         await super().async_added_to_hass()

@@ -3,18 +3,17 @@
 from collections.abc import Callable, Coroutine
 from unittest.mock import patch
 
-from freezegun import freeze_time
 import pytest
 from zigpy.const import SIG_EP_INPUT, SIG_EP_OUTPUT, SIG_EP_PROFILE, SIG_EP_TYPE
-from zigpy.device import Device
+from zigpy.device import ZigbeeDevice
 from zigpy.profiles import zha
 from zigpy.zcl.clusters import general
 import zigpy.zcl.foundation as zcl_f
 
 from homeassistant.components.button import (
     DOMAIN as BUTTON_DOMAIN,
-    SERVICE_PRESS,
     ButtonDeviceClass,
+    ButtonService,
 )
 from homeassistant.components.zha.helpers import (
     ZHADeviceProxy,
@@ -24,8 +23,8 @@ from homeassistant.components.zha.helpers import (
 )
 from homeassistant.const import (
     ATTR_DEVICE_CLASS,
-    ATTR_ENTITY_ID,
     STATE_UNKNOWN,
+    CommonServiceArgument,
     EntityCategory,
     Platform,
 )
@@ -46,23 +45,29 @@ def button_platform_only():
 
 
 @pytest.fixture
-async def setup_zha_integration(
-    hass: HomeAssistant, setup_zha: Callable[..., Coroutine[None]]
-):
-    """Set up ZHA component."""
+def speed_up_radio_mgr():
+    """Speed up the radio manager connection time by removing delays.
 
-    # if we call this in the test itself the test hangs forever
-    await setup_zha()
+    This fixture replaces the fixture in conftest.py by patching the connect
+    and shutdown delays to 0 to allow waiting for the patched delays when
+    running tests with time frozen, which otherwise blocks forever.
+    """
+    with (
+        patch("homeassistant.components.zha.radio_manager.CONNECT_DELAY_S", 0),
+        patch("zha.application.gateway.SHUT_DOWN_DELAY_S", 0),
+    ):
+        yield
 
 
-@freeze_time("2021-11-04 17:37:00", tz_offset=-1)
+@pytest.mark.freeze_time("2021-11-04 17:37:00", tz_offset=-1)
 async def test_button(
     hass: HomeAssistant,
     entity_registry: er.EntityRegistry,
-    setup_zha_integration,  # pylint: disable=unused-argument
-    zigpy_device_mock: Callable[..., Device],
+    setup_zha: Callable[..., Coroutine[None]],
+    zigpy_device_mock: Callable[..., ZigbeeDevice],
 ) -> None:
     """Test ZHA button platform."""
+    await setup_zha()
 
     gateway = get_zha_gateway(hass)
     gateway_proxy: ZHAGatewayProxy = get_zha_gateway_proxy(hass)
@@ -106,8 +111,8 @@ async def test_button(
     ):
         await hass.services.async_call(
             BUTTON_DOMAIN,
-            SERVICE_PRESS,
-            {ATTR_ENTITY_ID: entity_id},
+            ButtonService.PRESS,
+            {CommonServiceArgument.ENTITY_ID: entity_id},
             blocking=True,
         )
         await hass.async_block_till_done()

@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from pylamarzocco.const import MachineState, ModelName, WidgetType
 import pytest
+from pytest_homeassistant.common import MockConfigEntry, snapshot_platform
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.const import STATE_UNAVAILABLE, Platform
@@ -11,10 +12,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from . import async_init_integration
-
-from tests.common import MockConfigEntry, snapshot_platform
-
-pytestmark = pytest.mark.usefixtures("mock_websocket_terminated")
 
 
 async def test_sensors(

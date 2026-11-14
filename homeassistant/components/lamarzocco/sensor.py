@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import cast
+from typing import cast, override
 
 from pylamarzocco.const import BackFlushStatus, MachineState, ModelName, WidgetType
 from pylamarzocco.models import (
@@ -52,16 +52,18 @@ ENTITIES: tuple[LaMarzoccoSensorEntityDescription, ...] = (
         translation_key="coffee_boiler_ready_time",
         device_class=SensorDeviceClass.TIMESTAMP,
         value_fn=(
-            lambda config: cast(
-                CoffeeBoiler, config[WidgetType.CM_COFFEE_BOILER]
-            ).ready_start_time
+            lambda config: (
+                cast(CoffeeBoiler, config[WidgetType.CM_COFFEE_BOILER]).ready_start_time
+            )
         ),
         available_fn=(
-            lambda coordinator: cast(
-                CoffeeBoiler,
-                coordinator.device.dashboard.config[WidgetType.CM_COFFEE_BOILER],
-            ).ready_start_time
-            is not None
+            lambda coordinator: (
+                cast(
+                    CoffeeBoiler,
+                    coordinator.device.dashboard.config[WidgetType.CM_COFFEE_BOILER],
+                ).ready_start_time
+                is not None
+            )
         ),
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
@@ -70,20 +72,29 @@ ENTITIES: tuple[LaMarzoccoSensorEntityDescription, ...] = (
         translation_key="steam_boiler_ready_time",
         device_class=SensorDeviceClass.TIMESTAMP,
         value_fn=(
-            lambda config: cast(
-                SteamBoilerLevel, config[WidgetType.CM_STEAM_BOILER_LEVEL]
-            ).ready_start_time
+            lambda config: (
+                cast(
+                    SteamBoilerLevel, config[WidgetType.CM_STEAM_BOILER_LEVEL]
+                ).ready_start_time
+            )
         ),
         supported_fn=(
-            lambda coordinator: coordinator.device.dashboard.model_name
-            in (ModelName.LINEA_MICRA, ModelName.LINEA_MINI_R)
+            lambda coordinator: (
+                coordinator.device.dashboard.model_name
+                in (ModelName.LINEA_MICRA, ModelName.LINEA_MINI_R)
+            )
         ),
         available_fn=(
-            lambda coordinator: cast(
-                SteamBoilerLevel,
-                coordinator.device.dashboard.config[WidgetType.CM_STEAM_BOILER_LEVEL],
-            ).ready_start_time
-            is not None
+            lambda coordinator: (
+                WidgetType.CM_STEAM_BOILER_LEVEL in coordinator.device.dashboard.config
+                and cast(
+                    SteamBoilerLevel,
+                    coordinator.device.dashboard.config[
+                        WidgetType.CM_STEAM_BOILER_LEVEL
+                    ],
+                ).ready_start_time
+                is not None
+            )
         ),
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
@@ -92,33 +103,46 @@ ENTITIES: tuple[LaMarzoccoSensorEntityDescription, ...] = (
         translation_key="brewing_start_time",
         device_class=SensorDeviceClass.TIMESTAMP,
         value_fn=(
-            lambda config: cast(
-                MachineStatus, config[WidgetType.CM_MACHINE_STATUS]
-            ).brewing_start_time
+            lambda config: (
+                cast(
+                    MachineStatus, config[WidgetType.CM_MACHINE_STATUS]
+                ).brewing_start_time
+            )
         ),
         entity_category=EntityCategory.DIAGNOSTIC,
         available_fn=(
-            lambda coordinator: not coordinator.websocket_terminated
-            and cast(
-                MachineStatus,
-                coordinator.device.dashboard.config[WidgetType.CM_MACHINE_STATUS],
-            ).status
-            is MachineState.BREWING
+            lambda coordinator: (
+                (
+                    not coordinator.websocket_terminated
+                    or coordinator.device.bluetooth_shot_counter_active
+                )
+                and cast(
+                    MachineStatus,
+                    coordinator.device.dashboard.config[WidgetType.CM_MACHINE_STATUS],
+                ).status
+                is MachineState.BREWING
+            )
         ),
+        bt_shot_timer=True,
     ),
     LaMarzoccoSensorEntityDescription(
         key="steam_boiler_ready_time",
         translation_key="steam_boiler_ready_time",
         device_class=SensorDeviceClass.TIMESTAMP,
         value_fn=(
-            lambda config: cast(
-                SteamBoilerTemperature, config[WidgetType.CM_STEAM_BOILER_TEMPERATURE]
-            ).ready_start_time
+            lambda config: (
+                cast(
+                    SteamBoilerTemperature,
+                    config[WidgetType.CM_STEAM_BOILER_TEMPERATURE],
+                ).ready_start_time
+            )
         ),
         entity_category=EntityCategory.DIAGNOSTIC,
         supported_fn=(
-            lambda coordinator: coordinator.device.dashboard.model_name
-            in (ModelName.GS3_AV, ModelName.GS3_MP, ModelName.LINEA_MINI)
+            lambda coordinator: (
+                coordinator.device.dashboard.model_name
+                in (ModelName.GS3_AV, ModelName.GS3_MP, ModelName.LINEA_MINI)
+            )
         ),
     ),
     LaMarzoccoSensorEntityDescription(
@@ -126,17 +150,20 @@ ENTITIES: tuple[LaMarzoccoSensorEntityDescription, ...] = (
         translation_key="last_cleaning_time",
         device_class=SensorDeviceClass.TIMESTAMP,
         value_fn=(
-            lambda config: cast(
-                BackFlush,
-                config.get(
-                    WidgetType.CM_BACK_FLUSH, BackFlush(status=BackFlushStatus.OFF)
-                ),
-            ).last_cleaning_start_time
+            lambda config: (
+                cast(
+                    BackFlush,
+                    config.get(
+                        WidgetType.CM_BACK_FLUSH, BackFlush(status=BackFlushStatus.OFF)
+                    ),
+                ).last_cleaning_start_time
+            )
         ),
         entity_category=EntityCategory.DIAGNOSTIC,
         supported_fn=(
-            lambda coordinator: coordinator.device.dashboard.model_name
-            is not ModelName.GS3_MP
+            lambda coordinator: (
+                coordinator.device.dashboard.model_name is not ModelName.GS3_MP
+            )
         ),
     ),
 )
@@ -147,9 +174,12 @@ STATISTIC_ENTITIES: tuple[LaMarzoccoSensorEntityDescription, ...] = (
         translation_key="total_coffees_made",
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=(
-            lambda statistics: cast(
-                CoffeeAndFlushCounter, statistics[WidgetType.COFFEE_AND_FLUSH_COUNTER]
-            ).total_coffee
+            lambda statistics: (
+                cast(
+                    CoffeeAndFlushCounter,
+                    statistics[WidgetType.COFFEE_AND_FLUSH_COUNTER],
+                ).total_coffee
+            )
         ),
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
@@ -158,9 +188,12 @@ STATISTIC_ENTITIES: tuple[LaMarzoccoSensorEntityDescription, ...] = (
         translation_key="total_flushes_done",
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=(
-            lambda statistics: cast(
-                CoffeeAndFlushCounter, statistics[WidgetType.COFFEE_AND_FLUSH_COUNTER]
-            ).total_flush
+            lambda statistics: (
+                cast(
+                    CoffeeAndFlushCounter,
+                    statistics[WidgetType.COFFEE_AND_FLUSH_COUNTER],
+                ).total_flush
+            )
         ),
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
@@ -195,6 +228,7 @@ class LaMarzoccoSensorEntity(LaMarzoccoEntity, SensorEntity):
     entity_description: LaMarzoccoSensorEntityDescription
 
     @property
+    @override
     def native_value(self) -> StateType | datetime | None:
         """Return  value of the sensor."""
         return self.entity_description.value_fn(
@@ -208,6 +242,7 @@ class LaMarzoccoStatisticSensorEntity(LaMarzoccoSensorEntity):
     _unavailable_when_machine_off = False
 
     @property
+    @override
     def native_value(self) -> StateType | datetime | None:
         """Return the value of the sensor."""
         return self.entity_description.value_fn(

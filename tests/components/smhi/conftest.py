@@ -1,14 +1,16 @@
 """Provide common smhi fixtures."""
 
-from __future__ import annotations
-
 from collections.abc import AsyncGenerator, Generator
 import json
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from freezegun import freeze_time
+from pysmhi.smhi_fire_forecast import SMHIFireForecast, SMHIFirePointForecast
 from pysmhi.smhi_forecast import SMHIForecast, SMHIPointForecast
 import pytest
+from pytest_homeassistant.common import MockConfigEntry, load_fixture
+from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
 
 from homeassistant.components.smhi import PLATFORMS
 from homeassistant.components.smhi.const import DOMAIN
@@ -17,15 +19,12 @@ from homeassistant.core import HomeAssistant
 
 from . import TEST_CONFIG
 
-from tests.common import MockConfigEntry, load_fixture
-from tests.test_util.aiohttp import AiohttpClientMocker
-
 
 @pytest.fixture
 def mock_setup_entry() -> Generator[AsyncMock]:
     """Override async_setup_entry."""
     with patch(
-        "homeassistant.components.smhi.async_setup_entry", return_value=True
+        "homeassistant.components.smhi.async_setup_entry", return_value=None
     ) as mock_setup_entry:
         yield mock_setup_entry
 
@@ -40,6 +39,7 @@ async def patch_platform_constant() -> list[Platform]:
 async def load_int(
     hass: HomeAssistant,
     mock_client: SMHIPointForecast,
+    mock_fire_client: SMHIFirePointForecast,
     load_platforms: list[Platform],
 ) -> MockConfigEntry:
     """Set up the SMHI integration."""
@@ -87,6 +87,23 @@ async def get_client(
         yield client
 
 
+@pytest.fixture(name="mock_fire_client")
+async def get_fire_client(
+    hass: HomeAssistant,
+    get_fire_data: tuple[list[SMHIFireForecast], list[SMHIFireForecast]],
+) -> AsyncGenerator[MagicMock]:
+    """Mock SMHIFirePointForecast client."""
+
+    with patch(
+        "homeassistant.components.smhi.coordinator.SMHIFirePointForecast",
+        autospec=True,
+    ) as mock_client:
+        client = mock_client.return_value
+        client.async_get_daily_forecast.return_value = get_fire_data[0]
+        client.async_get_hourly_forecast.return_value = get_fire_data[1]
+        yield client
+
+
 @pytest.fixture(name="get_data")
 async def get_data_from_library(
     hass: HomeAssistant,
@@ -112,9 +129,44 @@ async def get_data_from_library(
     await client._api._session.close()
 
 
+@pytest.fixture(name="get_fire_data")
+async def get_fire_data_from_library(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    load_fire_json: dict[str, Any],
+) -> AsyncGenerator[tuple[list[SMHIFireForecast], list[SMHIFireForecast]]]:
+    """Get data from api."""
+    client = SMHIFirePointForecast(
+        TEST_CONFIG[CONF_LOCATION][CONF_LONGITUDE],
+        TEST_CONFIG[CONF_LOCATION][CONF_LATITUDE],
+        aioclient_mock.create_session(hass.loop),
+    )
+    with (
+        freeze_time("2025-10-03"),
+        patch.object(
+            client._api,
+            "async_get_data",
+            return_value=load_fire_json,
+        ),
+    ):
+        data_daily = await client.async_get_daily_forecast()
+        data_hourly = await client.async_get_hourly_forecast()
+
+    yield (data_daily, data_hourly)
+    await client._api._session.close()
+
+
+@pytest.fixture(name="load_fire_json")
+def load_fire_json_from_fixture(
+    load_data: tuple[str, str, str, str],
+) -> dict[str, Any]:
+    """Load fixture with json data and return."""
+    return json.loads(load_data[3])
+
+
 @pytest.fixture(name="load_json")
 def load_json_from_fixture(
-    load_data: tuple[str, str, str],
+    load_data: tuple[str, str, str, str],
     to_load: int,
 ) -> dict[str, Any]:
     """Load fixture with json data and return."""
@@ -122,12 +174,13 @@ def load_json_from_fixture(
 
 
 @pytest.fixture(name="load_data", scope="package")
-def load_data_from_fixture() -> tuple[str, str, str]:
+def load_data_from_fixture() -> tuple[str, str, str, str]:
     """Load fixture with fixture data and return."""
     return (
         load_fixture("smhi.json", "smhi"),
         load_fixture("smhi_night.json", "smhi"),
         load_fixture("smhi_short.json", "smhi"),
+        load_fixture("smhi_fire.json", "smhi"),
     )
 
 

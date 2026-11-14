@@ -10,6 +10,7 @@ import weakref
 import aiohttp
 from freezegun.api import FrozenDateTimeFactory
 import pytest
+from pytest_homeassistant.common import MockConfigEntry, async_fire_time_changed
 import requests
 
 from homeassistant import config_entries
@@ -19,11 +20,11 @@ from homeassistant.exceptions import (
     ConfigEntryAuthFailed,
     ConfigEntryError,
     ConfigEntryNotReady,
+    OAuth2TokenRequestError,
+    OAuth2TokenRequestReauthError,
 )
 from homeassistant.helpers import frame, update_coordinator
 from homeassistant.util.dt import utcnow
-
-from tests.common import MockConfigEntry, async_fire_time_changed
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,6 +54,16 @@ KNOWN_ERRORS: list[tuple[Exception, type[Exception], str]] = [
     (
         update_coordinator.UpdateFailed(),
         update_coordinator.UpdateFailed,
+        "Error fetching test data",
+    ),
+    (
+        update_coordinator.UpdateFailedUnreachable(),
+        update_coordinator.UpdateFailedUnreachable,
+        "test is unavailable",
+    ),
+    (
+        ConfigEntryNotReady(),
+        ConfigEntryNotReady,
         "Error fetching test data",
     ),
 ]
@@ -307,6 +318,32 @@ async def test_refresh_known_errors(
     assert err_msg[2] in caplog.text
 
 
+async def test_refresh_update_failed_unreachable(
+    crd: update_coordinator.DataUpdateCoordinator[int],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test UpdateFailedUnreachable is logged once at info level."""
+    await crd.async_refresh()
+    caplog.clear()
+
+    crd.update_method = AsyncMock(
+        side_effect=update_coordinator.UpdateFailedUnreachable("Device is off")
+    )
+    await crd.async_refresh()
+
+    assert crd.last_update_success is False
+    assert [
+        (r.levelno, r.message) for r in caplog.records if r.levelno >= logging.INFO
+    ] == [(logging.INFO, "test is unavailable: Device is off")]
+
+    # Not logged again while still unavailable
+    caplog.clear()
+    await crd.async_refresh()
+
+    assert crd.last_update_success is False
+    assert "test is unavailable" not in caplog.text
+
+
 async def test_refresh_fail_unknown(
     crd: update_coordinator.DataUpdateCoordinator[int], caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -322,6 +359,84 @@ async def test_refresh_fail_unknown(
     assert "Unexpected error fetching test data" in caplog.text
 
 
+@pytest.mark.parametrize(
+    ("exception", "expected_exception"),
+    [(OAuth2TokenRequestReauthError, ConfigEntryAuthFailed)],
+)
+async def test_oauth_token_request_refresh_errors(
+    crd: update_coordinator.DataUpdateCoordinator[int],
+    exception: type[OAuth2TokenRequestError],
+    expected_exception: type[Exception],
+) -> None:
+    """Test OAuth2 token request errors are mapped during refresh."""
+    request_info = Mock()
+    request_info.real_url = "http://example.com/token"
+    request_info.method = "POST"
+
+    oauth_exception = exception(
+        request_info=request_info,
+        history=(),
+        status=400,
+        message="OAuth 2.0 token refresh failed",
+        domain="domain",
+    )
+
+    crd.update_method = AsyncMock(side_effect=oauth_exception)
+
+    with pytest.raises(expected_exception) as err:
+        # Raise on auth failed, needs to be set
+        await crd._async_refresh(raise_on_auth_failed=True)
+
+    # Check thoroughly the chain
+    assert isinstance(err.value, expected_exception)
+    assert isinstance(err.value.__cause__, exception)
+    assert isinstance(err.value.__cause__, OAuth2TokenRequestError)
+
+
+@pytest.mark.parametrize(
+    ("exception", "expected_exception"),
+    [
+        (OAuth2TokenRequestReauthError, ConfigEntryAuthFailed),
+        (OAuth2TokenRequestError, ConfigEntryNotReady),
+    ],
+)
+async def test_token_request_setup_errors(
+    hass: HomeAssistant,
+    exception: type[OAuth2TokenRequestError],
+    expected_exception: type[Exception],
+) -> None:
+    """Test OAuth2 token request errors raised from setup."""
+    entry = MockConfigEntry()
+    entry._async_set_state(
+        hass, config_entries.ConfigEntryState.SETUP_IN_PROGRESS, "For testing, duh"
+    )
+    crd = get_crd(hass, DEFAULT_UPDATE_INTERVAL, entry)
+
+    # Patch the underlying request info to raise ClientResponseError
+    request_info = Mock()
+    request_info.real_url = "http://example.com/token"
+    request_info.method = "POST"
+    oauth_exception = exception(
+        request_info=request_info,
+        history=(),
+        status=400,
+        message="OAuth 2.0 token refresh failed",
+        domain="domain",
+    )
+
+    crd.setup_method = AsyncMock(side_effect=oauth_exception)
+
+    with pytest.raises(expected_exception) as err:
+        await crd.async_config_entry_first_refresh()
+
+    assert crd.last_update_success is False
+
+    # Check thoroughly the chain
+    assert isinstance(err.value, expected_exception)
+    assert isinstance(err.value.__cause__, exception)
+    assert isinstance(err.value.__cause__, OAuth2TokenRequestError)
+
+
 async def test_refresh_no_update_method(
     crd: update_coordinator.DataUpdateCoordinator[int],
 ) -> None:
@@ -332,6 +447,35 @@ async def test_refresh_no_update_method(
 
     with pytest.raises(NotImplementedError):
         await crd.async_refresh()
+
+
+async def test_refresh_cancelled(
+    hass: HomeAssistant,
+    crd: update_coordinator.DataUpdateCoordinator[int],
+) -> None:
+    """Test that we don't swallow cancellation."""
+    await crd.async_refresh()
+
+    start = asyncio.Event()
+    abort = asyncio.Event()
+
+    async def _update() -> bool:
+        start.set()
+        await abort.wait()
+        return True
+
+    crd.update_method = _update
+    crd.last_update_success = True
+
+    task = hass.async_create_task(crd.async_refresh())
+    await start.wait()
+    task.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    abort.set()
+    assert crd.last_update_success is False
 
 
 async def test_update_interval(
@@ -425,7 +569,7 @@ async def test_update_locks(
 
     # Add subscriber
     update_callback = Mock()
-    crd.async_add_listener(update_callback)
+    remove_callbacks = crd.async_add_listener(update_callback)
 
     assert crd.update_interval
 
@@ -468,6 +612,10 @@ async def test_update_locks(
 
     # Unblock queued update
     block.set()
+
+    # Remove callbacks to avoid lingering timers
+    remove_callbacks()
+    await crd.async_shutdown()
 
 
 async def test_refresh_recover(
@@ -593,6 +741,24 @@ async def test_stop_refresh_on_ha_stop(
     assert crd.data == 2
 
 
+async def test_no_refresh_after_ha_close(
+    hass: HomeAssistant, crd: update_coordinator.DataUpdateCoordinator[int]
+) -> None:
+    """Test a pending refresh does not fire once Home Assistant has closed."""
+    crd.async_add_listener(Mock())
+
+    async_fire_time_changed(hass, utcnow() + crd.update_interval)
+    await hass.async_block_till_done()
+    assert crd.data == 1
+
+    await hass.async_stop()
+
+    # Shared resources like the aiohttp session are closed at this point
+    async_fire_time_changed(hass, utcnow() + crd.update_interval * 2)
+    await hass.async_block_till_done()
+    assert crd.data == 1
+
+
 @pytest.mark.parametrize(
     "err_msg",
     [
@@ -648,7 +814,7 @@ async def test_async_config_entry_first_refresh_failure_passed_through(
     method: str,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test async_config_entry_first_refresh passes through ConfigEntryError & ConfigEntryAuthFailed.
+    """Test first refresh passes through ConfigEntryError and ConfigEntryAuthFailed.
 
     Verify we do not log the exception since it
     will be caught by config_entries.async_setup which will log it with
@@ -667,6 +833,133 @@ async def test_async_config_entry_first_refresh_failure_passed_through(
     assert crd.last_update_success is False
     assert isinstance(crd.last_exception, err_msg[1])
     assert err_msg[2] not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "method",
+    ["update_method", "setup_method"],
+)
+async def test_async_config_entry_first_refresh_not_ready(
+    hass: HomeAssistant,
+    method: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test ConfigEntryNotReady is treated as a recoverable error."""
+
+    entry = MockConfigEntry()
+    entry._async_set_state(
+        hass, config_entries.ConfigEntryState.SETUP_IN_PROGRESS, None
+    )
+    crd = get_crd(hass, DEFAULT_UPDATE_INTERVAL, entry)
+    setattr(crd, method, AsyncMock(side_effect=ConfigEntryNotReady("Not ready")))
+
+    with pytest.raises(ConfigEntryNotReady):
+        await crd.async_config_entry_first_refresh()
+
+    assert crd.last_update_success is False
+    assert isinstance(crd.last_exception, ConfigEntryNotReady)
+    assert "Unexpected error fetching test data" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    (
+        "cause",
+        "expected_translation_domain",
+        "expected_translation_key",
+        "expected_translation_placeholders",
+    ),
+    [
+        pytest.param(
+            update_coordinator.UpdateFailed(
+                translation_domain="test",
+                translation_key="update_failed_key",
+                translation_placeholders={"key": "value"},
+            ),
+            "test",
+            "update_failed_key",
+            {"key": "value"},
+            id="update_failed_with_translation_attrs",
+        ),
+        pytest.param(
+            Exception("boom"),
+            None,
+            None,
+            None,
+            id="plain_exception_no_translation_attrs",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "method",
+    ["update_method", "setup_method"],
+)
+async def test_async_config_entry_first_refresh_translation_key_propagation(
+    hass: HomeAssistant,
+    cause: Exception,
+    expected_translation_domain: str | None,
+    expected_translation_key: str | None,
+    expected_translation_placeholders: dict[str, str] | None,
+    method: str,
+) -> None:
+    """Test that translation attributes from the cause are propagated to ConfigEntryNotReady."""
+    entry = MockConfigEntry()
+    entry._async_set_state(
+        hass, config_entries.ConfigEntryState.SETUP_IN_PROGRESS, None
+    )
+    crd = get_crd(hass, DEFAULT_UPDATE_INTERVAL, entry)
+    setattr(crd, method, AsyncMock(side_effect=cause))
+
+    with pytest.raises(ConfigEntryNotReady) as exc_info:
+        await crd.async_config_entry_first_refresh()
+
+    assert exc_info.value.translation_domain == expected_translation_domain
+    assert exc_info.value.translation_key == expected_translation_key
+    assert exc_info.value.translation_placeholders == expected_translation_placeholders
+
+
+@pytest.mark.parametrize(
+    ("cause", "expected_retry_after"),
+    [
+        pytest.param(
+            update_coordinator.UpdateFailed(retry_after=60),
+            60,
+            id="update_failed",
+        ),
+        pytest.param(
+            ConfigEntryNotReady(retry_after=120),
+            120,
+            id="config_entry_not_ready",
+        ),
+        pytest.param(
+            update_coordinator.UpdateFailed(),
+            None,
+            id="update_failed_without_retry_after",
+        ),
+        pytest.param(Exception("boom"), None, id="plain_exception"),
+    ],
+)
+@pytest.mark.parametrize(
+    "method",
+    ["update_method", "setup_method"],
+)
+async def test_async_config_entry_first_refresh_retry_after_propagation(
+    hass: HomeAssistant,
+    cause: Exception,
+    expected_retry_after: float | None,
+    method: str,
+) -> None:
+    """Test that retry_after from the cause is propagated to ConfigEntryNotReady."""
+    entry = MockConfigEntry()
+    entry._async_set_state(
+        hass, config_entries.ConfigEntryState.SETUP_IN_PROGRESS, None
+    )
+    crd = get_crd(hass, DEFAULT_UPDATE_INTERVAL, entry)
+    setattr(crd, method, AsyncMock(side_effect=cause))
+
+    with pytest.raises(ConfigEntryNotReady) as exc_info:
+        await crd.async_config_entry_first_refresh()
+
+    assert exc_info.value.retry_after == expected_retry_after
 
 
 async def test_async_config_entry_first_refresh_success(hass: HomeAssistant) -> None:
@@ -691,12 +984,18 @@ async def test_async_config_entry_first_refresh_invalid_state(
     crd = get_crd(hass, DEFAULT_UPDATE_INTERVAL, entry)
     crd.setup_method = AsyncMock()
     with pytest.raises(
-        RuntimeError,
-        match="Detected code that uses `async_config_entry_first_refresh`, which "
-        "is only supported when entry state is ConfigEntryState.SETUP_IN_PROGRESS, "
-        "but it is in state ConfigEntryState.NOT_LOADED. Please report this issue",
+        config_entries.ConfigEntryError,
+        match=(
+            "`async_config_entry_first_refresh` called when"
+            " config entry state is"
+            " ConfigEntryState.NOT_LOADED, but should only"
+            " be called in state"
+            " ConfigEntryState.SETUP_IN_PROGRESS"
+        ),
     ):
         await crd.async_config_entry_first_refresh()
+
+    assert entry.state is config_entries.ConfigEntryState.NOT_LOADED
 
     assert crd.last_update_success is True
     crd.setup_method.assert_not_called()
@@ -706,21 +1005,25 @@ async def test_async_config_entry_first_refresh_invalid_state(
 async def test_async_config_entry_first_refresh_invalid_state_in_integration(
     hass: HomeAssistant, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Test first refresh successfully, despite wrong state."""
+    """Test first refresh fails, because of wrong state."""
     entry = MockConfigEntry()
     crd = get_crd(hass, DEFAULT_UPDATE_INTERVAL, entry)
     crd.setup_method = AsyncMock()
 
-    await crd.async_config_entry_first_refresh()
+    with pytest.raises(
+        config_entries.ConfigEntryError,
+        match=(
+            "`async_config_entry_first_refresh` called when"
+            " config entry state is"
+            " ConfigEntryState.NOT_LOADED, but should only"
+            " be called in state"
+            " ConfigEntryState.SETUP_IN_PROGRESS"
+        ),
+    ):
+        await crd.async_config_entry_first_refresh()
+
     assert crd.last_update_success is True
-    crd.setup_method.assert_called()
-    assert (
-        "Detected that integration 'hue' uses `async_config_entry_first_refresh`, which "
-        "is only supported when entry state is ConfigEntryState.SETUP_IN_PROGRESS, "
-        "but it is in state ConfigEntryState.NOT_LOADED at "
-        "homeassistant/components/hue/light.py, line 23: self.light.is_on. "
-        "This will stop working in Home Assistant 2025.11"
-    ) in caplog.text
+    crd.setup_method.assert_not_called()
 
 
 async def test_async_config_entry_first_refresh_no_entry(hass: HomeAssistant) -> None:
@@ -785,7 +1088,7 @@ async def test_async_set_update_error(
 async def test_only_callback_on_change_when_always_update_is_false(
     crd: update_coordinator.DataUpdateCoordinator[int],
 ) -> None:
-    """Test we do not callback listeners unless something has actually changed when always_update is false."""
+    """Test no callback unless data actually changed (always_update=False)."""
     update_callback = Mock()
     crd.always_update = False
     remove_callbacks = crd.async_add_listener(update_callback)
@@ -855,7 +1158,7 @@ async def test_only_callback_on_change_when_always_update_is_false(
 async def test_always_callback_when_always_update_is_true(
     crd: update_coordinator.DataUpdateCoordinator[int],
 ) -> None:
-    """Test we callback listeners even though the data is the same when always_update is True."""
+    """Test we callback listeners even with same data (always_update=True)."""
     update_callback = Mock()
     remove_callbacks = crd.async_add_listener(update_callback)
     mocked_data = None
@@ -974,25 +1277,32 @@ async def test_config_entry(
         not in caplog.text
     )
 
-    # Default without context should log a warning
+    # Default without context should raise
     caplog.clear()
-    crd = update_coordinator.DataUpdateCoordinator[int](hass, _LOGGER, name="test")
-    assert crd.config_entry is None
-    assert (
-        "Detected that integration 'my_integration' relies on ContextVar, "
-        "but should pass the config entry explicitly."
-    ) in caplog.text
+    crd = None
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "Detected that integration 'my_integration' relies on ContextVar, "
+            "but should pass the config entry explicitly."
+        ),
+    ):
+        crd = update_coordinator.DataUpdateCoordinator[int](hass, _LOGGER, name="test")
+    assert crd is None
 
-    # Default with context should log a warning
+    # Default with context should raise
     caplog.clear()
     frame._REPORTED_INTEGRATIONS.clear()
     config_entries.current_entry.set(entry)
-    crd = update_coordinator.DataUpdateCoordinator[int](hass, _LOGGER, name="test")
-    assert (
-        "Detected that integration 'my_integration' relies on ContextVar, "
-        "but should pass the config entry explicitly."
-    ) in caplog.text
-    assert crd.config_entry is entry
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "Detected that integration 'my_integration' relies on ContextVar, "
+            "but should pass the config entry explicitly."
+        ),
+    ):
+        crd = update_coordinator.DataUpdateCoordinator[int](hass, _LOGGER, name="test")
+    assert crd is None
 
 
 @pytest.mark.parametrize("integration_frame_path", ["custom_components/my_integration"])
@@ -1117,3 +1427,139 @@ async def test_listener_unsubscribe_releases_coordinator(hass: HomeAssistant) ->
 
     # Ensure the coordinator is released
     assert weak_ref() is None
+
+
+@pytest.mark.parametrize(
+    ("exc", "expected_exception", "message"),
+    [
+        *KNOWN_ERRORS,
+        (Exception(), Exception, "Unknown exception"),
+        (
+            update_coordinator.UpdateFailed(retry_after=60),
+            update_coordinator.UpdateFailed,
+            "Error fetching test data",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "method",
+    ["update_method", "setup_method"],
+)
+async def test_update_failed_retry_after(
+    hass: HomeAssistant,
+    exc: Exception,
+    expected_exception: type[Exception],
+    message: str,
+    method: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test async_config_entry_first_refresh raises ConfigEntryNotReady on failure.
+
+    Verify we do not log the exception since raising ConfigEntryNotReady
+    will be caught by config_entries.async_setup which will log it with
+    a decreasing level of logging once the first message is logged.
+    """
+    entry = MockConfigEntry()
+    entry.mock_state(
+        hass,
+        config_entries.ConfigEntryState.SETUP_IN_PROGRESS,
+    )
+    crd = get_crd(hass, DEFAULT_UPDATE_INTERVAL, entry)
+    setattr(crd, method, AsyncMock(side_effect=exc))
+
+    with pytest.raises(ConfigEntryNotReady):
+        await crd.async_config_entry_first_refresh()
+
+    assert crd.last_update_success is False
+    assert isinstance(crd.last_exception, expected_exception)
+    assert message not in caplog.text
+
+    # Only to check the retry_after wasn't hit
+    assert crd._retry_after is None
+
+
+@pytest.mark.parametrize(
+    ("exc", "expected_exception", "message"),
+    [
+        (
+            update_coordinator.UpdateFailed(retry_after=60),
+            update_coordinator.UpdateFailed,
+            "Error fetching test data",
+        ),
+    ],
+)
+async def test_refresh_known_errors_retry_after(
+    exc: update_coordinator.UpdateFailed,
+    expected_exception: type[Exception],
+    message: str,
+    crd: update_coordinator.DataUpdateCoordinator[int],
+    caplog: pytest.LogCaptureFixture,
+    hass: HomeAssistant,
+) -> None:
+    """Test raising known errors, this time with retry_after."""
+    unsub = crd.async_add_listener(lambda: None)
+
+    crd.update_method = AsyncMock(side_effect=exc)
+
+    with (
+        patch.object(hass.loop, "time", return_value=1_000.0),
+        patch.object(hass.loop, "call_at") as mock_call_at,
+    ):
+        await crd.async_refresh()
+
+        assert crd.data is None
+        assert crd.last_update_success is False
+        assert isinstance(crd.last_exception, expected_exception)
+        assert message in caplog.text
+
+        when = mock_call_at.call_args[0][0]
+
+        expected = 1_000.0 + crd._microsecond + exc.retry_after
+        assert abs(when - expected) < 0.005, (when, expected)
+
+        assert crd._retry_after is None
+
+        # Next schedule should fall back to regular update_interval
+        mock_call_at.reset_mock()
+        crd._schedule_refresh()
+        when2 = mock_call_at.call_args[0][0]
+        expected_cancelled = (
+            1_000.0 + crd._microsecond + crd.update_interval.total_seconds()
+        )
+        assert abs(when2 - expected_cancelled) < 0.005, (when2, expected_cancelled)
+
+    unsub()
+    crd._unschedule_refresh()
+
+
+async def test_callbacks_does_not_stop_coordinator(
+    crd: update_coordinator.DataUpdateCoordinator[int],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test async_refresh for update coordinator."""
+
+    update_1 = Mock()
+    update_2 = Mock()
+
+    crd.async_add_listener(update_1)
+    crd.async_add_listener(update_2)
+    await crd.async_refresh()
+    assert update_1.call_count == 1
+    assert update_2.call_count == 1
+    assert crd.last_update_success is True
+
+    # Trigger exception in callback
+    update_1.side_effect = Exception("Failure in callback")
+    caplog.clear()
+    await crd.async_refresh()
+    assert any(
+        message.startswith("Unexpected error updating listener ")
+        for message in caplog.messages
+    )
+
+    # All callbacks should still have been called
+    assert update_1.call_count == 2
+    assert update_2.call_count == 2
+    assert crd.last_update_success is True
+
+    await crd.async_shutdown()

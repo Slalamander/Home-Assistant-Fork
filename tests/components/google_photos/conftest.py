@@ -14,20 +14,20 @@ from google_photos_library_api.model import (
     UserInfoResult,
 )
 import pytest
+from pytest_homeassistant.common import (
+    MockConfigEntry,
+    async_load_json_array_fixture,
+    async_load_json_object_fixture,
+)
 
 from homeassistant.components.application_credentials import (
+    DOMAIN as APPLICATION_CREDENTIALS_DOMAIN,
     ClientCredential,
     async_import_client_credential,
 )
 from homeassistant.components.google_photos.const import DOMAIN, OAUTH2_SCOPES
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
-
-from tests.common import (
-    MockConfigEntry,
-    async_load_json_array_fixture,
-    async_load_json_object_fixture,
-)
 
 USER_IDENTIFIER = "user-identifier-1"
 CONFIG_ENTRY_ID = "user-identifier-1"
@@ -94,7 +94,7 @@ def mock_config_entry(
 @pytest.fixture(autouse=True)
 async def setup_credentials(hass: HomeAssistant) -> None:
     """Fixture to setup credentials."""
-    assert await async_setup_component(hass, "application_credentials", {})
+    assert await async_setup_component(hass, APPLICATION_CREDENTIALS_DOMAIN, {})
     await async_import_client_credential(
         hass,
         DOMAIN,

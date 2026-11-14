@@ -1,7 +1,5 @@
 """The Nettigo Air Monitor component."""
 
-from __future__ import annotations
-
 import logging
 
 from aiohttp.client_exceptions import ClientError
@@ -12,7 +10,7 @@ from nettigo_air_monitor import (
     NettigoAirMonitor,
 )
 
-from homeassistant.components.air_quality import DOMAIN as AIR_QUALITY_PLATFORM
+from homeassistant.components.air_quality import DOMAIN as AIR_QUALITY_DOMAIN
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
@@ -27,7 +25,7 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS = [Platform.BUTTON, Platform.SENSOR]
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: NAMConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: NAMConfigEntry) -> None:
     """Set up Nettigo as config entry."""
     host: str = entry.data[CONF_HOST]
     username: str | None = entry.data.get(CONF_USERNAME)
@@ -38,7 +36,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: NAMConfigEntry) -> bool:
     options = ConnectionOptions(host=host, username=username, password=password)
     try:
         nam = await NettigoAirMonitor.create(websession, options)
-    except (ApiError, ClientError) as err:
+    except (ApiError, ClientError, TimeoutError) as err:
         raise ConfigEntryNotReady(
             translation_domain=DOMAIN,
             translation_key="device_communication_error",
@@ -63,14 +61,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: NAMConfigEntry) -> bool:
     for sensor_type in ("sds", ATTR_SDS011, ATTR_SPS30):
         unique_id = f"{coordinator.unique_id}-{sensor_type}"
         if entity_id := ent_reg.async_get_entity_id(
-            AIR_QUALITY_PLATFORM, DOMAIN, unique_id
+            AIR_QUALITY_DOMAIN, DOMAIN, unique_id
         ):
             _LOGGER.debug("Removing deprecated air_quality entity %s", entity_id)
             ent_reg.async_remove(entity_id)
 
-    return True
 
-
-async def async_unload_entry(hass: HomeAssistant, entry: NAMConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: NAMConfigEntry) -> None:
     """Unload a config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    await hass.config_entries.async_unload_platforms_or_raise(entry, PLATFORMS)

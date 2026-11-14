@@ -1,23 +1,23 @@
 """Config flow for Elk-M1 Control integration."""
 
-from __future__ import annotations
-
 import logging
-from typing import Any, Self
+from typing import Any, Self, override
 
 from elkm1_lib.discovery import ElkSystem
 from elkm1_lib.elk import Elk
-import voluptuous as vol
+import probatio
 
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import (
     CONF_ADDRESS,
+    CONF_DEVICE,
     CONF_HOST,
     CONF_PASSWORD,
     CONF_PREFIX,
     CONF_PROTOCOL,
     CONF_USERNAME,
 )
+from homeassistant.core import DOMAIN as HOMEASSISTANT_DOMAIN
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
@@ -25,7 +25,7 @@ from homeassistant.helpers.typing import DiscoveryInfoType, VolDictType
 from homeassistant.util import slugify
 from homeassistant.util.network import is_ip_address
 
-from . import async_wait_for_elk_to_sync, hostname_from_url
+from . import ElkSyncWaiter, LoginFailed, hostname_from_url
 from .const import CONF_AUTO_CONFIGURE, DISCOVER_SCAN_TIMEOUT, DOMAIN, LOGIN_TIMEOUT
 from .discovery import (
     _short_mac,
@@ -33,8 +33,6 @@ from .discovery import (
     async_discover_devices,
     async_update_entry_from_discovery,
 )
-
-CONF_DEVICE = "device"
 
 NON_SECURE_PORT = 2101
 SECURE_PORT = 2601
@@ -53,8 +51,8 @@ PROTOCOL_MAP = {
 VALIDATE_TIMEOUT = 35
 
 BASE_SCHEMA: VolDictType = {
-    vol.Optional(CONF_USERNAME, default=""): str,
-    vol.Optional(CONF_PASSWORD, default=""): str,
+    probatio.Optional(CONF_USERNAME, default=""): str,
+    probatio.Optional(probatio.Secret(CONF_PASSWORD), default=""): str,
 }
 
 SECURE_PROTOCOLS = ["secure", "TLS 1.2"]
@@ -89,8 +87,9 @@ async def validate_input(data: dict[str, str], mac: str | None) -> dict[str, str
     elk.connect()
 
     try:
-        if not await async_wait_for_elk_to_sync(elk, LOGIN_TIMEOUT, VALIDATE_TIMEOUT):
-            raise InvalidAuth
+        await ElkSyncWaiter(elk, LOGIN_TIMEOUT, VALIDATE_TIMEOUT).async_wait()
+    except LoginFailed as exc:
+        raise InvalidAuth from exc
     finally:
         elk.disconnect()
 
@@ -121,7 +120,11 @@ def _make_url_from_data(data: dict[str, str]) -> str:
 
 
 def _get_protocol_from_url(url: str) -> str:
-    """Get protocol from URL. Returns the configured protocol from URL or the default secure protocol."""
+    """Get protocol from URL.
+
+    Returns the configured protocol from URL or the
+    default secure protocol.
+    """
     return next(
         (k for k, v in PROTOCOL_MAP.items() if url.startswith(v)),
         DEFAULT_SECURE_PROTOCOL,
@@ -147,6 +150,7 @@ class Elkm1ConfigFlow(ConfigFlow, domain=DOMAIN):
         self._discovered_device: ElkSystem | None = None
         self._discovered_devices: dict[str, ElkSystem] = {}
 
+    @override
     async def async_step_dhcp(
         self, discovery_info: DhcpServiceInfo
     ) -> ConfigFlowResult:
@@ -157,6 +161,7 @@ class Elkm1ConfigFlow(ConfigFlow, domain=DOMAIN):
         _LOGGER.debug("Elk discovered from dhcp: %s", self._discovered_device)
         return await self._async_handle_discovery()
 
+    @override
     async def async_step_integration_discovery(
         self, discovery_info: DiscoveryInfoType
     ) -> ConfigFlowResult:
@@ -188,7 +193,9 @@ class Elkm1ConfigFlow(ConfigFlow, domain=DOMAIN):
                 return self.async_abort(reason="already_configured")
         self.host = host
         if self.hass.config_entries.flow.async_has_matching_flow(self):
-            return self.async_abort(reason="already_in_progress")
+            return self.async_abort(
+                reason="already_in_progress", translation_domain=HOMEASSISTANT_DOMAIN
+            )
         # Handled ignored case since _async_current_entries
         # is called with include_ignore=False
         self._abort_if_unique_id_configured()
@@ -199,6 +206,7 @@ class Elkm1ConfigFlow(ConfigFlow, domain=DOMAIN):
                 return self.async_abort(reason="cannot_connect")
         return await self.async_step_discovery_confirm()
 
+    @override
     def is_matching(self, other_flow: Self) -> bool:
         """Return True if other_flow is matching this flow."""
         return other_flow.host == self.host
@@ -237,19 +245,23 @@ class Elkm1ConfigFlow(ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected exception during reconfiguration")
                 errors["base"] = "unknown"
             else:
-                # Discover the device at the provided address to obtain its MAC (unique_id)
+                # Discover the device at the provided address
+                # to obtain its MAC (unique_id)
                 device = await async_discover_device(
                     self.hass, validate_input_data[CONF_ADDRESS]
                 )
                 if device is not None and device.mac_address:
                     await self.async_set_unique_id(dr.format_mac(device.mac_address))
-                    self._abort_if_unique_id_mismatch()  # aborts if user tried to switch devices
+                    if reconfigure_entry.unique_id is not None:
+                        self._abort_if_unique_id_mismatch()
                 else:
-                    # If we cannot confirm identity, keep existing behavior (don't block reconfigure)
+                    # If we cannot confirm identity, keep existing
+                    # behavior (don't block reconfigure)
                     await self.async_set_unique_id(reconfigure_entry.unique_id)
 
                 return self.async_update_reload_and_abort(
                     reconfigure_entry,
+                    unique_id=self.unique_id,
                     data_updates={
                         **reconfigure_entry.data,
                         CONF_HOST: info[CONF_HOST],
@@ -262,29 +274,30 @@ class Elkm1ConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=vol.Schema(
+            data_schema=probatio.Schema(
                 {
-                    vol.Optional(
+                    probatio.Optional(
                         CONF_USERNAME,
                         default=existing_data.get(CONF_USERNAME, ""),
                     ): str,
-                    vol.Optional(
-                        CONF_PASSWORD,
+                    probatio.Optional(
+                        probatio.Secret(CONF_PASSWORD),
                         default="",
                     ): str,
-                    vol.Required(
+                    probatio.Required(
                         CONF_ADDRESS,
                         default=hostname_from_url(existing_data[CONF_HOST]),
                     ): str,
-                    vol.Required(
+                    probatio.Required(
                         CONF_PROTOCOL,
                         default=_get_protocol_from_url(existing_data[CONF_HOST]),
-                    ): vol.In(ALL_PROTOCOLS),
+                    ): probatio.In(ALL_PROTOCOLS),
                 }
             ),
             errors=errors,
         )
 
+    @override
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -296,7 +309,7 @@ class Elkm1ConfigFlow(ConfigFlow, domain=DOMAIN):
                 return await self.async_step_discovered_connection()
             return await self.async_step_manual_connection()
 
-        current_unique_ids = self._async_current_ids()
+        current_unique_ids = self._async_current_ids(include_ignore=False)
         current_hosts = {
             hostname_from_url(entry.data[CONF_HOST])
             for entry in self._async_current_entries(include_ignore=False)
@@ -317,7 +330,9 @@ class Elkm1ConfigFlow(ConfigFlow, domain=DOMAIN):
         devices_name[None] = "Manual Entry"
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema({vol.Required(CONF_DEVICE): vol.In(devices_name)}),
+            data_schema=probatio.Schema(
+                {probatio.Required(CONF_DEVICE): probatio.In(devices_name)}
+            ),
         )
 
     async def _async_create_or_error(
@@ -373,12 +388,12 @@ class Elkm1ConfigFlow(ConfigFlow, domain=DOMAIN):
         default_proto = PORT_PROTOCOL_MAP.get(device.port, DEFAULT_SECURE_PROTOCOL)
         return self.async_show_form(
             step_id="discovered_connection",
-            data_schema=vol.Schema(
+            data_schema=probatio.Schema(
                 {
                     **BASE_SCHEMA,
-                    vol.Required(CONF_PROTOCOL, default=default_proto): vol.In(
-                        ALL_PROTOCOLS
-                    ),
+                    probatio.Required(
+                        CONF_PROTOCOL, default=default_proto
+                    ): probatio.In(ALL_PROTOCOLS),
                 }
             ),
             errors=errors,
@@ -409,14 +424,14 @@ class Elkm1ConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="manual_connection",
-            data_schema=vol.Schema(
+            data_schema=probatio.Schema(
                 {
                     **BASE_SCHEMA,
-                    vol.Required(CONF_ADDRESS): str,
-                    vol.Optional(CONF_PREFIX, default=""): str,
-                    vol.Required(
+                    probatio.Required(CONF_ADDRESS): str,
+                    probatio.Optional(CONF_PREFIX, default=""): str,
+                    probatio.Required(
                         CONF_PROTOCOL, default=DEFAULT_SECURE_PROTOCOL
-                    ): vol.In(ALL_PROTOCOLS),
+                    ): probatio.In(ALL_PROTOCOLS),
                 }
             ),
             errors=errors,

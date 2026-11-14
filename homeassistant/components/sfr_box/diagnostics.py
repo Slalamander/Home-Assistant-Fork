@@ -1,21 +1,26 @@
 """SFR Box diagnostics platform."""
 
-from __future__ import annotations
-
 import dataclasses
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.diagnostics import async_redact_data
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
-from .models import DomainData
+from .coordinator import SFRConfigEntry
 
 if TYPE_CHECKING:
     from _typeshed import DataclassInstance
 
-TO_REDACT = {"mac_addr", "serial_number", "ip_addr", "ipv6_addr"}
+TO_REDACT = {
+    CONF_HOST,
+    CONF_PASSWORD,
+    CONF_USERNAME,
+    "mac_addr",
+    "serial_number",
+    "ip_addr",
+    "ipv6_addr",
+}
 
 
 def _async_redact_data(obj: DataclassInstance | None) -> dict[str, Any] | None:
@@ -25,15 +30,15 @@ def _async_redact_data(obj: DataclassInstance | None) -> dict[str, Any] | None:
 
 
 async def async_get_config_entry_diagnostics(
-    hass: HomeAssistant, entry: ConfigEntry
+    hass: HomeAssistant, entry: SFRConfigEntry
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
-    data: DomainData = hass.data[DOMAIN][entry.entry_id]
+    data = entry.runtime_data
 
     return {
         "entry": {
             "title": entry.title,
-            "data": dict(entry.data),
+            "data": async_redact_data(entry.data, TO_REDACT),
         },
         "data": {
             "dsl": _async_redact_data(await data.system.box.dsl_get_info()),

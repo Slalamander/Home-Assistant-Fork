@@ -1,18 +1,20 @@
 """Test websocket API."""
 
+import errno
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
+from pytest_homeassistant.common import MockUser
+from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
+from pytest_homeassistant.typing import WebSocketGenerator
 import yaml
 
-from homeassistant.core import HomeAssistant
+from homeassistant.components.blueprint import DOMAIN
+from homeassistant.core import DOMAIN as HOMEASSISTANT_DOMAIN, HomeAssistant
 from homeassistant.setup import async_setup_component
 from homeassistant.util.yaml import UndefinedSubstitution, parse_yaml
-
-from tests.test_util.aiohttp import AiohttpClientMocker
-from tests.typing import WebSocketGenerator
 
 
 @pytest.fixture
@@ -34,7 +36,7 @@ async def setup_bp(
     script_config: dict[str, Any],
 ) -> None:
     """Fixture to set up the blueprint component."""
-    assert await async_setup_component(hass, "blueprint", {})
+    assert await async_setup_component(hass, DOMAIN, {})
 
     # Trigger registration of automation and script blueprints
     await async_setup_component(hass, "automation", automation_config)
@@ -101,6 +103,51 @@ async def test_list_blueprints_non_existing_domain(
     assert msg["success"]
     blueprints = msg["result"]
     assert blueprints == {}
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        {"type": "blueprint/list", "domain": "automation"},
+        {"type": "blueprint/import", "url": "https://example.com/blueprint.yaml"},
+        {
+            "type": "blueprint/save",
+            "path": "test_save",
+            "yaml": "raw_data",
+            "domain": "automation",
+        },
+        {
+            "type": "blueprint/delete",
+            "path": "test_delete",
+            "domain": "automation",
+        },
+        {
+            "type": "blueprint/substitute",
+            "domain": "automation",
+            "path": "test_event_service.yaml",
+            "input": {
+                "trigger_event": "test_event",
+                "service_to_call": "test.automation",
+                "a_number": 5,
+            },
+        },
+    ],
+)
+async def test_blueprint_ws_command_requires_admin(
+    hass: HomeAssistant,
+    hass_ws_client: WebSocketGenerator,
+    hass_admin_user: MockUser,
+    message: dict[str, Any],
+) -> None:
+    """Test that blueprint websocket commands require admin."""
+    hass_admin_user.groups = []  # Remove admin privileges
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id(message)
+
+    msg = await client.receive_json()
+
+    assert not msg["success"]
+    assert msg["error"]["code"] == "unauthorized"
 
 
 async def test_import_blueprint(
@@ -239,7 +286,6 @@ async def test_save_blueprint(
             "      selector:\n"
             "        number:\n"
             "          mode: box\n"
-            "          step: 1.0\n"
             "  source_url: https://github.com/balloob/home-assistant-config/blob/main/blueprints/automation/motion_light.yaml\n"
             "triggers:\n"
             "  trigger: event\n"
@@ -262,7 +308,6 @@ async def test_save_blueprint(
             "      selector:\n"
             "        number:\n"
             "          mode: box\n"
-            "          step: 1.0\n"
             "  source_url: https://github.com/balloob/home-assistant-config/blob/main/blueprints/automation/motion_light.yaml\n"
             "triggers:\n"
             "  trigger: event\n"
@@ -326,31 +371,49 @@ async def test_save_existing_file_override(
             "name": "name",
             "domain": "automation",
             "source_url": "https://github.com/balloob/home-assistant-config/blob/main/blueprints/automation/test_event_service.yaml",
-            "input": {},
         }
     }
 
 
+@pytest.mark.parametrize(
+    ("error", "translation_key"),
+    [
+        pytest.param(
+            errno.EACCES, "os_write_permission_denied", id="permission_denied"
+        ),
+        pytest.param(errno.ENOSPC, "os_write_no_space", id="no_space"),
+        pytest.param(errno.EROFS, "os_write_read_only", id="read_only"),
+        pytest.param(errno.ENOENT, "os_write_dir_not_found", id="dir_not_found"),
+        pytest.param(errno.EIO, "os_write_error", id="other"),
+    ],
+)
 async def test_save_file_error(
     hass: HomeAssistant,
     hass_ws_client: WebSocketGenerator,
+    error: int,
+    translation_key: str,
 ) -> None:
     """Test saving blueprints with OS error."""
-    with patch("pathlib.Path.write_text", side_effect=OSError):
+    with patch("pathlib.Path.write_text", side_effect=OSError(error, "Error")):
         client = await hass_ws_client(hass)
         await client.send_json_auto_id(
             {
                 "type": "blueprint/save",
                 "path": "test_save",
-                "yaml": "raw_data",
+                "yaml": 'blueprint: {name: "name", domain: "automation"}',
                 "domain": "automation",
-                "source_url": "https://github.com/balloob/home-assistant-config/blob/main/blueprints/automation/motion_light.yaml",
             }
         )
 
         msg = await client.receive_json()
 
-        assert not msg["success"]
+    assert not msg["success"]
+    assert msg["error"]["code"] == "home_assistant_error"
+    assert msg["error"]["translation_domain"] == HOMEASSISTANT_DOMAIN
+    assert msg["error"]["translation_key"] == translation_key
+    assert msg["error"]["translation_placeholders"] == {
+        "path": hass.config.path("blueprints/automation/test_save.yaml")
+    }
 
 
 async def test_save_invalid_blueprint(
@@ -375,7 +438,7 @@ async def test_save_invalid_blueprint(
     assert not msg["success"]
     assert msg["error"] == {
         "code": "invalid_format",
-        "message": "Invalid blueprint: expected a dictionary. Got 'wrong_blueprint'",
+        "message": "Invalid blueprint: expected a mapping. Got 'wrong_blueprint'",
     }
 
 

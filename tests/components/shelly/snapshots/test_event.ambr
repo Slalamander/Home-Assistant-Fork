@@ -1,19 +1,20 @@
 # serializer version: 1
 # name: test_rpc_script_1_event[event.test_name_test_script_js-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'event_types': list([
+      <EventEntityCapabilityAttribute.EVENT_TYPES: 'event_types'>: list([
         'input_event',
         'script_start',
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('shelly', '123456789ABC')]>,
     'disabled_by': None,
     'domain': 'event',
     'entity_category': None,
@@ -25,6 +26,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'test_script.js',
     'options': dict({
     }),
     'original_device_class': None,
@@ -42,12 +44,12 @@
 # name: test_rpc_script_1_event[event.test_name_test_script_js-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'event_type': None,
-      'event_types': list([
+      <EventEntityStateAttribute.EVENT_TYPE: 'event_type'>: None,
+      <EventEntityCapabilityAttribute.EVENT_TYPES: 'event_types'>: list([
         'input_event',
         'script_start',
       ]),
-      'friendly_name': 'Test name test_script.js',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Test name test_script.js',
     }),
     'context': <ANY>,
     'entity_id': 'event.test_name_test_script_js',

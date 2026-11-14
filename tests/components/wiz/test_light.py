@@ -1,14 +1,22 @@
 """Tests for light platform."""
 
-from pywizlight import PilotBuilder
+import pytest
+from pywizlight import PilotBuilder, PilotParser
+from pywizlight.exceptions import (
+    WizLightConnectionError,
+    WizLightMethodNotFound,
+    WizLightTimeOutError,
+)
 
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
+    ATTR_COLOR_MODE,
     ATTR_COLOR_TEMP_KELVIN,
     ATTR_EFFECT,
     ATTR_RGBW_COLOR,
     ATTR_RGBWW_COLOR,
     DOMAIN as LIGHT_DOMAIN,
+    ColorMode,
 )
 from homeassistant.const import (
     ATTR_ENTITY_ID,
@@ -18,6 +26,7 @@ from homeassistant.const import (
     STATE_ON,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 
 from . import (
@@ -26,6 +35,7 @@ from . import (
     FAKE_RGBW_BULB,
     FAKE_RGBWW_BULB,
     FAKE_TURNABLE_BULB,
+    _mocked_wizlight,
     async_push_update,
     async_setup_integration,
 )
@@ -69,6 +79,31 @@ async def test_light_operation(
     assert hass.states.get(entity_id).state == STATE_ON
 
 
+@pytest.mark.parametrize(
+    ("error", "translation_key"),
+    [
+        (WizLightConnectionError("Network is unreachable"), "communication_error"),
+        (WizLightTimeOutError("The request to the bulb timed out"), "timeout"),
+        (WizLightMethodNotFound("Method not found"), "not_supported"),
+    ],
+)
+async def test_light_operation_fails(
+    hass: HomeAssistant, error: Exception, translation_key: str
+) -> None:
+    """Test a light command raises a translated HomeAssistantError on device errors."""
+    bulb, _ = await async_setup_integration(hass)
+    entity_id = "light.mock_title"
+
+    bulb.turn_on.side_effect = error
+    bulb.turn_off.side_effect = error
+    for service in (SERVICE_TURN_ON, SERVICE_TURN_OFF):
+        with pytest.raises(HomeAssistantError) as exc_info:
+            await hass.services.async_call(
+                LIGHT_DOMAIN, service, {ATTR_ENTITY_ID: entity_id}, blocking=True
+            )
+        assert exc_info.value.translation_key == translation_key
+
+
 async def test_rgbww_light(hass: HomeAssistant) -> None:
     """Test a light operation with a rgbww light."""
     bulb, _ = await async_setup_integration(hass, bulb_type=FAKE_RGBWW_BULB)
@@ -109,17 +144,35 @@ async def test_rgbww_light(hass: HomeAssistant) -> None:
     await hass.services.async_call(
         LIGHT_DOMAIN,
         SERVICE_TURN_ON,
-        {ATTR_ENTITY_ID: entity_id, ATTR_EFFECT: "Ocean"},
+        {ATTR_ENTITY_ID: entity_id, ATTR_EFFECT: "Ocean", ATTR_BRIGHTNESS: 128},
         blocking=True,
     )
     pilot: PilotBuilder = bulb.turn_on.mock_calls[0][1][0]
-    assert pilot.pilot_params == {"sceneId": 1}
+    assert pilot.pilot_params == {"dimming": 50, "sceneId": 1}
     await async_push_update(
         hass, bulb, {"mac": FAKE_MAC, "state": True, **pilot.pilot_params}
     )
     state = hass.states.get(entity_id)
     assert state.state == STATE_ON
     assert state.attributes[ATTR_EFFECT] == "Ocean"
+    assert state.attributes[ATTR_COLOR_MODE] == "brightness"
+
+    bulb.turn_on.reset_mock()
+    await hass.services.async_call(
+        LIGHT_DOMAIN,
+        SERVICE_TURN_ON,
+        {ATTR_ENTITY_ID: entity_id, ATTR_EFFECT: "Forest"},
+        blocking=True,
+    )
+    pilot: PilotBuilder = bulb.turn_on.mock_calls[0][1][0]
+    assert pilot.pilot_params == {"sceneId": 7}
+    await async_push_update(
+        hass, bulb, {"mac": FAKE_MAC, "state": True, **pilot.pilot_params}
+    )
+    state = hass.states.get(entity_id)
+    assert state.state == STATE_ON
+    assert state.attributes[ATTR_EFFECT] == "Forest"
+    assert state.attributes[ATTR_COLOR_MODE] == "onoff"
 
     bulb.turn_on.reset_mock()
     await hass.services.async_call(
@@ -215,3 +268,17 @@ async def test_old_firmware_dimmable_light(hass: HomeAssistant) -> None:
     )
     pilot: PilotBuilder = bulb.turn_on.mock_calls[0][1][0]
     assert pilot.pilot_params == {"dimming": 100}
+
+
+async def test_light_without_any_color_state(hass: HomeAssistant) -> None:
+    """Test a light reporting no color values still reports a color mode."""
+    bulb = _mocked_wizlight(None, None, FAKE_RGBWW_BULB)
+    # A bulb can report being on without any of the values the color mode is
+    # otherwise picked from, and there is no color mode to fall back on for a
+    # bulb that supports more than one.
+    bulb.state = PilotParser({"mac": FAKE_MAC, "state": True, "dimming": 100})
+    await async_setup_integration(hass, wizlight=bulb, bulb_type=FAKE_RGBWW_BULB)
+
+    state = hass.states.get("light.mock_title")
+    assert state.state == STATE_ON
+    assert state.attributes[ATTR_COLOR_MODE] == ColorMode.UNKNOWN

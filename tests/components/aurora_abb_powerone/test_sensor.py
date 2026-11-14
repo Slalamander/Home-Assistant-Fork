@@ -5,21 +5,21 @@ from unittest.mock import patch
 from aurorapy.client import AuroraError, AuroraTimeoutError
 from freezegun.api import FrozenDateTimeFactory
 import pytest
+from pytest_homeassistant.common import MockConfigEntry, async_fire_time_changed
 
 from homeassistant.components.aurora_abb_powerone.const import (
-    ATTR_DEVICE_NAME,
-    ATTR_FIRMWARE,
-    ATTR_MODEL,
+    CONF_DEVICE_NAME,
+    CONF_FIRMWARE,
+    CONF_MODEL,
+    CONF_SERIAL_NUMBER,
     DEFAULT_INTEGRATION_TITLE,
     DOMAIN,
     SCAN_INTERVAL,
 )
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import ATTR_SERIAL_NUMBER, CONF_ADDRESS, CONF_PORT
+from homeassistant.const import CONF_ADDRESS, CONF_PORT
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_registry import EntityRegistry, RegistryEntryDisabler
-
-from tests.common import MockConfigEntry, async_fire_time_changed
 
 TEST_CONFIG = {
     "sensor": {
@@ -38,7 +38,13 @@ def _simulated_returns(index, global_measure=None):
         4: 50.789,  # frequency
         6: 1.2345,  # leak dcdc
         7: 2.3456,  # leak inverter
+        8: 12.345,  # power in 1
+        9: 23.456,  # power in 2
         21: 9.876,  # temperature
+        23: 123.456,  # voltage in 1
+        25: 0.9876,  # current in 1
+        26: 234.567,  # voltage in 2
+        27: 1.234,  # current in 2
         30: 0.1234,  # Isolation resistance
         5: 12345,  # energy
     }
@@ -53,10 +59,10 @@ def _mock_config_entry():
         data={
             CONF_PORT: "/dev/usb999",
             CONF_ADDRESS: 3,
-            ATTR_DEVICE_NAME: "mydevicename",
-            ATTR_MODEL: "mymodel",
-            ATTR_SERIAL_NUMBER: "123456",
-            ATTR_FIRMWARE: "1.2.3.4",
+            CONF_DEVICE_NAME: "mydevicename",
+            CONF_MODEL: "mymodel",
+            CONF_SERIAL_NUMBER: "123456",
+            CONF_FIRMWARE: "1.2.3.4",
         },
         source="dummysource",
         entry_id="13579",
@@ -116,9 +122,15 @@ async def test_sensors(hass: HomeAssistant, entity_registry: EntityRegistry) -> 
         sensors = [
             ("sensor.mydevicename_grid_voltage", "235.9"),
             ("sensor.mydevicename_grid_current", "2.8"),
-            ("sensor.mydevicename_frequency", "50.8"),
+            ("sensor.mydevicename_grid_frequency", "50.8"),
             ("sensor.mydevicename_dc_dc_leak_current", "1.2345"),
             ("sensor.mydevicename_inverter_leak_current", "2.3456"),
+            ("sensor.mydevicename_string_1_power", "12.3"),
+            ("sensor.mydevicename_string_2_power", "23.5"),
+            ("sensor.mydevicename_string_1_voltage", "123.5"),
+            ("sensor.mydevicename_string_1_current", "1.0"),
+            ("sensor.mydevicename_string_2_voltage", "234.6"),
+            ("sensor.mydevicename_string_2_current", "1.2"),
             ("sensor.mydevicename_isolation_resistance", "0.1234"),
         ]
         for entity_id, _ in sensors:
@@ -267,6 +279,7 @@ async def test_sensor_unknown_error(
         await hass.async_block_till_done()
 
     with (
+        patch("homeassistant.components.aurora_abb_powerone.coordinator.sleep"),
         patch("aurorapy.client.AuroraSerialClient.connect", return_value=None),
         patch(
             "aurorapy.client.AuroraSerialClient.measure",

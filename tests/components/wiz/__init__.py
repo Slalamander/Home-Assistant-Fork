@@ -7,6 +7,7 @@ import json
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from pytest_homeassistant.common import MockConfigEntry
 from pywizlight import SCENES, BulbType, PilotParser, wizlight
 from pywizlight.bulblibrary import BulbClass, Features, KelvinRange
 from pywizlight.discovery import DiscoveredBulb
@@ -15,8 +16,6 @@ from homeassistant.components.wiz.const import DOMAIN
 from homeassistant.const import CONF_HOST, CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
-
-from tests.common import MockConfigEntry
 
 FAKE_STATE = PilotParser(
     {
@@ -183,7 +182,7 @@ FAKE_DIMMABLE_FAN = BulbType(
     features=Features(
         color=False,
         color_tmp=False,
-        effect=True,
+        effect=False,
         brightness=True,
         dual_head=False,
         fan=True,
@@ -191,9 +190,28 @@ FAKE_DIMMABLE_FAN = BulbType(
         fan_reverse=True,
     ),
     kelvin_range=KelvinRange(max=2700, min=2700),
-    fw_version="1.31.32",
+    fw_version="1.34.1",
     white_channels=1,
     white_to_color_ratio=20,
+    fan_speed_range=6,
+)
+FAKE_DIMMABLE_FAN_2 = BulbType(
+    bulb_type=BulbClass.FANDIM,
+    name="ESP20_FANDIMS_31",
+    features=Features(
+        color=False,
+        color_tmp=False,
+        effect=False,
+        brightness=True,
+        dual_head=False,
+        fan=True,
+        fan_breeze_mode=True,
+        fan_reverse=True,
+    ),
+    kelvin_range=None,
+    fw_version="1.34.0",
+    white_channels=None,
+    white_to_color_ratio=None,
     fan_speed_range=6,
 )
 
@@ -308,7 +326,8 @@ async def async_setup_integration(
     bulb = wizlight or _mocked_wizlight(device, extended_white_range, bulb_type)
     with _patch_discovery(), _patch_wizlight(device=bulb):
         await async_setup_component(hass, DOMAIN, {DOMAIN: {}})
-        await hass.async_block_till_done()
+        # Let the discovery started by async_setup finish while it is patched.
+        await hass.async_block_till_done(wait_background_tasks=True)
     return bulb, entry
 
 

@@ -1,7 +1,5 @@
 """Mocks for the yale component."""
 
-from __future__ import annotations
-
 from collections.abc import Iterable
 from contextlib import contextmanager
 import json
@@ -10,6 +8,7 @@ import time
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
+from pytest_homeassistant.common import MockConfigEntry, load_fixture
 from yalexs.activity import (
     ACTIVITY_ACTIONS_BRIDGE_OPERATION,
     ACTIVITY_ACTIONS_DOOR_OPERATION,
@@ -36,6 +35,7 @@ from yalexs.manager.ratelimit import _RateLimitChecker
 from yalexs.manager.socketio import SocketIORunner
 
 from homeassistant.components.application_credentials import (
+    DOMAIN as APPLICATION_CREDENTIALS_DOMAIN,
     ClientCredential,
     async_import_client_credential,
 )
@@ -43,8 +43,6 @@ from homeassistant.components.yale.const import DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
-
-from tests.common import MockConfigEntry, load_fixture
 
 USER_ID = "a76c25e5-49aa-4c14-cd0c-48a6931e2081"
 
@@ -120,7 +118,7 @@ def mock_config_entry(jwt: str | None = None) -> MockConfigEntry:
 
 async def mock_client_credentials(hass: HomeAssistant) -> ClientCredential:
     """Mock client credentials."""
-    assert await async_setup_component(hass, "application_credentials", {})
+    assert await async_setup_component(hass, APPLICATION_CREDENTIALS_DOMAIN, {})
     await async_import_client_credential(
         hass,
         DOMAIN,
@@ -137,9 +135,7 @@ def patch_yale_setup():
         patch.object(_RateLimitChecker, "register_wakeup") as authenticate_mock,
         patch("yalexs.manager.data.SocketIORunner") as socketio_mock,
         patch.object(socketio_mock, "run"),
-        patch(
-            "homeassistant.components.yale.config_entry_oauth2_flow.async_get_config_entry_implementation"
-        ),
+        patch("homeassistant.components.yale.async_get_config_entry_implementation"),
     ):
         yield api_mock, authenticate_mock, socketio_mock
 

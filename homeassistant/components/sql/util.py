@@ -1,9 +1,12 @@
 """Utils for sql."""
+# pylint: disable=home-assistant-use-runtime-data  # Uses legacy hass.data[DOMAIN] pattern
 
-from __future__ import annotations
-
+from datetime import date
+from decimal import Decimal
 import logging
+from typing import Any
 
+import probatio
 import sqlalchemy
 from sqlalchemy import lambda_stmt
 from sqlalchemy.exc import SQLAlchemyError
@@ -11,12 +14,17 @@ from sqlalchemy.orm import Session, scoped_session, sessionmaker
 from sqlalchemy.sql.lambdas import StatementLambdaElement
 from sqlalchemy.util import LRUCache
 import sqlparse
-import voluptuous as vol
 
-from homeassistant.components.recorder import SupportedDialect, get_instance
+from homeassistant.components.recorder import (
+    SupportedDialect,
+    get_engine_db_url,
+    get_instance,
+)
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError, TemplateError
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.template import Template
 
 from .const import DB_URL_RE, DOMAIN
 from .models import SQLData
@@ -41,16 +49,13 @@ def resolve_db_url(hass: HomeAssistant, db_url: str | None) -> str:
     return get_instance(hass).db_url
 
 
-def validate_sql_select(value: str) -> str:
+def validate_sql_select(value: Template) -> Template:
     """Validate that value is a SQL SELECT query."""
-    if len(query := sqlparse.parse(value.lstrip().lstrip(";"))) > 1:
-        raise vol.Invalid("Multiple SQL queries are not supported")
-    if len(query) == 0 or (query_type := query[0].get_type()) == "UNKNOWN":
-        raise vol.Invalid("Invalid SQL query")
-    if query_type != "SELECT":
-        _LOGGER.debug("The SQL query %s is of type %s", query, query_type)
-        raise vol.Invalid("Only SELECT queries allowed")
-    return str(query[0])
+    try:
+        check_and_render_sql_query(value.hass, value)
+    except (TemplateError, InvalidSqlQuery) as err:
+        raise probatio.Invalid(str(err)) from err
+    return value
 
 
 async def async_create_sessionmaker(
@@ -110,17 +115,20 @@ async def async_create_sessionmaker(
 
 def validate_query(
     hass: HomeAssistant,
-    query_str: str,
+    query_template: str | Template,
     uses_recorder_db: bool,
     unique_id: str | None = None,
+    config_entry_id: str | None = None,
 ) -> None:
     """Validate the query against common performance issues.
 
     Args:
         hass: The Home Assistant instance.
-        query_str: The SQL query string to be validated.
-        uses_recorder_db: A boolean indicating if the query is against the recorder database.
+        query_template: The SQL query string to be validated.
+        uses_recorder_db: A boolean indicating if the query is
+            against the recorder database.
         unique_id: The unique ID of the entity, used for creating issue registry keys.
+        config_entry_id: The config entry the issue belongs to, if any.
 
     Raises:
         ValueError: If the query uses `entity_id` without referencing `states_meta`.
@@ -128,9 +136,13 @@ def validate_query(
     """
     if not uses_recorder_db:
         return
+    if isinstance(query_template, Template):
+        query_str = query_template.async_render()
+    else:
+        query_str = Template(query_template, hass).async_render()
     redacted_query = redact_credentials(query_str)
 
-    issue_key = unique_id if unique_id else redacted_query
+    issue_key = unique_id or redacted_query
     # If the query has a unique id and they fix it we can dismiss the issue
     # but if it doesn't have a unique id they have to ignore it instead
 
@@ -150,6 +162,7 @@ def validate_query(
             hass,
             DOMAIN,
             f"entity_id_query_does_full_table_scan_{issue_key}",
+            config_entry_id=config_entry_id,
             translation_key="entity_id_query_does_full_table_scan",
             translation_placeholders={"query": redacted_query},
             is_fixable=False,
@@ -199,7 +212,7 @@ def _validate_and_get_session_maker_for_db_url(db_url: str) -> scoped_session | 
     """
     sess: Session | None = None
     try:
-        engine = sqlalchemy.create_engine(db_url, future=True)
+        engine = sqlalchemy.create_engine(get_engine_db_url(db_url), future=True)
         sessmaker = scoped_session(sessionmaker(bind=engine, future=True))
         # Run a dummy query just to test the db_url
         sess = sessmaker()
@@ -223,3 +236,62 @@ def generate_lambda_stmt(query: str) -> StatementLambdaElement:
     """Generate the lambda statement."""
     text = sqlalchemy.text(query)
     return lambda_stmt(lambda: text, lambda_cache=_SQL_LAMBDA_CACHE)
+
+
+def convert_value(value: Any) -> Any:
+    """Convert value."""
+    match value:
+        case Decimal():
+            return float(value)
+        case date():
+            return value.isoformat()
+        case bytes() | bytearray():
+            return f"0x{value.hex()}"
+        case _:
+            return value
+
+
+def check_and_render_sql_query(hass: HomeAssistant, query: Template | str) -> str:
+    """Check and render SQL query."""
+    if isinstance(query, str):
+        query = query.strip()
+        if not query:
+            raise EmptyQueryError("Query cannot be empty")
+        query = Template(query, hass=hass)
+
+    # Raises TemplateError if template is invalid
+    query.ensure_valid()
+    rendered_query: str = query.async_render()
+
+    if len(rendered_queries := sqlparse.parse(rendered_query.lstrip().lstrip(";"))) > 1:
+        raise MultipleQueryError("Multiple SQL statements are not allowed")
+    if (
+        len(rendered_queries) == 0
+        or (query_type := rendered_queries[0].get_type()) == "UNKNOWN"  # type: ignore[no-untyped-call]
+    ):
+        raise UnknownQueryTypeError("SQL query is empty or unknown type")
+    if query_type != "SELECT":
+        _LOGGER.debug("The SQL query %s is of type %s", rendered_query, query_type)
+        raise NotSelectQueryError("SQL query must be of type SELECT")
+
+    return str(rendered_queries[0])
+
+
+class InvalidSqlQuery(HomeAssistantError):
+    """SQL query is invalid error."""
+
+
+class EmptyQueryError(InvalidSqlQuery):
+    """SQL query is empty error."""
+
+
+class MultipleQueryError(InvalidSqlQuery):
+    """SQL query is multiple error."""
+
+
+class UnknownQueryTypeError(InvalidSqlQuery):
+    """SQL query is of unknown type error."""
+
+
+class NotSelectQueryError(InvalidSqlQuery):
+    """SQL query is not a SELECT statement error."""

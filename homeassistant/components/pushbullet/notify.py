@@ -1,15 +1,13 @@
 """Pushbullet platform for notify component."""
 
-from __future__ import annotations
-
+from io import BufferedReader
 import logging
 import mimetypes
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, override
 
 from pushbullet import PushBullet, PushError
 from pushbullet.channel import Channel
 from pushbullet.device import Device
-import voluptuous as vol
 
 from homeassistant.components.notify import (
     ATTR_DATA,
@@ -20,10 +18,10 @@ from homeassistant.components.notify import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.os_error import os_read_error
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .api import PushBulletNotificationProvider
-from .const import ATTR_FILE, ATTR_FILE_URL, ATTR_URL, DOMAIN
+from .const import ATTR_FILE, ATTR_FILE_URL, ATTR_URL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,10 +34,18 @@ async def async_get_service(
     """Get the Pushbullet notification service."""
     if TYPE_CHECKING:
         assert discovery_info is not None
-    pb_provider: PushBulletNotificationProvider = hass.data[DOMAIN][
-        discovery_info["entry_id"]
-    ]
-    return PushBulletNotificationService(hass, pb_provider.pushbullet)
+    entry = hass.config_entries.async_get_entry(discovery_info["entry_id"])
+    if TYPE_CHECKING:
+        assert entry is not None
+    return PushBulletNotificationService(hass, entry.runtime_data.pushbullet)
+
+
+def _open_file(filepath: str) -> BufferedReader:
+    """Open a file, raising a translated error if it cannot be read."""
+    try:
+        return open(filepath, "rb")
+    except OSError as err:
+        raise os_read_error(err, filepath) from err
 
 
 class PushBulletNotificationService(BaseNotificationService):
@@ -60,6 +66,7 @@ class PushBulletNotificationService(BaseNotificationService):
             },
         }
 
+    @override
     def send_message(self, message: str, **kwargs: Any) -> None:
         """Send a message to a specified target.
 
@@ -140,13 +147,13 @@ class PushBulletNotificationService(BaseNotificationService):
             if filepath := data.get(ATTR_FILE):
                 if not self.hass.config.is_allowed_path(filepath):
                     raise ValueError("Filepath is not valid or allowed")
-                with open(filepath, "rb") as fileh:
+                with _open_file(filepath) as fileh:
                     filedata = self.pushbullet.upload_file(fileh, filepath)
                 if filedata.get("file_type") == "application/x-empty":
                     raise ValueError("Cannot send an empty file")
                 kwargs.update(filedata)
                 pusher.push_file(**kwargs)
-            elif (file_url := data.get(ATTR_FILE_URL)) and vol.Url(file_url):
+            elif file_url := data.get(ATTR_FILE_URL):
                 pusher.push_file(
                     file_name=file_url,
                     file_url=file_url,

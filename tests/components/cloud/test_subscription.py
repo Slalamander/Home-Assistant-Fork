@@ -5,7 +5,9 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from hass_nabucasa import Cloud, payments_api
 import pytest
+from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
 
+from homeassistant.components.cloud.const import CLOUD_REQUEST_TIMEOUT
 from homeassistant.components.cloud.subscription import (
     async_migrate_paypal_agreement,
     async_subscription_info,
@@ -13,14 +15,11 @@ from homeassistant.components.cloud.subscription import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from tests.test_util.aiohttp import AiohttpClientMocker
-
 
 @pytest.fixture(name="mocked_cloud")
 async def mocked_cloud_object(hass: HomeAssistant) -> Cloud:
     """Mock cloud object."""
     return Mock(
-        accounts_server="accounts.nabucasa.com",
         auth=Mock(async_check_token=AsyncMock()),
         websession=async_get_clientsession(hass),
         payments=Mock(
@@ -55,7 +54,7 @@ async def test_fetching_subscription_with_timeout_error(
 ) -> None:
     """Test that we handle timeout error."""
     mocked_cloud.payments.subscription_info = lambda: asyncio.sleep(1)
-    with patch("homeassistant.components.cloud.subscription.REQUEST_TIMEOUT", 0):
+    with patch("homeassistant.components.cloud.subscription.CLOUD_REQUEST_TIMEOUT", 0):
         assert await async_subscription_info(mocked_cloud) is None
 
     assert (
@@ -74,6 +73,6 @@ async def test_migrate_paypal_agreement_with_timeout_error(
 
     assert await async_migrate_paypal_agreement(mocked_cloud) is None
     assert (
-        "A timeout of 10 was reached while trying to start agreement migration"
-        in caplog.text
+        f"A timeout of {CLOUD_REQUEST_TIMEOUT} was reached while trying to"
+        " start agreement migration" in caplog.text
     )

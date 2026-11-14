@@ -1,22 +1,23 @@
 """Config flow for Waze Travel Time integration."""
 
-from __future__ import annotations
+from typing import Any, override
 
-from typing import Any
-
-import voluptuous as vol
+import probatio
 
 from homeassistant.config_entries import (
     SOURCE_RECONFIGURE,
-    ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
     OptionsFlow,
 )
-from homeassistant.const import CONF_NAME, CONF_REGION
+from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE, CONF_NAME, CONF_REGION
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.selector import (
     BooleanSelector,
+    DurationSelector,
+    DurationSelectorConfig,
+    LocationSelector,
+    LocationSelectorConfig,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -30,40 +31,44 @@ from .const import (
     CONF_AVOID_FERRIES,
     CONF_AVOID_SUBSCRIPTION_ROADS,
     CONF_AVOID_TOLL_ROADS,
+    CONF_BASE_COORDINATES,
     CONF_DESTINATION,
     CONF_EXCL_FILTER,
     CONF_INCL_FILTER,
     CONF_ORIGIN,
     CONF_REALTIME,
+    CONF_TIME_DELTA,
     CONF_UNITS,
     CONF_VEHICLE_TYPE,
     DEFAULT_FILTER,
     DEFAULT_NAME,
     DEFAULT_OPTIONS,
+    DEFAULT_TIME_DELTA,
     DOMAIN,
     IMPERIAL_UNITS,
     REGIONS,
     UNITS,
     VEHICLE_TYPES,
 )
+from .coordinator import WazeTravelTimeConfigEntry
 from .helpers import is_valid_config_entry
 
-OPTIONS_SCHEMA = vol.Schema(
+OPTIONS_SCHEMA = probatio.Schema(
     {
-        vol.Optional(CONF_INCL_FILTER): TextSelector(
+        probatio.Optional(CONF_INCL_FILTER): TextSelector(
             TextSelectorConfig(
                 type=TextSelectorType.TEXT,
                 multiple=True,
             ),
         ),
-        vol.Optional(CONF_EXCL_FILTER): TextSelector(
+        probatio.Optional(CONF_EXCL_FILTER): TextSelector(
             TextSelectorConfig(
                 type=TextSelectorType.TEXT,
                 multiple=True,
             ),
         ),
-        vol.Optional(CONF_REALTIME): BooleanSelector(),
-        vol.Required(CONF_VEHICLE_TYPE): SelectSelector(
+        probatio.Optional(CONF_REALTIME): BooleanSelector(),
+        probatio.Required(CONF_VEHICLE_TYPE): SelectSelector(
             SelectSelectorConfig(
                 options=VEHICLE_TYPES,
                 mode=SelectSelectorMode.DROPDOWN,
@@ -71,7 +76,7 @@ OPTIONS_SCHEMA = vol.Schema(
                 sort=True,
             )
         ),
-        vol.Required(CONF_UNITS): SelectSelector(
+        probatio.Required(CONF_UNITS): SelectSelector(
             SelectSelectorConfig(
                 options=UNITS,
                 mode=SelectSelectorMode.DROPDOWN,
@@ -79,18 +84,29 @@ OPTIONS_SCHEMA = vol.Schema(
                 sort=True,
             )
         ),
-        vol.Optional(CONF_AVOID_TOLL_ROADS): BooleanSelector(),
-        vol.Optional(CONF_AVOID_SUBSCRIPTION_ROADS): BooleanSelector(),
-        vol.Optional(CONF_AVOID_FERRIES): BooleanSelector(),
+        probatio.Optional(CONF_AVOID_TOLL_ROADS): BooleanSelector(),
+        probatio.Optional(CONF_AVOID_SUBSCRIPTION_ROADS): BooleanSelector(),
+        probatio.Optional(CONF_AVOID_FERRIES): BooleanSelector(),
+        probatio.Optional(CONF_TIME_DELTA): DurationSelector(
+            DurationSelectorConfig(
+                allow_negative=True,
+                enable_second=False,
+            )
+        ),
+        probatio.Optional(CONF_BASE_COORDINATES): LocationSelector(
+            LocationSelectorConfig(radius=False)
+        ),
     }
 )
 
-CONFIG_SCHEMA = vol.Schema(
+CONFIG_SCHEMA = probatio.Schema(
     {
-        vol.Required(CONF_NAME, default=DEFAULT_NAME): TextSelector(),
-        vol.Required(CONF_ORIGIN): TextSelector(),
-        vol.Required(CONF_DESTINATION): TextSelector(),
-        vol.Required(CONF_REGION): SelectSelector(
+        # Name field is no longer allowed in config flow schemas
+        # pylint: disable-next=home-assistant-config-flow-name-field
+        probatio.Required(CONF_NAME, default=DEFAULT_NAME): TextSelector(),
+        probatio.Required(CONF_ORIGIN): TextSelector(),
+        probatio.Required(CONF_DESTINATION): TextSelector(),
+        probatio.Required(CONF_REGION): SelectSelector(
             SelectSelectorConfig(
                 options=REGIONS,
                 mode=SelectSelectorMode.DROPDOWN,
@@ -102,24 +118,34 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def default_options(hass: HomeAssistant) -> dict[str, str | bool | list[str]]:
+def default_options(
+    hass: HomeAssistant,
+) -> dict[str, str | bool | list[str] | dict[str, int] | dict[str, float]]:
     """Get the default options."""
     defaults = DEFAULT_OPTIONS.copy()
     if hass.config.units is US_CUSTOMARY_SYSTEM:
         defaults[CONF_UNITS] = IMPERIAL_UNITS
+    defaults[CONF_BASE_COORDINATES] = {
+        CONF_LATITUDE: hass.config.latitude,
+        CONF_LONGITUDE: hass.config.longitude,
+    }
     return defaults
 
 
 class WazeOptionsFlow(OptionsFlow):
     """Handle an options flow for Waze Travel Time."""
 
-    async def async_step_init(self, user_input=None) -> ConfigFlowResult:
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Handle the initial step."""
         if user_input is not None:
             if user_input.get(CONF_INCL_FILTER) is None:
                 user_input[CONF_INCL_FILTER] = DEFAULT_FILTER
             if user_input.get(CONF_EXCL_FILTER) is None:
                 user_input[CONF_EXCL_FILTER] = DEFAULT_FILTER
+            if user_input.get(CONF_TIME_DELTA) is None:
+                user_input[CONF_TIME_DELTA] = DEFAULT_TIME_DELTA
             return self.async_create_entry(
                 title="",
                 data=user_input,
@@ -137,15 +163,18 @@ class WazeConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Waze Travel Time."""
 
     VERSION = 2
+    MINOR_VERSION = 3
 
     @staticmethod
     @callback
+    @override
     def async_get_options_flow(
-        config_entry: ConfigEntry,
+        config_entry: WazeTravelTimeConfigEntry,
     ) -> WazeOptionsFlow:
         """Get the options flow for this handler."""
         return WazeOptionsFlow()
 
+    @override
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -190,6 +219,7 @@ class WazeConfigFlow(ConfigFlow, domain=DOMAIN):
         data = self._get_reconfigure_entry().data.copy()
         data[CONF_REGION] = data[CONF_REGION].lower()
 
+        # pylint: disable-next=home-assistant-step_id-match-method
         return self.async_show_form(
             step_id="user",
             data_schema=self.add_suggested_values_to_schema(CONFIG_SCHEMA, data),

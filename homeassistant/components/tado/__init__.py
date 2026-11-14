@@ -7,7 +7,6 @@ import PyTado
 import PyTado.exceptions
 from PyTado.interface import Tado
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     APPLICATION_NAME,
     CONF_PASSWORD,
@@ -21,7 +20,7 @@ from homeassistant.exceptions import (
     ConfigEntryError,
     ConfigEntryNotReady,
 )
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, device_registry as dr
 from homeassistant.helpers.typing import ConfigType
 
 from .const import (
@@ -32,15 +31,15 @@ from .const import (
     CONST_OVERLAY_TADO_MODE,
     CONST_OVERLAY_TADO_OPTIONS,
     DOMAIN,
+    TADO_BRIDGE_MODELS,
 )
-from .coordinator import TadoDataUpdateCoordinator, TadoMobileDeviceUpdateCoordinator
-from .models import TadoData
+from .coordinator import TadoConfigEntry, TadoDataUpdateCoordinator
 from .services import async_setup_services
 
 PLATFORMS = [
     Platform.BINARY_SENSOR,
     Platform.CLIMATE,
-    Platform.DEVICE_TRACKER,
+    Platform.SELECT,
     Platform.SENSOR,
     Platform.SWITCH,
     Platform.WATER_HEATER,
@@ -62,10 +61,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
-type TadoConfigEntry = ConfigEntry[TadoData]
-
-
-async def async_setup_entry(hass: HomeAssistant, entry: TadoConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: TadoConfigEntry) -> None:
     """Set up Tado from a config entry."""
     if CONF_REFRESH_TOKEN not in entry.data:
         raise ConfigEntryAuthFailed
@@ -79,7 +75,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: TadoConfigEntry) -> bool
     )
 
     def create_tado_instance() -> tuple[Tado, str]:
-        """Create a Tado instance, this time with a previously obtained refresh token."""
+        """Create a Tado instance with a previously obtained refresh token."""
         tado = Tado(
             saved_refresh_token=entry.data[CONF_REFRESH_TOKEN],
             user_agent=f"{APPLICATION_NAME}/{HA_VERSION}",
@@ -102,16 +98,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: TadoConfigEntry) -> bool
     coordinator = TadoDataUpdateCoordinator(hass, entry, tado)
     await coordinator.async_config_entry_first_refresh()
 
-    mobile_coordinator = TadoMobileDeviceUpdateCoordinator(hass, entry, tado)
-    await mobile_coordinator.async_config_entry_first_refresh()
+    # Pre-register the bridge device to ensure it exists
+    # before other devices reference it
+    device_registry = dr.async_get(hass)
+    for device in coordinator.data["device"].values():
+        if device["deviceType"] in TADO_BRIDGE_MODELS:
+            _LOGGER.debug("Pre-registering Tado bridge: %s", device["shortSerialNo"])
+            device_registry.async_get_or_create(
+                config_entry_id=entry.entry_id,
+                identifiers={(DOMAIN, device["shortSerialNo"])},
+                manufacturer="Tado",
+                model=device["deviceType"],
+                name=device["serialNo"],
+                sw_version=device["currentFwVersion"],
+                configuration_url=f"https://app.tado.com/en/main/settings/rooms-and-devices/device/{device['serialNo']}",
+            )
 
-    entry.runtime_data = TadoData(coordinator, mobile_coordinator)
+    entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    return True
 
-
-async def async_migrate_entry(hass: HomeAssistant, entry: TadoConfigEntry) -> bool:
+async def async_migrate_entry(hass: HomeAssistant, entry: TadoConfigEntry) -> None:
     """Migrate old entry."""
 
     if entry.version < 2:
@@ -121,7 +128,6 @@ async def async_migrate_entry(hass: HomeAssistant, entry: TadoConfigEntry) -> bo
         data.pop(CONF_PASSWORD, None)
         hass.config_entries.async_update_entry(entry=entry, data=data, version=2)
         _LOGGER.debug("Migration to version 2 successful")
-    return True
 
 
 @callback
@@ -143,6 +149,6 @@ def _async_import_options_from_data_if_missing(
         hass.config_entries.async_update_entry(entry, options=options)
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: TadoConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: TadoConfigEntry) -> None:
     """Unload a config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    await hass.config_entries.async_unload_platforms_or_raise(entry, PLATFORMS)

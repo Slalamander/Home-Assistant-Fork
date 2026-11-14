@@ -1,7 +1,6 @@
 """Actions for Bring! integration."""
 
-import logging
-from typing import TYPE_CHECKING
+from enum import StrEnum
 
 from bring_api import (
     ActivityType,
@@ -10,50 +9,53 @@ from bring_api import (
     BringRequestException,
     ReactionType,
 )
-import voluptuous as vol
+import probatio
 
-from homeassistant.components.event import ATTR_EVENT_TYPE
-from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import ATTR_ENTITY_ID
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.components.event import EventEntityStateAttribute
+from homeassistant.components.todo import DOMAIN as TODO_DOMAIN
+from homeassistant.const import CommonServiceArgument
+from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
-from homeassistant.helpers import config_validation as cv, entity_registry as er
-
-from .const import (
-    ATTR_ACTIVITY,
-    ATTR_REACTION,
-    ATTR_RECEIVER,
-    DOMAIN,
-    SERVICE_ACTIVITY_STREAM_REACTION,
+from homeassistant.helpers import (
+    config_validation as cv,
+    entity_registry as er,
+    service,
 )
+
+from .const import DOMAIN
 from .coordinator import BringConfigEntry
 
-_LOGGER = logging.getLogger(__name__)
+ATTR_ACTIVITY = "uuid"
+ATTR_RECEIVER = "publicUserUuid"
 
-SERVICE_ACTIVITY_STREAM_REACTION_SCHEMA = vol.Schema(
+
+class BringService(StrEnum):
+    """Store keys for Bring! services."""
+
+    SEND_MESSAGE = "send_message"
+    SEND_REACTION = "send_reaction"
+
+
+class BringServiceArgument(StrEnum):
+    """Store keys for Bring! service arguments."""
+
+    MESSAGE = "message"
+    ITEM = "item"
+    REACTION = "reaction"
+
+
+SERVICE_ACTIVITY_STREAM_REACTION_SCHEMA = probatio.Schema(
     {
-        vol.Required(ATTR_ENTITY_ID): cv.entity_id,
-        vol.Required(ATTR_REACTION): vol.All(
-            vol.Upper,
-            vol.Coerce(ReactionType),
+        probatio.Required(CommonServiceArgument.ENTITY_ID): cv.entity_id,
+        probatio.Required(BringServiceArgument.REACTION): probatio.All(
+            probatio.Upper,
+            probatio.Coerce(ReactionType),
         ),
     }
 )
 
 
-def get_config_entry(hass: HomeAssistant, entry_id: str) -> BringConfigEntry:
-    """Return config entry or raise if not found or not loaded."""
-    entry = hass.config_entries.async_get_entry(entry_id)
-    if TYPE_CHECKING:
-        assert entry
-    if entry.state is not ConfigEntryState.LOADED:
-        raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="entry_not_loaded",
-        )
-    return entry
-
-
+@callback
 def async_setup_services(hass: HomeAssistant) -> None:
     """Set up services for Bring! integration."""
 
@@ -61,26 +63,32 @@ def async_setup_services(hass: HomeAssistant) -> None:
         """Send a reaction in response to recent activity of a list member."""
 
         if (
-            not (state := hass.states.get(call.data[ATTR_ENTITY_ID]))
-            or not (entity := er.async_get(hass).async_get(call.data[ATTR_ENTITY_ID]))
+            not (state := hass.states.get(call.data[CommonServiceArgument.ENTITY_ID]))
+            or not (
+                entity := er.async_get(hass).async_get(
+                    call.data[CommonServiceArgument.ENTITY_ID]
+                )
+            )
             or not entity.config_entry_id
         ):
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
                 translation_key="entity_not_found",
                 translation_placeholders={
-                    ATTR_ENTITY_ID: call.data[ATTR_ENTITY_ID],
+                    "entity_id": call.data[CommonServiceArgument.ENTITY_ID],
                 },
             )
-        config_entry = get_config_entry(hass, entity.config_entry_id)
+        config_entry: BringConfigEntry = service.async_get_config_entry(
+            hass, DOMAIN, entity.config_entry_id
+        )
 
         coordinator = config_entry.runtime_data.data
 
         list_uuid = entity.unique_id.split("_")[1]
 
-        activity = state.attributes[ATTR_EVENT_TYPE]
+        activity = state.attributes[EventEntityStateAttribute.EVENT_TYPE]
 
-        reaction: ReactionType = call.data[ATTR_REACTION]
+        reaction: ReactionType = call.data[BringServiceArgument.REACTION]
 
         if not activity:
             raise ServiceValidationError(
@@ -104,7 +112,21 @@ def async_setup_services(hass: HomeAssistant) -> None:
 
     hass.services.async_register(
         DOMAIN,
-        SERVICE_ACTIVITY_STREAM_REACTION,
+        BringService.SEND_REACTION,
         async_send_activity_stream_reaction,
         SERVICE_ACTIVITY_STREAM_REACTION_SCHEMA,
+    )
+
+    service.async_register_platform_entity_service(
+        hass,
+        DOMAIN,
+        BringService.SEND_MESSAGE,
+        entity_domain=TODO_DOMAIN,
+        schema={
+            probatio.Required(BringServiceArgument.MESSAGE): probatio.All(
+                probatio.Upper, probatio.Coerce(BringNotificationType)
+            ),
+            probatio.Optional(BringServiceArgument.ITEM): cv.string,
+        },
+        func="async_send_message",
     )

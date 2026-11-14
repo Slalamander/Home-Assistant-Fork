@@ -62,15 +62,47 @@
         }
       }
     },
+    "number": {
+      "asleep_preset_cooling_temperature": {
+        "default": "mdi:weather-night"
+      },
+      "asleep_preset_temperature": {
+        "default": "mdi:weather-night"
+      },
+      "away_preset_cooling_temperature": {
+        "default": "mdi:account-arrow-right"
+      },
+      "away_preset_temperature": {
+        "default": "mdi:account-arrow-right"
+      },
+      "home_preset_cooling_temperature": {
+        "default": "mdi:home"
+      },
+      "home_preset_temperature": {
+        "default": "mdi:home"
+      },
+      "no_frost_preset_cooling_temperature": {
+        "default": "mdi:snowflake-melt"
+      },
+      "no_frost_preset_temperature": {
+        "default": "mdi:snowflake-melt"
+      },
+      "vacation_preset_cooling_temperature": {
+        "default": "mdi:beach"
+      },
+      "vacation_preset_temperature": {
+        "default": "mdi:beach"
+      }
+    },
     "select": {
       "dhw_mode": {
         "default": "mdi:shower",
         "state": {
+          "auto": "mdi:auto-mode",
+          "boost": "mdi:rocket-launch",
           "comfort": "mdi:sofa",
           "eco": "mdi:leaf",
-          "off": "mdi:circle-off-outline",
-          "boost": "mdi:rocket-launch",
-          "auto": "mdi:auto-mode"
+          "off": "mdi:circle-off-outline"
         }
       },
       "gateway_mode": {
@@ -84,11 +116,11 @@
       "regulation_mode": {
         "default": "mdi:hvac",
         "state": {
-          "bleeding_hot": "mdi:fire-circle",
           "bleeding_cold": "mdi:water-circle",
-          "off": "mdi:circle-off-outline",
+          "bleeding_hot": "mdi:fire-circle",
+          "cooling": "mdi:snowflake",
           "heating": "mdi:radiator",
-          "cooling": "mdi:snowflake"
+          "off": "mdi:circle-off-outline"
         }
       },
       "select_schedule": {

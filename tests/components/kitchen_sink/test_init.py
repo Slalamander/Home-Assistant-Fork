@@ -1,14 +1,17 @@
 """The tests for the Everything but the Kitchen Sink integration."""
 
-import datetime
+import datetime as dt
 from http import HTTPStatus
 from unittest.mock import ANY
 
+import probatio
 import pytest
+from pytest_homeassistant.components.recorder.common import async_wait_recording_done
+from pytest_homeassistant.typing import ClientSessionGenerator, WebSocketGenerator
 from syrupy.assertion import SnapshotAssertion
-import voluptuous as vol
 
 from homeassistant.components.kitchen_sink import DOMAIN
+from homeassistant.components.labs import EVENT_LABS_UPDATED
 from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.statistics import (
     StatisticMeanType,
@@ -18,12 +21,18 @@ from homeassistant.components.recorder.statistics import (
 )
 from homeassistant.components.repairs import DOMAIN as REPAIRS_DOMAIN
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM
 
-from tests.components.recorder.common import async_wait_recording_done
-from tests.typing import ClientSessionGenerator, WebSocketGenerator
+DEMO_ISSUE_IDS = (
+    "transmogrifier_deprecated",
+    "out_of_blinker_fluid",
+    "unfixable_problem",
+    "bad_psu",
+    "cold_tea",
+)
 
 
 @pytest.fixture
@@ -73,7 +82,7 @@ async def test_demo_statistics_growth(hass: HomeAssistant) -> None:
     hass.config.units = US_CUSTOMARY_SYSTEM
 
     now = dt_util.now()
-    last_week = now - datetime.timedelta(days=7)
+    last_week = now - dt.timedelta(days=7)
     last_week_midnight = last_week.replace(hour=0, minute=0, second=0, microsecond=0)
 
     statistic_id = f"{DOMAIN}:energy_consumption_kwh"
@@ -351,13 +360,36 @@ async def test_issues_created(
     }
 
 
+@pytest.mark.usefixtures("mock_history")
+async def test_issues_linked_to_config_entry(
+    hass: HomeAssistant,
+    issue_registry: ir.IssueRegistry,
+) -> None:
+    """Test the demo issues are linked to the config entry and removed with it."""
+    assert await async_setup_component(hass, DOMAIN, {DOMAIN: {}})
+    await hass.async_block_till_done()
+    entry = hass.config_entries.async_entries(DOMAIN)[0]
+
+    for issue_id in DEMO_ISSUE_IDS:
+        issue = issue_registry.async_get_issue(DOMAIN, issue_id)
+        assert issue is not None
+        assert issue.config_entry_id == entry.entry_id
+        assert issue.config_subentry_id is None
+
+    await hass.config_entries.async_remove(entry.entry_id)
+    await hass.async_block_till_done()
+
+    for issue_id in DEMO_ISSUE_IDS:
+        assert issue_registry.async_get_issue(DOMAIN, issue_id) is None
+
+
 async def test_service(
     hass: HomeAssistant,
 ) -> None:
     """Test we can call the service."""
     assert await async_setup_component(hass, DOMAIN, {DOMAIN: {}})
 
-    with pytest.raises(vol.error.MultipleInvalid):
+    with pytest.raises(probatio.error.MultipleInvalid):
         await hass.services.async_call(DOMAIN, "test_service_1", blocking=True)
 
     await hass.services.async_call(
@@ -367,6 +399,138 @@ async def test_service(
     await hass.services.async_call(
         DOMAIN,
         "test_service_1",
-        {"field_1": 1, "field_2": "auto", "field_3": 1, "field_4": "forwards"},
+        {"field_1": 1, "field_2": "auto", "field_3": 1, "field_4": "forward"},
         blocking=True,
     )
+
+
+@pytest.fixture
+async def setup_kitchen_sink_with_repairs(hass: HomeAssistant) -> None:
+    """Set up kitchen_sink integration with labs and repairs."""
+    assert await async_setup_component(hass, "labs", {})
+    assert await async_setup_component(hass, "repairs", {})
+    assert await async_setup_component(hass, DOMAIN, {DOMAIN: {}})
+    await hass.async_block_till_done()
+
+
+async def test_special_repair_issue_not_created_when_disabled(
+    hass: HomeAssistant,
+    issue_registry: ir.IssueRegistry,
+    setup_kitchen_sink_with_repairs: None,
+) -> None:
+    """Test repair issue is not created when preview is disabled."""
+    # Check that issue does not exist when preview feature is disabled
+    issue = issue_registry.async_get_issue(DOMAIN, "kitchen_sink_special_repair_issue")
+    assert issue is None
+
+
+async def test_special_repair_issue_created_when_enabled(
+    hass: HomeAssistant,
+    issue_registry: ir.IssueRegistry,
+    hass_ws_client: WebSocketGenerator,
+    setup_kitchen_sink_with_repairs: None,
+) -> None:
+    """Test that special repair issue is created when preview feature is enabled."""
+    ws_client = await hass_ws_client(hass)
+
+    # Enable the special repair preview feature
+    await ws_client.send_json_auto_id(
+        {
+            "type": "labs/update",
+            "domain": "kitchen_sink",
+            "preview_feature": "special_repair",
+            "enabled": True,
+        }
+    )
+    msg = await ws_client.receive_json()
+    assert msg["success"]
+
+    # Wait for event handling
+    await hass.async_block_till_done()
+
+    # Check that issue was created
+    issue = issue_registry.async_get_issue(DOMAIN, "kitchen_sink_special_repair_issue")
+    assert issue is not None
+    assert issue.domain == DOMAIN
+    assert issue.translation_key == "special_repair"
+    assert issue.is_fixable is False
+    assert issue.severity == ir.IssueSeverity.WARNING
+
+
+async def test_special_repair_preview_feature_toggle(
+    hass: HomeAssistant,
+    issue_registry: ir.IssueRegistry,
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """Test repair issue is created/deleted when preview is toggled."""
+    # Setup repairs and kitchen_sink first
+    assert await async_setup_component(hass, "labs", {})
+    assert await async_setup_component(hass, "repairs", {})
+    assert await async_setup_component(hass, DOMAIN, {DOMAIN: {}})
+    await hass.async_block_till_done()
+
+    ws_client = await hass_ws_client(hass)
+
+    # Enable the special repair preview feature
+    await ws_client.send_json_auto_id(
+        {
+            "type": "labs/update",
+            "domain": "kitchen_sink",
+            "preview_feature": "special_repair",
+            "enabled": True,
+        }
+    )
+    msg = await ws_client.receive_json()
+    assert msg["success"]
+    await hass.async_block_till_done()
+
+    # Check issue exists
+    issue = issue_registry.async_get_issue(DOMAIN, "kitchen_sink_special_repair_issue")
+    assert issue is not None
+
+    # Disable the special repair preview feature
+    await ws_client.send_json_auto_id(
+        {
+            "type": "labs/update",
+            "domain": "kitchen_sink",
+            "preview_feature": "special_repair",
+            "enabled": False,
+        }
+    )
+    msg = await ws_client.receive_json()
+    assert msg["success"]
+    await hass.async_block_till_done()
+
+    # Check issue is removed
+    issue = issue_registry.async_get_issue(DOMAIN, "kitchen_sink_special_repair_issue")
+    assert issue is None
+
+
+async def test_preview_feature_event_handler_registered(
+    hass: HomeAssistant,
+) -> None:
+    """Test that preview feature event handler is registered on setup."""
+    # Setup kitchen_sink
+    assert await async_setup_component(hass, "labs", {})
+    assert await async_setup_component(hass, DOMAIN, {DOMAIN: {}})
+    await hass.async_block_till_done()
+
+    # Track if event is handled
+    events_received = []
+
+    def track_event(event):
+        events_received.append(event)
+
+    hass.bus.async_listen(EVENT_LABS_UPDATED, track_event)
+    await hass.async_block_till_done()
+
+    # Fire a labs updated event for kitchen_sink preview feature
+    hass.bus.async_fire(
+        EVENT_LABS_UPDATED,
+        {"feature_id": "kitchen_sink.special_repair", "enabled": True},
+    )
+    await hass.async_block_till_done()
+
+    # Verify event was received by our tracker
+    assert len(events_received) == 1
+    assert events_received[0].data["feature_id"] == "kitchen_sink.special_repair"

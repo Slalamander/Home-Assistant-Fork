@@ -32,7 +32,7 @@ def mock_zha_config_flow_setup() -> Generator[None]:
         ),
         patch(
             "homeassistant.components.zha.async_setup_entry",
-            return_value=True,
+            return_value=None,
         ),
     ):
         yield
@@ -47,3 +47,28 @@ def mock_zha_get_last_network_settings() -> Generator[None]:
         AsyncMock(return_value=None),
     ):
         yield
+
+
+@pytest.fixture(autouse=True)
+def mock_firmware_update_client() -> Generator[MagicMock]:
+    """Mock the FirmwareUpdateClient to avoid network requests."""
+    with patch(
+        "homeassistant.components.homeassistant_hardware.coordinator.FirmwareUpdateClient",
+        autospec=True,
+    ) as mock_client:
+        mock_client.return_value.async_update_data = AsyncMock(return_value=None)
+        yield mock_client
+
+
+@pytest.fixture(autouse=True)
+def mock_rpi_firmware_info() -> Generator[AsyncMock]:
+    """Skip the Raspberry Pi EEPROM firmware probe by default.
+
+    Tests that exercise the EEPROM update entity can override the return value.
+    """
+    with patch(
+        "homeassistant.components.homeassistant_yellow.update."
+        "async_get_raspberry_pi_firmware_info",
+        return_value=None,
+    ) as mock_info:
+        yield mock_info

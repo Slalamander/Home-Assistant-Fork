@@ -14,9 +14,17 @@ from aioautomower.exceptions import (
     HusqvarnaTimeoutError,
     HusqvarnaWSServerHandshakeError,
 )
-from aioautomower.model import Calendar, MowerAttributes, MowerStates, WorkArea
+from aioautomower.model import (
+    Calendar,
+    MowerAttributes,
+    MowerStates,
+    WorkArea,
+    WorkAreaType,
+)
 from freezegun.api import FrozenDateTimeFactory
 import pytest
+from pytest_homeassistant.common import MockConfigEntry, async_fire_time_changed
+from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components.husqvarna_automower.const import DOMAIN, OAUTH2_TOKEN
@@ -24,18 +32,18 @@ from homeassistant.components.husqvarna_automower.coordinator import SCAN_INTERV
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers.config_entry_oauth2_flow import (
+    ImplementationUnavailableError,
+)
 from homeassistant.util import dt as dt_util
 
 from . import setup_integration
 from .const import TEST_MOWER_ID
 
-from tests.common import MockConfigEntry, async_fire_time_changed
-from tests.test_util.aiohttp import AiohttpClientMocker
-
 ADDITIONAL_NUMBER_ENTITIES = 1
 ADDITIONAL_SENSOR_ENTITIES = 2
 ADDITIONAL_SWITCH_ENTITIES = 1
-NUMBER_OF_ENTITIES_MOWER_2 = 11
+NUMBER_OF_ENTITIES_MOWER_2 = 12
 
 
 async def test_load_unload_entry(
@@ -199,6 +207,39 @@ async def test_websocket_not_available(
     assert mock.call_count == 1
 
 
+@pytest.mark.parametrize(
+    ("api_input", "model", "model_id"),
+    [
+        ("HUSQVARNA AUTOMOWER® 450XH", "Automower", "450XH"),
+        ("Automower 315X", "Automower", "315X"),
+        ("Husqvarna Automower® 435 AWD", "Automower", "435 AWD"),
+        ("Husqvarna CEORA® 544 EPOS", "Ceora", "544 EPOS"),
+    ],
+)
+async def test_model_id_information(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_automower_client: AsyncMock,
+    device_registry: dr.DeviceRegistry,
+    values: dict[str, MowerAttributes],
+    api_input: str,
+    model: str,
+    model_id: str,
+) -> None:
+    """Test model and model_id parsing."""
+    values[TEST_MOWER_ID].system.model = api_input
+    mock_config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+    reg_device = device_registry.async_get_device_by_identifier(
+        (DOMAIN, TEST_MOWER_ID), mock_config_entry.entry_id
+    )
+    assert reg_device is not None
+    assert reg_device.manufacturer == "Husqvarna"
+    assert reg_device.model == model
+    assert reg_device.model_id == model_id
+
+
 async def test_device_info(
     hass: HomeAssistant,
     mock_automower_client: AsyncMock,
@@ -206,13 +247,13 @@ async def test_device_info(
     device_registry: dr.DeviceRegistry,
     snapshot: SnapshotAssertion,
 ) -> None:
-    """Test select platform."""
+    """Test device info."""
 
     mock_config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(mock_config_entry.entry_id)
     await hass.async_block_till_done()
-    reg_device = device_registry.async_get_device(
-        identifiers={(DOMAIN, TEST_MOWER_ID)},
+    reg_device = device_registry.async_get_device_by_identifier(
+        (DOMAIN, TEST_MOWER_ID), mock_config_entry.entry_id
     )
     assert reg_device == snapshot
 
@@ -224,10 +265,11 @@ async def test_constant_polling(
     values: dict[str, MowerAttributes],
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    """Verify that receiving a WebSocket update does not interrupt the regular polling cycle.
+    """Verify WebSocket updates do not interrupt regular polling.
 
-    The test simulates a WebSocket update that changes an entity's state, then advances time
-    to trigger a scheduled poll to confirm polled data also arrives.
+    The test simulates a WebSocket update that changes an entity's state, then
+    advances time to trigger a scheduled poll to confirm polled data also
+    arrives.
     """
     test_values = deepcopy(values)
     callback_holder: dict[str, Callable] = {}
@@ -247,10 +289,10 @@ async def test_constant_polling(
     assert mock_automower_client.register_data_callback.called
     assert "cb" in callback_holder
 
-    state = hass.states.get("sensor.test_mower_1_battery")
+    state = hass.states.get("sensor.garden_test_mower_1_battery")
     assert state is not None
     assert state.state == "100"
-    state = hass.states.get("sensor.test_mower_1_front_lawn_progress")
+    state = hass.states.get("sensor.garden_test_mower_1_front_lawn_progress")
     assert state is not None
     assert state.state == "40"
 
@@ -263,10 +305,10 @@ async def test_constant_polling(
     callback_holder["cb"](test_values)
     await hass.async_block_till_done()
 
-    state = hass.states.get("sensor.test_mower_1_battery")
+    state = hass.states.get("sensor.garden_test_mower_1_battery")
     assert state is not None
     assert state.state == "77"
-    state = hass.states.get("sensor.test_mower_1_front_lawn_progress")
+    state = hass.states.get("sensor.garden_test_mower_1_front_lawn_progress")
     assert state is not None
     assert state.state == "40"
 
@@ -276,10 +318,10 @@ async def test_constant_polling(
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
     mock_automower_client.get_status.assert_awaited()
-    state = hass.states.get("sensor.test_mower_1_battery")
+    state = hass.states.get("sensor.garden_test_mower_1_battery")
     assert state is not None
     assert state.state == "77"
-    state = hass.states.get("sensor.test_mower_1_front_lawn_progress")
+    state = hass.states.get("sensor.garden_test_mower_1_front_lawn_progress")
     assert state is not None
     assert state.state == "50"
 
@@ -376,6 +418,7 @@ async def test_add_and_remove_work_area(
     mock_config_entry: MockConfigEntry,
     freezer: FrozenDateTimeFactory,
     entity_registry: er.EntityRegistry,
+    device_registry: dr.DeviceRegistry,
     values: dict[str, MowerAttributes],
 ) -> None:
     """Test adding a work area in runtime."""
@@ -396,6 +439,10 @@ async def test_add_and_remove_work_area(
     current_entites_start = len(
         er.async_entries_for_config_entry(entity_registry, entry.entry_id)
     )
+    child_devices_start = len(
+        dr.async_child_entries_for_config_entry(device_registry, entry.entry_id)
+    )
+    assert child_devices_start == 3
     await hass.async_block_till_done()
 
     assert mock_automower_client.register_data_callback.called
@@ -427,6 +474,8 @@ async def test_add_and_remove_work_area(
                 last_time_completed=datetime(
                     2024, 10, 1, 11, 11, 0, tzinfo=dt_util.get_default_time_zone()
                 ),
+                type=WorkAreaType.SYSTEMATIC,
+                use_global_cutting_height=False,
             )
         }
     )
@@ -436,12 +485,16 @@ async def test_add_and_remove_work_area(
     await hass.async_block_till_done()
     assert mock_automower_client.get_status.called
 
-    state = hass.states.get("sensor.test_mower_1_new_work_area_progress")
+    state = hass.states.get("sensor.garden_test_mower_1_new_work_area_progress")
     assert state is not None
     assert state.state == "12"
     current_entites_after_addition = len(
         er.async_entries_for_config_entry(entity_registry, entry.entry_id)
     )
+    child_devices_after_addition = len(
+        dr.async_child_entries_for_config_entry(device_registry, entry.entry_id)
+    )
+    assert child_devices_after_addition == 4
     assert (
         current_entites_after_addition
         == current_entites_start
@@ -478,29 +531,56 @@ async def test_add_and_remove_work_area(
         - ADDITIONAL_NUMBER_ENTITIES
         - ADDITIONAL_SENSOR_ENTITIES
     )
+    child_devices_after_deletion = len(
+        dr.async_child_entries_for_config_entry(device_registry, entry.entry_id)
+    )
+    assert child_devices_after_deletion == 2
 
 
-@pytest.mark.parametrize(
-    ("mower1_connected", "mower1_state", "mower2_connected", "mower2_state"),
-    [
-        (True, MowerStates.OFF, False, MowerStates.OFF),  # False
-        (False, MowerStates.PAUSED, False, MowerStates.OFF),  # False
-        (False, MowerStates.OFF, True, MowerStates.OFF),  # False
-        (False, MowerStates.OFF, False, MowerStates.PAUSED),  # False
-        (True, MowerStates.OFF, True, MowerStates.OFF),  # False
-        (False, MowerStates.OFF, False, MowerStates.OFF),  # False
-    ],
-)
+async def test_rename_work_area(
+    hass: HomeAssistant,
+    mock_automower_client: AsyncMock,
+    mock_config_entry: MockConfigEntry,
+    freezer: FrozenDateTimeFactory,
+    device_registry: dr.DeviceRegistry,
+    values: dict[str, MowerAttributes],
+) -> None:
+    """Test changing a work area name in runtime."""
+    await setup_integration(hass, mock_config_entry)
+    entry = hass.config_entries.async_entries(DOMAIN)[0]
+    child_devices = dr.async_child_entries_for_config_entry(
+        device_registry, entry.entry_id
+    )
+    child_device = next(
+        device
+        for device in child_devices
+        if (DOMAIN, f"{TEST_MOWER_ID}_123456") in device.identifiers
+    )
+    assert child_device.name == "Front lawn"
+    values[TEST_MOWER_ID].work_areas[123456].name = "New name"
+    values[TEST_MOWER_ID].work_area_names = ["New name"]
+    values[TEST_MOWER_ID].work_area_dict = {123456: "New name"}
+    mock_automower_client.get_status.return_value = values
+    freezer.tick(SCAN_INTERVAL)
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    child_devices = dr.async_child_entries_for_config_entry(
+        device_registry, entry.entry_id
+    )
+    child_device = next(
+        device
+        for device in child_devices
+        if (DOMAIN, f"{TEST_MOWER_ID}_123456") in device.identifiers
+    )
+    assert child_device.name == "New name"
+
+
 async def test_dynamic_polling(
     hass: HomeAssistant,
     mock_automower_client,
     mock_config_entry,
     freezer: FrozenDateTimeFactory,
     values: dict[str, MowerAttributes],
-    mower1_connected: bool,
-    mower1_state: MowerStates,
-    mower2_connected: bool,
-    mower2_state: MowerStates,
 ) -> None:
     """Test that the ws_ready_callback triggers an attempt to start the Watchdog task.
 
@@ -543,10 +623,8 @@ async def test_dynamic_polling(
     assert mock_automower_client.get_status.call_count == 2
 
     # websocket is still active, but mowers are inactive -> no polling required
-    poll_values[TEST_MOWER_ID].metadata.connected = mower1_connected
-    poll_values[TEST_MOWER_ID].mower.state = mower1_state
-    poll_values["1234"].metadata.connected = mower2_connected
-    poll_values["1234"].mower.state = mower2_state
+    poll_values[TEST_MOWER_ID].mower.state = MowerStates.OFF
+    poll_values["1234"].mower.state = MowerStates.OFF
 
     mock_automower_client.get_status.return_value = poll_values
     freezer.tick(SCAN_INTERVAL)
@@ -572,9 +650,7 @@ async def test_dynamic_polling(
     # websocket is still active, and mowers are active -> polling required
     mock_automower_client.get_status.reset_mock()
     assert mock_automower_client.get_status.call_count == 0
-    poll_values[TEST_MOWER_ID].metadata.connected = True
     poll_values[TEST_MOWER_ID].mower.state = MowerStates.PAUSED
-    poll_values["1234"].metadata.connected = False
     poll_values["1234"].mower.state = MowerStates.OFF
     websocket_values = deepcopy(poll_values)
     callback_holder["data_cb"](websocket_values)
@@ -587,17 +663,6 @@ async def test_dynamic_polling(
     assert mock_automower_client.get_status.call_count == 2
 
 
-@pytest.mark.parametrize(
-    ("mower1_connected", "mower1_state", "mower2_connected", "mower2_state"),
-    [
-        (True, MowerStates.OFF, False, MowerStates.OFF),  # False
-        (False, MowerStates.PAUSED, False, MowerStates.OFF),  # False
-        (False, MowerStates.OFF, True, MowerStates.OFF),  # False
-        (False, MowerStates.OFF, False, MowerStates.PAUSED),  # False
-        (True, MowerStates.OFF, True, MowerStates.OFF),  # False
-        (False, MowerStates.OFF, False, MowerStates.OFF),  # False
-    ],
-)
 async def test_websocket_watchdog(
     hass: HomeAssistant,
     mock_automower_client,
@@ -605,10 +670,6 @@ async def test_websocket_watchdog(
     freezer: FrozenDateTimeFactory,
     entity_registry: er.EntityRegistry,
     values: dict[str, MowerAttributes],
-    mower1_connected: bool,
-    mower1_state: MowerStates,
-    mower2_connected: bool,
-    mower2_state: MowerStates,
 ) -> None:
     """Test that the ws_ready_callback triggers an attempt to start the Watchdog task.
 
@@ -650,10 +711,8 @@ async def test_websocket_watchdog(
     assert mock_automower_client.get_status.call_count == 2
 
     # websocket is still active, but mowers are inactive -> no polling required
-    poll_values[TEST_MOWER_ID].metadata.connected = mower1_connected
-    poll_values[TEST_MOWER_ID].mower.state = mower1_state
-    poll_values["1234"].metadata.connected = mower2_connected
-    poll_values["1234"].mower.state = mower2_state
+    poll_values[TEST_MOWER_ID].mower.state = MowerStates.OFF
+    poll_values["1234"].mower.state = MowerStates.OFF
 
     mock_automower_client.get_status.return_value = poll_values
     freezer.tick(SCAN_INTERVAL)
@@ -689,3 +748,20 @@ async def test_websocket_watchdog(
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
     assert mock_automower_client.get_status.call_count == 2
+
+
+async def test_oauth_implementation_not_available(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+) -> None:
+    """Test that unavailable OAuth implementation raises ConfigEntryNotReady."""
+    mock_config_entry.add_to_hass(hass)
+
+    with patch(
+        "homeassistant.helpers.config_entry_oauth2_flow.async_get_config_entry_implementation",
+        side_effect=ImplementationUnavailableError,
+    ):
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert mock_config_entry.state is ConfigEntryState.SETUP_RETRY

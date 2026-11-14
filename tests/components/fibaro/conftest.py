@@ -5,12 +5,11 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from pyfibaro.fibaro_device import SceneEvent
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
-from homeassistant.components.fibaro import CONF_IMPORT_PLUGINS, DOMAIN
+from homeassistant.components.fibaro.const import CONF_IMPORT_PLUGINS, DOMAIN
 from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_USERNAME
 from homeassistant.core import HomeAssistant
-
-from tests.common import MockConfigEntry
 
 TEST_SERIALNUMBER = "HC2-111111"
 TEST_NAME = "my_fibaro_home_center"
@@ -25,7 +24,7 @@ TEST_MODEL = "HC3"
 def mock_setup_entry() -> Generator[AsyncMock]:
     """Override async_setup_entry."""
     with patch(
-        "homeassistant.components.fibaro.async_setup_entry", return_value=True
+        "homeassistant.components.fibaro.async_setup_entry", return_value=None
     ) as mock_setup_entry:
         yield mock_setup_entry
 
@@ -86,7 +85,7 @@ def mock_power_sensor() -> Mock:
 def mock_positionable_cover() -> Mock:
     """Fixture for a positionable cover."""
     cover = Mock()
-    cover.fibaro_id = 3
+    cover.fibaro_id = 2
     cover.parent_fibaro_id = 0
     cover.name = "Test cover"
     cover.room_id = 1
@@ -173,6 +172,69 @@ def mock_light() -> Mock:
 
 
 @pytest.fixture
+def mock_fgd212_light() -> Mock:
+    """Fixture for an FGD212 dimmer without setValue in actions."""
+    light = Mock()
+    light.fibaro_id = 116
+    light.parent_fibaro_id = 113
+    light.name = "8 Spots"
+    light.room_id = 1
+    light.dead = False
+    light.visible = True
+    light.enabled = True
+    light.type = "com.fibaro.FGD212"
+    light.base_type = "com.fibaro.multilevelSwitch"
+    light.properties = {"manufacturer": "", "isLight": True}
+    light.actions = {
+        "configureFavoritePositions": 1,
+        "setAutoOff": 0,
+        "setFavoritePosition": 1,
+    }
+    light.supported_features = {}
+    light.has_interface.side_effect = lambda name: name == "levelChange"
+    light.raw_data = {
+        "fibaro_id": 116,
+        "name": "8 Spots",
+        "interfaces": ["levelChange", "light"],
+        "properties": {"value": 50},
+    }
+    value_mock = Mock()
+    value_mock.has_value = True
+    value_mock.int_value.return_value = 50
+    light.value = value_mock
+    return light
+
+
+@pytest.fixture
+def mock_multilevel_base_type_light() -> Mock:
+    """Fixture for dimming via multilevelSwitch base_type without levelChange."""
+    light = Mock()
+    light.fibaro_id = 42
+    light.parent_fibaro_id = 0
+    light.name = "Base type dimmer"
+    light.room_id = 1
+    light.dead = False
+    light.visible = True
+    light.enabled = True
+    light.type = "com.fibaro.FGD212"
+    light.base_type = "com.fibaro.multilevelSwitch"
+    light.properties = {"manufacturer": "", "isLight": True}
+    light.actions = {"setValue": 1, "turnOn": 0, "turnOff": 0}
+    light.supported_features = {}
+    light.has_interface.return_value = False
+    light.raw_data = {
+        "fibaro_id": 42,
+        "name": "Base type dimmer",
+        "properties": {"value": 20},
+    }
+    value_mock = Mock()
+    value_mock.has_value = True
+    value_mock.int_value.return_value = 20
+    light.value = value_mock
+    return light
+
+
+@pytest.fixture
 def mock_zigbee_light() -> Mock:
     """Fixture for a dimmmable zigbee light."""
     light = Mock()
@@ -209,7 +271,7 @@ def mock_zigbee_light() -> Mock:
 def mock_thermostat() -> Mock:
     """Fixture for a thermostat."""
     climate = Mock()
-    climate.fibaro_id = 4
+    climate.fibaro_id = 13
     climate.parent_fibaro_id = 0
     climate.name = "Test climate"
     climate.room_id = 1
@@ -287,6 +349,68 @@ def mock_thermostat_with_operating_mode() -> Mock:
 
 
 @pytest.fixture
+def mock_thermostat_quickapp_1() -> Mock:
+    """Fixture for a thermostat."""
+    climate = Mock()
+    climate.fibaro_id = 9
+    climate.parent_fibaro_id = 0
+    climate.has_endpoint_id = False
+    climate.name = "Test climate"
+    climate.room_id = 1
+    climate.dead = False
+    climate.visible = True
+    climate.enabled = True
+    climate.type = "com.fibaro.hvacSystemHeat"
+    climate.base_type = "com.fibaro.hvacSystem"
+    climate.properties = {"manufacturer": ""}
+    climate.actions = {"setHeatingThermostatSetpoint": 1, "setThermostatMode": 1}
+    climate.supported_features = {}
+    climate.has_supported_operating_modes = False
+    climate.has_supported_thermostat_modes = True
+    climate.supported_thermostat_modes = ["Off", "Heat"]
+    climate.has_thermostat_mode = True
+    climate.thermostat_mode = "Heat"
+    climate.has_unit = False
+    climate.has_heating_thermostat_setpoint = False
+    climate.has_heating_thermostat_setpoint_future = False
+    value_mock = Mock()
+    value_mock.has_value = False
+    climate.value = value_mock
+    return climate
+
+
+@pytest.fixture
+def mock_thermostat_quickapp_2() -> Mock:
+    """Fixture for a thermostat."""
+    climate = Mock()
+    climate.fibaro_id = 10
+    climate.parent_fibaro_id = 0
+    climate.has_endpoint_id = False
+    climate.name = "Test climate 2"
+    climate.room_id = 1
+    climate.dead = False
+    climate.visible = True
+    climate.enabled = True
+    climate.type = "com.fibaro.hvacSystemHeat"
+    climate.base_type = "com.fibaro.hvacSystem"
+    climate.properties = {"manufacturer": ""}
+    climate.actions = {"setHeatingThermostatSetpoint": 1, "setThermostatMode": 1}
+    climate.supported_features = {}
+    climate.has_supported_operating_modes = False
+    climate.has_supported_thermostat_modes = True
+    climate.supported_thermostat_modes = ["Off", "Heat"]
+    climate.has_thermostat_mode = True
+    climate.thermostat_mode = "Heat"
+    climate.has_unit = False
+    climate.has_heating_thermostat_setpoint = False
+    climate.has_heating_thermostat_setpoint_future = False
+    value_mock = Mock()
+    value_mock.has_value = False
+    climate.value = value_mock
+    return climate
+
+
+@pytest.fixture
 def mock_fan_device() -> Mock:
     """Fixture for a fan endpoint of a thermostat device."""
     climate = Mock()
@@ -327,6 +451,118 @@ def mock_button_device() -> Mock:
     climate.battery_level = 100
     climate.armed = False
     return climate
+
+
+@pytest.fixture
+def mock_switch() -> Mock:
+    """Fixture for a switch."""
+    switch = Mock()
+    switch.fibaro_id = 9
+    switch.parent_fibaro_id = 0
+    switch.name = "Test switch"
+    switch.room_id = 1
+    switch.dead = False
+    switch.visible = True
+    switch.enabled = True
+    switch.type = "com.fibaro.binarySwitch"
+    switch.base_type = "com.fibaro.actor"
+    switch.properties = {"manufacturer": ""}
+    switch.actions = {"turnOn": 0, "turnOff": 0}
+    switch.supported_features = {}
+    switch.raw_data = {
+        "fibaro_id": 9,
+        "name": "Test button",
+        "properties": {"value": True},
+    }
+    value_mock = Mock()
+    value_mock.has_value = True
+    value_mock.int_value.return_value = True
+    switch.value = value_mock
+    return switch
+
+
+@pytest.fixture
+def mock_binary_sensor() -> Mock:
+    """Fixture for a binary sensor (motion sensor)."""
+    sensor = Mock()
+    sensor.fibaro_id = 10
+    sensor.parent_fibaro_id = 0
+    sensor.name = "Test motion sensor"
+    sensor.room_id = 1
+    sensor.dead = False
+    sensor.visible = True
+    sensor.enabled = True
+    sensor.type = "com.fibaro.FGMS001v2"
+    sensor.base_type = "com.fibaro.FGMS001"
+    sensor.properties = {"manufacturer": ""}
+    sensor.actions = {"setArmed": 1}
+    sensor.supported_features = {}
+    sensor.raw_data = {
+        "fibaro_id": 9,
+        "name": "Test motion sensor",
+        "properties": {"value": True},
+    }
+    value_mock = Mock()
+    value_mock.has_value = True
+    value_mock.int_value.return_value = True
+    sensor.value = value_mock
+    return sensor
+
+
+@pytest.fixture
+def mock_lock() -> Mock:
+    """Fixture for a lock."""
+    lock = Mock()
+    lock.fibaro_id = 11
+    lock.parent_fibaro_id = 0
+    lock.name = "Test lock"
+    lock.room_id = 1
+    lock.dead = False
+    lock.visible = True
+    lock.enabled = True
+    lock.type = "com.fibaro.gerda"
+    lock.base_type = "com.fibaro.doorLock"
+    lock.properties = {"manufacturer": ""}
+    lock.actions = {"secure": 0, "unsecure": 0}  # codespell:ignore unsecure
+    lock.supported_features = {}
+    lock.raw_data = {
+        "fibaro_id": 11,
+        "name": "Test lock",
+        "properties": {"value": False},
+    }
+    value_mock = Mock()
+    value_mock.has_value = True
+    value_mock.int_value.return_value = False
+    lock.value = value_mock
+    return lock
+
+
+@pytest.fixture
+def mock_multilevel_sensor() -> Mock:
+    """Fixture for an individual multilevel sensor."""
+    sensor = Mock()
+    sensor.fibaro_id = 12
+    sensor.parent_fibaro_id = 0
+    sensor.name = "Test multilevel sensor"
+    sensor.room_id = 1
+    sensor.unit = "V"
+    sensor.dead = False
+    sensor.visible = True
+    sensor.enabled = True
+    sensor.type = "com.fibaro.multilevelSensor"
+    sensor.base_type = "com.fibaro.sensor"
+    sensor.properties = {"zwaveCompany": "Goap", "unit": "V"}
+    sensor.actions = {}
+    sensor.raw_data = {
+        "fibaro_id": 12,
+        "name": "Test multilevel sensor",
+        "properties": {"unit": "V", "value": "230.1"},
+    }
+    value_mock = Mock()
+    value_mock.has_value = True
+    value_mock.float_value.return_value = 230.1
+    sensor.value = value_mock
+    return sensor
 
 
 @pytest.fixture

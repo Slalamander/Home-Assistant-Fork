@@ -32,7 +32,7 @@ def mock_zha():
         ),
         patch(
             "homeassistant.components.zha.async_setup_entry",
-            return_value=True,
+            return_value=None,
         ),
     ):
         yield
@@ -51,9 +51,20 @@ def mock_zha_get_last_network_settings() -> Generator[None]:
 
 @pytest.fixture(autouse=True)
 def mock_usb_path_exists() -> Generator[None]:
-    """Mock os.path.exists to allow the Connect ZBT-2 integration to load."""
+    """Report the device as plugged in, to allow the Connect ZBT-2 integration to load."""
     with patch(
-        "homeassistant.components.homeassistant_connect_zbt2.os.path.exists",
+        "homeassistant.components.homeassistant_connect_zbt2.async_is_serial_port_present",
         return_value=True,
     ):
         yield
+
+
+@pytest.fixture(autouse=True)
+def mock_firmware_update_client() -> Generator[MagicMock]:
+    """Mock the FirmwareUpdateClient to avoid network requests."""
+    with patch(
+        "homeassistant.components.homeassistant_hardware.coordinator.FirmwareUpdateClient",
+        autospec=True,
+    ) as mock_client:
+        mock_client.return_value.async_update_data = AsyncMock(return_value=None)
+        yield mock_client

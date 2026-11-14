@@ -1,21 +1,18 @@
 """Test fixtures for the generic component."""
 
-from __future__ import annotations
-
 from collections.abc import Generator
 from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from PIL import Image
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 import respx
 
 from homeassistant import config_entries
 from homeassistant.components.generic.const import DOMAIN
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.core import HomeAssistant
-
-from tests.common import MockConfigEntry
 
 
 @pytest.fixture(scope="package")
@@ -76,7 +73,7 @@ def fakeimg_gif(fakeimgbytes_gif: bytes) -> Generator[None]:
 
 
 @pytest.fixture(name="mock_create_stream")
-def mock_create_stream(hass: HomeAssistant) -> Generator[AsyncMock]:
+def mock_create_stream(hass: HomeAssistant) -> Generator[MagicMock]:
     """Mock create stream."""
     mock_stream = MagicMock()
     mock_stream.hass = hass
@@ -99,7 +96,7 @@ def mock_setup_entry() -> Generator[AsyncMock]:
     """Mock setup entry."""
     with patch(
         "homeassistant.components.generic.async_setup_entry",
-        return_value=True,
+        return_value=None,
     ) as mock_setup_entry:
         yield mock_setup_entry
 
@@ -129,13 +126,15 @@ def config_entry_fixture(hass: HomeAssistant) -> MockConfigEntry:
             "stream_source": "http://janebloggs:letmein2@example.com/stream",
             "username": "johnbloggs",
             "password": "letmein123",
-            "limit_refetch_to_url_change": False,
-            "authentication": "basic",
-            "framerate": 2.0,
-            "verify_ssl": True,
             "content_type": "image/jpeg",
+            "advanced": {
+                "framerate": 2.0,
+                "verify_ssl": True,
+                "limit_refetch_to_url_change": False,
+                "authentication": "basic",
+            },
         },
-        version=1,
+        version=2,
     )
     entry.add_to_hass(hass)
     return entry

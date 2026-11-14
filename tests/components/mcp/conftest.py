@@ -1,51 +1,77 @@
 """Common fixtures for the Model Context Protocol tests."""
 
 from collections.abc import Generator
-import datetime
+import datetime as dt
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.application_credentials import (
+    DOMAIN as APPLICATION_CREDENTIALS_DOMAIN,
     ClientCredential,
     async_import_client_credential,
 )
 from homeassistant.components.mcp.const import (
-    CONF_ACCESS_TOKEN,
     CONF_AUTHORIZATION_URL,
     CONF_SCOPE,
     CONF_TOKEN_URL,
     DOMAIN,
 )
-from homeassistant.const import CONF_TOKEN, CONF_URL
+from homeassistant.config_entries import SOURCE_HASSIO
+from homeassistant.const import CONF_ACCESS_TOKEN, CONF_API_TOKEN, CONF_TOKEN, CONF_URL
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
-
-from tests.common import MockConfigEntry
+from homeassistant.util import dt as dt_util
 
 TEST_API_NAME = "Memory Server"
-MCP_SERVER_URL = "http://1.1.1.1:8080/sse"
+MCP_SERVER_URL = "http://1.1.1.1:8080/mcp"
 CLIENT_ID = "test-client-id"
 CLIENT_SECRET = "test-client-secret"
 AUTH_DOMAIN = "some-auth-domain"
 OAUTH_AUTHORIZE_URL = "https://example-auth-server.com/authorize-path"
 OAUTH_TOKEN_URL = "https://example-auth-server.com/token-path"
+API_TOKEN = "test-api-token"
 
 
 @pytest.fixture
 def mock_setup_entry() -> Generator[AsyncMock]:
     """Override async_setup_entry."""
     with patch(
-        "homeassistant.components.mcp.async_setup_entry", return_value=True
+        "homeassistant.components.mcp.async_setup_entry", return_value=None
     ) as mock_setup_entry:
         yield mock_setup_entry
 
 
 @pytest.fixture
-def mock_mcp_client() -> Generator[AsyncMock]:
+def mock_sse_client() -> Generator[AsyncMock]:
+    """Fixture to mock the MCP client."""
+    with patch(
+        "homeassistant.components.mcp.coordinator.sse_client"
+    ) as mock_sse_client:
+        yield mock_sse_client
+
+
+@pytest.fixture
+def mock_http_streamable_client() -> Generator[AsyncMock]:
+    """Fixture to mock the MCP client."""
+    with patch(
+        "homeassistant.components.mcp.coordinator.streamable_http_client"
+    ) as mock_streamable_client:
+        mock_streamable_client.return_value.__aenter__.return_value = (
+            AsyncMock(),
+            AsyncMock(),
+        )
+        yield mock_streamable_client
+
+
+@pytest.fixture
+def mock_mcp_client(
+    mock_sse_client: Any, mock_http_streamable_client: Any
+) -> Generator[AsyncMock]:
     """Fixture to mock the MCP client."""
     with (
-        patch("homeassistant.components.mcp.coordinator.sse_client"),
         patch("homeassistant.components.mcp.coordinator.ClientSession") as mock_session,
         patch("homeassistant.components.mcp.coordinator.TIMEOUT", 1),
     ):
@@ -64,10 +90,24 @@ def mock_config_entry(hass: HomeAssistant) -> MockConfigEntry:
     return config_entry
 
 
+@pytest.fixture(name="config_entry_with_api_token")
+def mock_config_entry_with_api_token(hass: HomeAssistant) -> MockConfigEntry:
+    """Fixture to load the integration with a token from the app discovery."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        source=SOURCE_HASSIO,
+        unique_id="1234",
+        data={CONF_URL: MCP_SERVER_URL, CONF_API_TOKEN: API_TOKEN},
+        title=TEST_API_NAME,
+    )
+    config_entry.add_to_hass(hass)
+    return config_entry
+
+
 @pytest.fixture(name="credential")
 async def mock_credential(hass: HomeAssistant) -> None:
     """Fixture that provides the ClientCredential for the test."""
-    assert await async_setup_component(hass, "application_credentials", {})
+    assert await async_setup_component(hass, APPLICATION_CREDENTIALS_DOMAIN, {})
     await async_import_client_credential(
         hass,
         DOMAIN,
@@ -77,15 +117,15 @@ async def mock_credential(hass: HomeAssistant) -> None:
 
 
 @pytest.fixture(name="config_entry_token_expiration")
-def mock_config_entry_token_expiration() -> datetime.datetime:
+def mock_config_entry_token_expiration() -> dt.datetime:
     """Fixture to mock the token expiration."""
-    return datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=1)
+    return dt_util.utcnow() + dt.timedelta(days=1)
 
 
 @pytest.fixture(name="config_entry_with_auth")
 def mock_config_entry_with_auth(
     hass: HomeAssistant,
-    config_entry_token_expiration: datetime.datetime,
+    config_entry_token_expiration: dt.datetime,
 ) -> MockConfigEntry:
     """Fixture to load the integration with authentication."""
     config_entry = MockConfigEntry(

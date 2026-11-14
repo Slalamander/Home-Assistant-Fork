@@ -7,12 +7,11 @@ from unittest.mock import AsyncMock, Mock
 import weakref
 
 import pytest
+from pytest_homeassistant.common import async_fire_time_changed
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import debounce
 from homeassistant.util.dt import utcnow
-
-from tests.common import async_fire_time_changed
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -69,6 +68,8 @@ async def test_immediate_works(hass: HomeAssistant) -> None:
     assert debouncer._execute_at_end_of_timer is True
     debouncer._execute_lock.release()
     assert debouncer._job.target == debouncer.function
+
+    debouncer.async_shutdown()
 
 
 async def test_immediate_works_with_schedule_call(hass: HomeAssistant) -> None:
@@ -128,6 +129,8 @@ async def test_immediate_works_with_schedule_call(hass: HomeAssistant) -> None:
     debouncer._execute_lock.release()
     assert debouncer._job.target == debouncer.function
 
+    debouncer.async_shutdown()
+
 
 async def test_immediate_works_with_callback_function(hass: HomeAssistant) -> None:
     """Test immediate works with callback function."""
@@ -147,7 +150,7 @@ async def test_immediate_works_with_callback_function(hass: HomeAssistant) -> No
     assert debouncer._execute_at_end_of_timer is False
     assert debouncer._job.target == debouncer.function
 
-    debouncer.async_cancel()
+    debouncer.async_shutdown()
 
 
 async def test_immediate_works_with_executor_function(hass: HomeAssistant) -> None:
@@ -168,7 +171,7 @@ async def test_immediate_works_with_executor_function(hass: HomeAssistant) -> No
     assert debouncer._execute_at_end_of_timer is False
     assert debouncer._job.target == debouncer.function
 
-    debouncer.async_cancel()
+    debouncer.async_shutdown()
 
 
 async def test_immediate_works_with_passed_callback_function_raises(
@@ -234,6 +237,8 @@ async def test_immediate_works_with_passed_callback_function_raises(
     debouncer._execute_lock.release()
     assert debouncer._job.target == debouncer.function
 
+    debouncer.async_shutdown()
+
 
 async def test_immediate_works_with_passed_coroutine_raises(
     hass: HomeAssistant,
@@ -297,6 +302,8 @@ async def test_immediate_works_with_passed_coroutine_raises(
     debouncer._execute_lock.release()
     assert debouncer._job.target == debouncer.function
 
+    debouncer.async_shutdown()
+
 
 async def test_not_immediate_works(hass: HomeAssistant) -> None:
     """Test immediate works."""
@@ -347,6 +354,8 @@ async def test_not_immediate_works(hass: HomeAssistant) -> None:
     assert debouncer._execute_at_end_of_timer is True
     debouncer._execute_lock.release()
     assert debouncer._job.target == debouncer.function
+
+    debouncer.async_shutdown()
 
 
 async def test_not_immediate_works_schedule_call(hass: HomeAssistant) -> None:
@@ -402,6 +411,8 @@ async def test_not_immediate_works_schedule_call(hass: HomeAssistant) -> None:
     assert debouncer._execute_at_end_of_timer is True
     debouncer._execute_lock.release()
     assert debouncer._job.target == debouncer.function
+
+    debouncer.async_shutdown()
 
 
 async def test_immediate_works_with_function_swapped(hass: HomeAssistant) -> None:
@@ -464,6 +475,8 @@ async def test_immediate_works_with_function_swapped(hass: HomeAssistant) -> Non
     assert debouncer._execute_at_end_of_timer is True
     debouncer._execute_lock.release()
     assert debouncer._job.target == debouncer.function
+
+    debouncer.async_shutdown()
 
 
 async def test_shutdown(hass: HomeAssistant, caplog: pytest.LogCaptureFixture) -> None:
@@ -540,6 +553,8 @@ async def test_shutdown_releases_parent_class(hass: HomeAssistant) -> None:
     calls = []
 
     class SomeClass:
+        # Executor workers briefly keep the job after completion, so run in the loop
+        @callback
         def run_func(self) -> None:
             calls.append(None)
 
@@ -564,3 +579,71 @@ async def test_shutdown_releases_parent_class(hass: HomeAssistant) -> None:
     # Debouncer shutdown releases the class
     debouncer.async_shutdown()
     assert my_class_weak_ref() is None
+
+
+async def test_schedule_timer_cancels_previous_handle(hass: HomeAssistant) -> None:
+    """Ensure _schedule_timer cancels any previously-scheduled handle."""
+    # Use a large cooldown so the scheduled timer can't fire mid-test on a slow
+    # event loop; the timer is only inspected and cancelled, never awaited.
+    debouncer = debounce.Debouncer(
+        hass,
+        _LOGGER,
+        cooldown=3600.0,
+        immediate=True,
+        function=AsyncMock(),
+    )
+
+    debouncer._schedule_timer()
+    first_handle = debouncer._timer_task
+    assert first_handle is not None
+    assert not first_handle.cancelled()
+
+    debouncer._schedule_timer()
+    second_handle = debouncer._timer_task
+    assert second_handle is not None
+    assert second_handle is not first_handle
+    assert first_handle.cancelled()
+
+    debouncer.async_shutdown()
+
+
+async def test_concurrent_async_call_does_not_orphan_timer(
+    hass: HomeAssistant,
+) -> None:
+    """Concurrent async_call during in-flight execution must not orphan a timer."""
+    started = asyncio.Event()
+    can_finish = asyncio.Event()
+
+    async def slow_function() -> None:
+        started.set()
+        await can_finish.wait()
+
+    # Use a large cooldown so the T1 timer scheduled below can't fire before
+    # the in-flight call completes; cancellation is verified deterministically.
+    debouncer = debounce.Debouncer(
+        hass,
+        _LOGGER,
+        cooldown=3600.0,
+        immediate=True,
+        function=slow_function,
+    )
+
+    in_flight = hass.async_create_task(debouncer.async_call())
+    await started.wait()
+    assert debouncer._timer_task is None
+
+    # The concurrent call hits the locked-immediate branch and schedules T1.
+    await debouncer.async_call()
+    first_timer = debouncer._timer_task
+    assert first_timer is not None
+    assert not first_timer.cancelled()
+
+    # Letting the in-flight call complete schedules T2.
+    can_finish.set()
+    await in_flight
+    second_timer = debouncer._timer_task
+    assert second_timer is not None
+    assert second_timer is not first_timer
+    assert first_timer.cancelled()
+
+    debouncer.async_shutdown()

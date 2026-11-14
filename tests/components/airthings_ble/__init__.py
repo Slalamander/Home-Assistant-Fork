@@ -1,7 +1,5 @@
 """Tests for the Airthings BLE integration."""
 
-from __future__ import annotations
-
 from unittest.mock import patch
 
 from airthings_ble import (
@@ -10,6 +8,11 @@ from airthings_ble import (
     AirthingsDeviceType,
 )
 from bleak.backends.device import BLEDevice
+from pytest_homeassistant.common import MockConfigEntry
+from pytest_homeassistant.components.bluetooth import (
+    generate_advertisement_data,
+    generate_ble_device,
+)
 
 from homeassistant.components.airthings_ble.const import DOMAIN
 from homeassistant.components.bluetooth.models import BluetoothServiceInfoBleak
@@ -21,12 +24,9 @@ from homeassistant.helpers.device_registry import (
     DeviceRegistry,
 )
 
-from tests.common import MockConfigEntry, MockEntity
-from tests.components.bluetooth import generate_advertisement_data, generate_ble_device
 
-
-def patch_async_setup_entry(return_value=True):
-    """Patch async setup entry to return True."""
+def patch_async_setup_entry(return_value=None):
+    """Patch async setup entry to return None."""
     return patch(
         "homeassistant.components.airthings_ble.async_setup_entry",
         return_value=return_value,
@@ -56,14 +56,6 @@ def patch_airthings_ble(return_value=AirthingsDevice, side_effect=None):
         "update_device",
         return_value=return_value,
         side_effect=side_effect,
-    )
-
-
-def patch_airthings_device_update():
-    """Patch airthings-ble device."""
-    return patch(
-        "homeassistant.components.airthings_ble.coordinator.AirthingsBluetoothDeviceData.update_device",
-        return_value=WAVE_DEVICE_INFO,
     )
 
 
@@ -120,6 +112,27 @@ WAVE_ENHANCE_SERVICE_INFO = BluetoothServiceInfoBleak(
     device=generate_ble_device(
         address="cc:cc:cc:cc:cc:cc",
         name="Airthings Wave Enhance",
+    ),
+    rssi=-61,
+    manufacturer_data={820: b"\xe4/\xa5\xae\t\x00"},
+    service_data={},
+    service_uuids=[],
+    source="local",
+    advertisement=generate_advertisement_data(
+        manufacturer_data={820: b"\xe4/\xa5\xae\t\x00"},
+        service_uuids=[],
+    ),
+    connectable=True,
+    time=0,
+    tx_power=0,
+)
+
+CORENTIUM_HOME_2_SERVICE_INFO = BluetoothServiceInfoBleak(
+    name="cc-cc-cc-cc-cc-cc",
+    address="cc:cc:cc:cc:cc:cc",
+    device=generate_ble_device(
+        address="cc:cc:cc:cc:cc:cc",
+        name="Airthings Corentium Home 2",
     ),
     rssi=-61,
     manufacturer_data={820: b"\xe4/\xa5\xae\t\x00"},
@@ -238,8 +251,8 @@ WAVE_DEVICE_INFO = AirthingsDevice(
         "temperature": 21.0,
         "co2": 500.0,
         "voc": 155.0,
-        "radon_1day_level": "very low",
-        "radon_longterm_level": "very low",
+        "radon_1day_level": "good",
+        "radon_longterm_level": "poor",
         "pressure": 1020,
     },
     address="cc:cc:cc:cc:cc:cc",
@@ -253,6 +266,7 @@ WAVE_ENHANCE_DEVICE_INFO = AirthingsDevice(
     name="Airthings Wave Enhance",
     identifier="123456",
     sensors={
+        "connectivity_mode": "Bluetooth",
         "lux": 25,
         "battery": 85,
         "humidity": 60.0,
@@ -265,39 +279,28 @@ WAVE_ENHANCE_DEVICE_INFO = AirthingsDevice(
     address="cc:cc:cc:cc:cc:cc",
 )
 
-TEMPERATURE_V1 = MockEntity(
-    unique_id="Airthings Wave Plus 123456_temperature",
-    name="Airthings Wave Plus 123456 Temperature",
-)
-
-HUMIDITY_V2 = MockEntity(
-    unique_id="Airthings Wave Plus (123456)_humidity",
-    name="Airthings Wave Plus (123456) Humidity",
-)
-
-CO2_V1 = MockEntity(
-    unique_id="Airthings Wave Plus 123456_co2",
-    name="Airthings Wave Plus 123456 CO2",
-)
-
-CO2_V2 = MockEntity(
-    unique_id="Airthings Wave Plus (123456)_co2",
-    name="Airthings Wave Plus (123456) CO2",
-)
-
-VOC_V1 = MockEntity(
-    unique_id="Airthings Wave Plus 123456_voc",
-    name="Airthings Wave Plus 123456 CO2",
-)
-
-VOC_V2 = MockEntity(
-    unique_id="Airthings Wave Plus (123456)_voc",
-    name="Airthings Wave Plus (123456) VOC",
-)
-
-VOC_V3 = MockEntity(
-    unique_id="cc:cc:cc:cc:cc:cc_voc",
-    name="Airthings Wave Plus (123456) VOC",
+CORENTIUM_HOME_2_DEVICE_INFO = AirthingsDevice(
+    manufacturer="Airthings AS",
+    hw_version="REV X",
+    sw_version="R-SUB-1.3.4-master+0",
+    model=AirthingsDeviceType.CORENTIUM_HOME_2,
+    name="Airthings Corentium Home 2",
+    identifier="123456",
+    sensors={
+        "connectivity_mode": "Bluetooth",
+        "battery": 90,
+        "temperature": 20.0,
+        "humidity": 55.0,
+        "radon_1day_avg": 45,
+        "radon_1day_level": "good",
+        "radon_week_avg": 50,
+        "radon_week_level": "good",
+        "radon_month_avg": 110,
+        "radon_month_level": "fair",
+        "radon_year_avg": 160,
+        "radon_year_level": "poor",
+    },
+    address="cc:cc:cc:cc:cc:cc",
 )
 
 

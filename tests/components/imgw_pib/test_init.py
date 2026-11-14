@@ -3,16 +3,15 @@
 from unittest.mock import AsyncMock, patch
 
 from imgw_pib import ApiError
+from pytest_homeassistant.common import MockConfigEntry
 
-from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_PLATFORM
+from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.imgw_pib.const import DOMAIN
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from . import init_integration
-
-from tests.common import MockConfigEntry
 
 
 async def test_config_not_ready(
@@ -58,7 +57,7 @@ async def test_remove_binary_sensor_entity(
     mock_config_entry.add_to_hass(hass)
 
     entity_registry.async_get_or_create(
-        BINARY_SENSOR_PLATFORM,
+        BINARY_SENSOR_DOMAIN,
         DOMAIN,
         "123_flood_alarm",
         suggested_object_id=entity_id.rsplit(".", maxsplit=1)[-1],

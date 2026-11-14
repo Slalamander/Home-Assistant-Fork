@@ -1,7 +1,5 @@
 """Tests for the Bluetooth integration."""
 
-from unittest.mock import patch
-
 import bleak
 from habluetooth.usage import (
     install_multiple_bleak_catcher,
@@ -9,10 +7,12 @@ from habluetooth.usage import (
 )
 from habluetooth.wrappers import HaBleakClientWrapper, HaBleakScannerWrapper
 import pytest
+from pytest_homeassistant.components.bluetooth import (
+    generate_ble_device,
+    patch_bleak_backend_type,
+)
 
 from homeassistant.core import HomeAssistant
-
-from . import generate_ble_device
 
 MOCK_BLE_DEVICE = generate_ble_device(
     "00:00:00:00:00:00",
@@ -31,7 +31,7 @@ async def test_multiple_bleak_scanner_instances(hass: HomeAssistant) -> None:
 
     uninstall_multiple_bleak_catcher()
 
-    with patch("bleak.get_platform_scanner_backend_type"):
+    with patch_bleak_backend_type():
         instance = bleak.BleakScanner()
 
     assert not isinstance(instance, HaBleakScannerWrapper)

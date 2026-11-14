@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 from pylitterbot import LitterRobot4
+from pylitterbot.exceptions import InvalidCommandException
 import pytest
 
 from homeassistant.components.litterrobot.update import RELEASE_URL
@@ -10,16 +11,16 @@ from homeassistant.components.update import (
     ATTR_INSTALLED_VERSION,
     ATTR_LATEST_VERSION,
     ATTR_RELEASE_URL,
-    DOMAIN as PLATFORM_DOMAIN,
-    SERVICE_INSTALL,
+    DOMAIN as UPDATE_DOMAIN,
     UpdateDeviceClass,
+    UpdateService,
 )
 from homeassistant.const import (
     ATTR_DEVICE_CLASS,
-    ATTR_ENTITY_ID,
     STATE_OFF,
     STATE_ON,
     STATE_UNKNOWN,
+    CommonServiceArgument,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -40,7 +41,7 @@ async def test_robot_with_no_update(
     robot.get_latest_firmware = AsyncMock(return_value=None)
 
     entry = await setup_integration(
-        hass, mock_account_with_litterrobot_4, PLATFORM_DOMAIN
+        hass, mock_account_with_litterrobot_4, UPDATE_DOMAIN
     )
 
     state = hass.states.get(ENTITY_ID)
@@ -63,7 +64,7 @@ async def test_robot_with_update(
     robot.has_firmware_update = AsyncMock(return_value=True)
     robot.get_latest_firmware = AsyncMock(return_value=NEW_FIRMWARE)
 
-    await setup_integration(hass, mock_account_with_litterrobot_4, PLATFORM_DOMAIN)
+    await setup_integration(hass, mock_account_with_litterrobot_4, UPDATE_DOMAIN)
 
     state = hass.states.get(ENTITY_ID)
     assert state
@@ -75,11 +76,11 @@ async def test_robot_with_update(
 
     robot.update_firmware = AsyncMock(return_value=False)
 
-    with pytest.raises(HomeAssistantError):
+    with pytest.raises(HomeAssistantError, match="Unable to start firmware update"):
         await hass.services.async_call(
-            PLATFORM_DOMAIN,
-            SERVICE_INSTALL,
-            {ATTR_ENTITY_ID: ENTITY_ID},
+            UPDATE_DOMAIN,
+            UpdateService.INSTALL,
+            {CommonServiceArgument.ENTITY_ID: ENTITY_ID},
             blocking=True,
         )
     await hass.async_block_till_done()
@@ -87,7 +88,10 @@ async def test_robot_with_update(
 
     robot.update_firmware = AsyncMock(return_value=True)
     await hass.services.async_call(
-        PLATFORM_DOMAIN, SERVICE_INSTALL, {ATTR_ENTITY_ID: ENTITY_ID}, blocking=True
+        UPDATE_DOMAIN,
+        UpdateService.INSTALL,
+        {CommonServiceArgument.ENTITY_ID: ENTITY_ID},
+        blocking=True,
     )
     await hass.async_block_till_done()
     assert robot.update_firmware.call_count == 1
@@ -101,7 +105,7 @@ async def test_robot_with_update_already_in_progress(
     robot._update_data({"isFirmwareUpdateTriggered": True}, partial=True)
 
     entry = await setup_integration(
-        hass, mock_account_with_litterrobot_4, PLATFORM_DOMAIN
+        hass, mock_account_with_litterrobot_4, UPDATE_DOMAIN
     )
 
     state = hass.states.get(ENTITY_ID)
@@ -114,3 +118,26 @@ async def test_robot_with_update_already_in_progress(
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
+
+
+async def test_update_command_exception(
+    hass: HomeAssistant, mock_account_with_litterrobot_4: MagicMock
+) -> None:
+    """Test that LitterRobotException is wrapped in HomeAssistantError."""
+    robot: LitterRobot4 = mock_account_with_litterrobot_4.robots[0]
+    robot.has_firmware_update = AsyncMock(return_value=True)
+    robot.get_latest_firmware = AsyncMock(return_value=NEW_FIRMWARE)
+
+    await setup_integration(hass, mock_account_with_litterrobot_4, UPDATE_DOMAIN)
+
+    robot.has_firmware_update = AsyncMock(
+        side_effect=InvalidCommandException("Invalid command: oops")
+    )
+
+    with pytest.raises(HomeAssistantError, match="Invalid command: oops"):
+        await hass.services.async_call(
+            UPDATE_DOMAIN,
+            UpdateService.INSTALL,
+            {CommonServiceArgument.ENTITY_ID: ENTITY_ID},
+            blocking=True,
+        )

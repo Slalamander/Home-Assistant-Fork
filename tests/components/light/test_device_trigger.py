@@ -3,6 +3,12 @@
 from datetime import timedelta
 
 import pytest
+from pytest_homeassistant.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+    async_get_device_automation_capabilities,
+    async_get_device_automations,
+)
 from pytest_unordered import unordered
 
 from homeassistant.components import automation
@@ -15,13 +21,6 @@ from homeassistant.helpers.entity_registry import RegistryEntryHider
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 
-from tests.common import (
-    MockConfigEntry,
-    async_fire_time_changed,
-    async_get_device_automation_capabilities,
-    async_get_device_automations,
-)
-
 DATA_TEMPLATE_ATTRIBUTES = (
     "{{ trigger.platform }}"
     " - {{ trigger.entity_id }}"
@@ -29,11 +28,6 @@ DATA_TEMPLATE_ATTRIBUTES = (
     " - {{ trigger.to_state.state }}"
     " - {{ trigger.for }}"
 )
-
-
-@pytest.fixture(autouse=True, name="stub_blueprint_populate")
-def stub_blueprint_populate_autouse(stub_blueprint_populate: None) -> None:
-    """Stub copying the blueprints to the config folder."""
 
 
 async def test_get_triggers(

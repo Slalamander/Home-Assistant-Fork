@@ -1,6 +1,12 @@
 """The tests for Cover device conditions."""
 
 import pytest
+from pytest_homeassistant.common import (
+    MockConfigEntry,
+    async_get_device_automation_capabilities,
+    async_get_device_automations,
+    setup_test_component_platform,
+)
 from pytest_unordered import unordered
 
 from homeassistant.components import automation
@@ -13,18 +19,6 @@ from homeassistant.helpers.entity_registry import RegistryEntryHider
 from homeassistant.setup import async_setup_component
 
 from .common import MockCover
-
-from tests.common import (
-    MockConfigEntry,
-    async_get_device_automation_capabilities,
-    async_get_device_automations,
-    setup_test_component_platform,
-)
-
-
-@pytest.fixture(autouse=True, name="stub_blueprint_populate")
-def stub_blueprint_populate_autouse(stub_blueprint_populate: None) -> None:
-    """Stub copying the blueprints to the config folder."""
 
 
 @pytest.mark.parametrize(
@@ -87,7 +81,7 @@ async def test_get_conditions(
     )
     if set_state:
         hass.states.async_set(
-            f"{DOMAIN}.test_5678", "attributes", {"supported_features": features_state}
+            entity_entry.entity_id, "attributes", {"supported_features": features_state}
         )
     await hass.async_block_till_done()
 
@@ -700,6 +694,8 @@ async def test_if_position(
     assert service_calls[6].data["some"] == "is_pos_not_gt_45 - event - test_event1"
 
     for record in caplog.records:
+        if record.name == "asyncio" and record.getMessage().startswith("Executing "):
+            continue
         assert record.levelname in ("DEBUG", "INFO")
 
 
@@ -862,4 +858,6 @@ async def test_if_tilt_position(
     assert service_calls[6].data["some"] == "is_pos_not_gt_45 - event - test_event1"
 
     for record in caplog.records:
+        if record.name == "asyncio" and record.getMessage().startswith("Executing "):
+            continue
         assert record.levelname in ("DEBUG", "INFO")

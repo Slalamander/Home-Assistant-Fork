@@ -1,34 +1,31 @@
 """Config flow for the Firefly III integration."""
 
-from __future__ import annotations
-
 from collections.abc import Mapping
 import logging
-from typing import Any
+from typing import Any, override
 
+import probatio
 from pyfirefly import (
     Firefly,
     FireflyAuthenticationError,
     FireflyConnectionError,
     FireflyTimeoutError,
 )
-import voluptuous as vol
 
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_API_KEY, CONF_URL, CONF_VERIFY_SSL
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-STEP_USER_DATA_SCHEMA = vol.Schema(
+STEP_USER_DATA_SCHEMA = probatio.Schema(
     {
-        vol.Required(CONF_URL): str,
-        vol.Optional(CONF_VERIFY_SSL, default=True): bool,
-        vol.Required(CONF_API_KEY): str,
+        probatio.Required(CONF_URL): str,
+        probatio.Optional(CONF_VERIFY_SSL, default=True): bool,
+        probatio.Required(probatio.Secret(CONF_API_KEY)): str,
     }
 )
 
@@ -40,7 +37,9 @@ async def _validate_input(hass: HomeAssistant, data: dict[str, Any]) -> bool:
         client = Firefly(
             api_url=data[CONF_URL],
             api_key=data[CONF_API_KEY],
-            session=async_get_clientsession(hass),
+            session=async_get_clientsession(
+                hass=hass, verify_ssl=data[CONF_VERIFY_SSL]
+            ),
         )
         await client.get_about()
     except FireflyAuthenticationError:
@@ -58,6 +57,7 @@ class FireflyConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    @override
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -123,18 +123,65 @@ class FireflyConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reauth_confirm",
-            data_schema=vol.Schema({vol.Required(CONF_API_KEY): str}),
+            data_schema=probatio.Schema(
+                {probatio.Required(probatio.Secret(CONF_API_KEY)): str}
+            ),
+            errors=errors,
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle reconfiguration of the integration."""
+        errors: dict[str, str] = {}
+        reconf_entry = self._get_reconfigure_entry()
+
+        if user_input:
+            try:
+                await _validate_input(
+                    self.hass,
+                    data={
+                        **reconf_entry.data,
+                        **user_input,
+                    },
+                )
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except FireflyClientTimeout:
+                errors["base"] = "timeout_connect"
+            except Exception:
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "unknown"
+            else:
+                self._async_abort_entries_match({CONF_URL: user_input[CONF_URL]})
+                return self.async_update_reload_and_abort(
+                    reconf_entry,
+                    data_updates={
+                        CONF_URL: user_input[CONF_URL],
+                        CONF_API_KEY: user_input[CONF_API_KEY],
+                        CONF_VERIFY_SSL: user_input[CONF_VERIFY_SSL],
+                    },
+                )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                data_schema=STEP_USER_DATA_SCHEMA,
+                suggested_values=user_input or reconf_entry.data.copy(),
+            ),
             errors=errors,
         )
 
 
-class CannotConnect(HomeAssistantError):
+class CannotConnect(Exception):
     """Error to indicate we cannot connect."""
 
 
-class InvalidAuth(HomeAssistantError):
+class InvalidAuth(Exception):
     """Error to indicate there is invalid auth."""
 
 
-class FireflyClientTimeout(HomeAssistantError):
+class FireflyClientTimeout(Exception):
     """Error to indicate a timeout occurred."""

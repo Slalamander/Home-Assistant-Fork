@@ -5,14 +5,20 @@ from datetime import datetime, time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from pynintendoparental import NintendoParental
+from pynintendoparental.application import (
+    Application,
+    ApplicationRegistry,
+    PlayedAppUsage,
+)
 from pynintendoparental.device import Device
+from pynintendoparental.enum import DeviceTimerMode, SafeLaunchSetting
+from pynintendoparental.player import Player, PlayerRegistry
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.nintendo_parental_controls.const import DOMAIN
 
 from .const import ACCOUNT_ID, API_TOKEN, LOGIN_URL
-
-from tests.common import MockConfigEntry
 
 
 @pytest.fixture
@@ -26,18 +32,63 @@ def mock_config_entry() -> MockConfigEntry:
 
 
 @pytest.fixture
-def mock_nintendo_device() -> Device:
+def mock_nintendo_app() -> Application:
+    """Return a mocked Nintendo application."""
+    mock_app = MagicMock(spec=Application)
+    mock_app.application_id = "testappid"
+    mock_app.name = "Test Game Name"
+    mock_app.image_url = "http://example.com/image.png"
+    mock_app.safe_launch_setting = SafeLaunchSetting.ALLOW
+    return mock_app
+
+
+@pytest.fixture
+def mock_nintendo_player(mock_nintendo_app: Application) -> Player:
+    """Return a mocked player."""
+    # This class has no async methods
+    mock = MagicMock(spec=Player)
+    mock.player_id = "testplayerid"
+    mock.nickname = "HA Gamer"
+    mock.apps = [PlayedAppUsage(application=mock_nintendo_app, playing_time=110)]
+    mock.playing_time = 110
+    mock.player_image = "http://localhost/image.png"
+    return mock
+
+
+@pytest.fixture
+def mock_nintendo_device(
+    mock_nintendo_app: Application, mock_nintendo_player: Player
+) -> Device:
     """Return a mocked device."""
+    applications = ApplicationRegistry()
+    players = PlayerRegistry()
+    applications.add_application(mock_nintendo_app)
+    players.add_player(mock_nintendo_player)
     mock = AsyncMock(spec=Device)
     mock.device_id = "testdevid"
     mock.name = "Home Assistant Test"
-    mock.extra = {"firmwareVersion": {"displayedVersion": "99.99.99"}}
+    mock.extra = {
+        "firmwareVersion": {"displayedVersion": "99.99.99"},
+        "serialNumber": "SN12345678",
+    }
     mock.limit_time = 120
     mock.today_playing_time = 110
+    mock.today_time_remaining = 10
+    mock.bedtime_end = time(hour=7)
     mock.bedtime_alarm = time(hour=19)
+    mock.timer_mode = DeviceTimerMode.DAILY
+    mock.extra_playing_time = 30
+    mock.add_extra_time.return_value = None
     mock.set_bedtime_alarm.return_value = None
+    mock.set_bedtime_end_time.return_value = None
     mock.update_max_daily_playtime.return_value = None
+    mock.set_timer_mode.return_value = None
     mock.forced_termination_mode = True
+    mock.model = "Test Model"
+    mock.generation = "P00"
+    mock.applications = applications
+    mock.players = players
+    mock.get_player = MagicMock(side_effect=players.get_player)
     return mock
 
 
@@ -63,12 +114,24 @@ def mock_nintendo_authenticator() -> Generator[MagicMock]:
         mock_auth._at_expiry = datetime(2099, 12, 31, 23, 59, 59)
         mock_auth.account_id = ACCOUNT_ID
         mock_auth.login_url = LOGIN_URL
-        mock_auth.get_session_token = API_TOKEN
-        # Patch complete_login as an AsyncMock on both instance and class as this is a class method
-        mock_auth.complete_login = AsyncMock()
-        type(mock_auth).complete_login = mock_auth.complete_login
-        mock_auth_class.generate_login.return_value = mock_auth
+        mock_auth.session_token = API_TOKEN
+        mock_auth.async_complete_login = AsyncMock()
+        mock_auth_class.return_value = mock_auth
         yield mock_auth
+
+
+@pytest.fixture
+def mock_nintendo_api() -> Generator[AsyncMock]:
+    """Mock Nintendo API."""
+    with patch(
+        "homeassistant.components.nintendo_parental_controls.config_flow.Api",
+        autospec=True,
+    ) as mock_api_class:
+        mock_api_instance = MagicMock()
+        # patch async_get_account_devices as an AsyncMock
+        mock_api_instance.async_get_account_devices = AsyncMock()
+        mock_api_class.return_value = mock_api_instance
+        yield mock_api_instance
 
 
 @pytest.fixture
@@ -95,6 +158,6 @@ def mock_setup_entry() -> Generator[AsyncMock]:
     """Override async_setup_entry."""
     with patch(
         "homeassistant.components.nintendo_parental_controls.async_setup_entry",
-        return_value=True,
+        return_value=None,
     ) as mock_setup_entry:
         yield mock_setup_entry

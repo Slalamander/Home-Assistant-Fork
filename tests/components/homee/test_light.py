@@ -1,9 +1,11 @@
 """Test homee lights."""
 
+from collections.abc import AsyncGenerator
 from typing import Any
 from unittest.mock import MagicMock, call, patch
 
 import pytest
+from pytest_homeassistant.common import MockConfigEntry, snapshot_platform
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components.light import (
@@ -21,7 +23,12 @@ from homeassistant.helpers import entity_registry as er
 
 from . import build_mock_node, setup_integration
 
-from tests.common import MockConfigEntry, snapshot_platform
+
+@pytest.fixture(autouse=True)
+async def platforms() -> AsyncGenerator[None]:
+    """Return the platforms to be loaded for this test."""
+    with patch("homeassistant.components.homee.PLATFORMS", [Platform.LIGHT]):
+        yield
 
 
 def mock_attribute_map(attributes) -> dict:
@@ -152,7 +159,6 @@ async def test_light_snapshot(
         mock_homee.nodes[i].attribute_map = mock_attribute_map(
             mock_homee.nodes[i].attributes
         )
-    with patch("homeassistant.components.homee.PLATFORMS", [Platform.LIGHT]):
-        await setup_integration(hass, mock_config_entry)
+    await setup_integration(hass, mock_config_entry)
 
     await snapshot_platform(hass, entity_registry, snapshot, mock_config_entry.entry_id)

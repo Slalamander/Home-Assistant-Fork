@@ -6,6 +6,8 @@ components. Instead call the service directly.
 
 from typing import Any, Literal
 
+from pytest_homeassistant.common import MockToggleEntity
+
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_BRIGHTNESS_PCT,
@@ -26,6 +28,7 @@ from homeassistant.components.light import (
     DOMAIN,
     ColorMode,
     LightEntity,
+    LightEntityFeature,
 )
 from homeassistant.const import (
     ATTR_ENTITY_ID,
@@ -35,8 +38,6 @@ from homeassistant.const import (
     SERVICE_TURN_ON,
 )
 from homeassistant.core import HomeAssistant
-
-from tests.common import MockToggleEntity
 
 
 async def async_turn_on(
@@ -156,7 +157,7 @@ class MockLight(MockToggleEntity, LightEntity):
 
     _attr_max_color_temp_kelvin = DEFAULT_MAX_KELVIN
     _attr_min_color_temp_kelvin = DEFAULT_MIN_KELVIN
-    supported_features = 0
+    supported_features = LightEntityFeature(0)
 
     brightness = None
     color_temp_kelvin = None
@@ -197,6 +198,6 @@ class MockLight(MockToggleEntity, LightEntity):
             ]:
                 setattr(self, key, value)
             if key == "white":
-                setattr(self, "brightness", value)
+                self.brightness = value
             if key in TURN_ON_ARG_TO_COLOR_MODE:
                 self._attr_color_mode = TURN_ON_ARG_TO_COLOR_MODE[key]

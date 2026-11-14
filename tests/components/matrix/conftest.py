@@ -1,7 +1,5 @@
 """Define fixtures available for all tests."""
 
-from __future__ import annotations
-
 from collections.abc import Generator
 from pathlib import Path
 import re
@@ -25,11 +23,13 @@ from nio import (
 )
 from PIL import Image
 import pytest
+from pytest_homeassistant.common import async_capture_events
 
 from homeassistant.components.matrix import (
     CONF_COMMANDS,
     CONF_EXPRESSION,
     CONF_HOMESERVER,
+    CONF_REACTION,
     CONF_ROOMS,
     CONF_WORD,
     EVENT_MATRIX_COMMAND,
@@ -50,8 +50,6 @@ from homeassistant.const import (
 )
 from homeassistant.core import Event, HomeAssistant
 from homeassistant.setup import async_setup_component
-
-from tests.common import async_capture_events
 
 TEST_NOTIFIER_NAME = "matrix_notify"
 
@@ -153,6 +151,10 @@ MOCK_CONFIG_DATA = {
                 CONF_NAME: "ExpressionTriggerEventName",
             },
             {
+                CONF_REACTION: "😄",
+                CONF_NAME: "ReactionTriggerEventName",
+            },
+            {
                 CONF_WORD: "WordTriggerSubset",
                 CONF_NAME: "WordTriggerSubsetEventName",
                 CONF_ROOMS: [TEST_ROOM_B_ALIAS, TEST_ROOM_C_ID],
@@ -237,6 +239,30 @@ MOCK_EXPRESSION_COMMANDS = {
             "rooms": [TEST_ROOM_B_ID, TEST_ROOM_C_ID],
         },
     ],
+}
+
+MOCK_REACTION_COMMANDS = {
+    TEST_ROOM_A_ID: {
+        "😄": {
+            "reaction": "😄",
+            "name": "ReactionTriggerEventName",
+            "rooms": list(TEST_JOINABLE_ROOMS.values()),
+        }
+    },
+    TEST_ROOM_B_ID: {
+        "😄": {
+            "reaction": "😄",
+            "name": "ReactionTriggerEventName",
+            "rooms": list(TEST_JOINABLE_ROOMS.values()),
+        },
+    },
+    TEST_ROOM_C_ID: {
+        "😄": {
+            "reaction": "😄",
+            "name": "ReactionTriggerEventName",
+            "rooms": list(TEST_JOINABLE_ROOMS.values()),
+        },
+    },
 }
 
 

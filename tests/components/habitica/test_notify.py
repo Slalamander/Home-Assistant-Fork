@@ -7,9 +7,15 @@ from unittest.mock import AsyncMock, patch
 from uuid import UUID
 
 from aiohttp import ClientError
-from freezegun.api import FrozenDateTimeFactory, freeze_time
+from freezegun.api import FrozenDateTimeFactory
 from habiticalib import HabiticaGroupMembersResponse
 import pytest
+from pytest_homeassistant.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+    async_load_fixture,
+    snapshot_platform,
+)
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components.habitica.const import DOMAIN
@@ -29,13 +35,6 @@ from .conftest import (
     ERROR_NOT_AUTHORIZED,
     ERROR_NOT_FOUND,
     ERROR_TOO_MANY_REQUESTS,
-)
-
-from tests.common import (
-    MockConfigEntry,
-    async_fire_time_changed,
-    async_load_fixture,
-    snapshot_platform,
 )
 
 
@@ -82,7 +81,7 @@ async def test_notify_platform(
         ),
     ],
 )
-@freeze_time("2025-08-13T00:00:00+00:00")
+@pytest.mark.freeze_time("2025-08-13T00:00:00+00:00")
 async def test_send_message(
     hass: HomeAssistant,
     config_entry: MockConfigEntry,

@@ -1,7 +1,5 @@
 """Helpers for the logger integration."""
 
-from __future__ import annotations
-
 from collections import defaultdict
 from collections.abc import Mapping
 import contextlib
@@ -10,6 +8,8 @@ from enum import StrEnum
 from functools import lru_cache
 import logging
 from typing import Any
+
+import probatio
 
 from homeassistant.const import EVENT_LOGGING_CHANGED
 from homeassistant.core import HomeAssistant, callback
@@ -30,6 +30,10 @@ from .const import (
 )
 
 DATA_LOGGER: HassKey[LoggerDomainConfig] = HassKey(DOMAIN)
+
+VALID_LOG_LEVEL = probatio.All(
+    probatio.Upper, probatio.In(LOGSEVERITY), LOGSEVERITY.__getitem__
+)
 
 SAVE_DELAY = 15.0
 # At startup, we want to save after a long delay to avoid
@@ -180,6 +184,16 @@ class LoggerSettings:
     def async_save(self, delay: float = SAVE_DELAY) -> None:
         """Save settings."""
         self._store.async_delay_save(self._async_data_to_save, delay)
+
+    @callback
+    def async_get_integration_domains(self) -> set[str]:
+        """Get domains that have integration-level log settings."""
+        stored_log_config = self._stored_config[STORAGE_LOG_KEY]
+        return {
+            domain
+            for domain, setting in stored_log_config.items()
+            if setting.type == LogSettingsType.INTEGRATION
+        }
 
     @callback
     def _async_get_logger_logs(self) -> dict[str, int]:

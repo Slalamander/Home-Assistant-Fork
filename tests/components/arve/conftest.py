@@ -5,20 +5,19 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from asyncarve import ArveCustomer, ArveDevices, ArveSensPro, ArveSensProData
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.arve.const import DOMAIN
 from homeassistant.core import HomeAssistant
 
 from . import USER_INPUT
 
-from tests.common import MockConfigEntry
-
 
 @pytest.fixture
 def mock_setup_entry() -> Generator[AsyncMock]:
     """Override async_setup_entry."""
     with patch(
-        "homeassistant.components.arve.async_setup_entry", return_value=True
+        "homeassistant.components.arve.async_setup_entry", return_value=None
     ) as mock_setup_entry:
         yield mock_setup_entry
 
@@ -27,7 +26,10 @@ def mock_setup_entry() -> Generator[AsyncMock]:
 def mock_config_entry(hass: HomeAssistant, mock_arve: MagicMock) -> MockConfigEntry:
     """Return the default mocked config entry."""
     return MockConfigEntry(
-        title="Arve", domain=DOMAIN, data=USER_INPUT, unique_id=mock_arve.customer_id
+        title="Arve",
+        domain=DOMAIN,
+        data=USER_INPUT,
+        unique_id=str(mock_arve.customer_id),
     )
 
 

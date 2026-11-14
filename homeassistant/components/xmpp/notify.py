@@ -1,7 +1,5 @@
 """Jabber (XMPP) notification service."""
 
-from __future__ import annotations
-
 from concurrent.futures import TimeoutError as FutTimeoutError
 from http import HTTPStatus
 import logging
@@ -9,10 +7,18 @@ import mimetypes
 import pathlib
 import random
 import string
-import sys
+from typing import Any, override
 
+import probatio
 import requests
-import voluptuous as vol
+import slixmpp
+from slixmpp.exceptions import IqError, IqTimeout, XMPPError
+from slixmpp.plugins.xep_0363.http_upload import (
+    FileTooBig,
+    FileUploadError,
+    UploadServiceNotFound,
+)
+from slixmpp.xmlstream.xmlstream import NotConnectedError
 
 from homeassistant.components.notify import (
     ATTR_DATA,
@@ -30,19 +36,8 @@ from homeassistant.const import (
     CONF_SENDER,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv, template as template_helper
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
-
-if sys.version_info < (3, 14):
-    import slixmpp
-    from slixmpp.exceptions import IqError, IqTimeout, XMPPError
-    from slixmpp.plugins.xep_0363.http_upload import (
-        FileTooBig,
-        FileUploadError,
-        UploadServiceNotFound,
-    )
-    from slixmpp.xmlstream.xmlstream import NotConnectedError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,13 +57,15 @@ XEP_0363_TIMEOUT = 10
 
 PLATFORM_SCHEMA = NOTIFY_PLATFORM_SCHEMA.extend(
     {
-        vol.Required(CONF_SENDER): cv.string,
-        vol.Required(CONF_PASSWORD): cv.string,
-        vol.Required(CONF_RECIPIENT): vol.All(cv.ensure_list, [cv.string]),
-        vol.Optional(CONF_RESOURCE, default=DEFAULT_RESOURCE): cv.string,
-        vol.Optional(CONF_ROOM, default=""): cv.string,
-        vol.Optional(CONF_TLS, default=True): cv.boolean,
-        vol.Optional(CONF_VERIFY, default=True): cv.boolean,
+        probatio.Required(CONF_SENDER): cv.string,
+        probatio.Required(probatio.Secret(CONF_PASSWORD)): cv.string,
+        probatio.Required(CONF_RECIPIENT): probatio.All(
+            probatio.EnsureList(), [cv.string]
+        ),
+        probatio.Optional(CONF_RESOURCE, default=DEFAULT_RESOURCE): cv.string,
+        probatio.Optional(CONF_ROOM, default=""): cv.string,
+        probatio.Optional(CONF_TLS, default=True): cv.boolean,
+        probatio.Optional(CONF_VERIFY, default=True): cv.boolean,
     }
 )
 
@@ -79,10 +76,6 @@ async def async_get_service(
     discovery_info: DiscoveryInfoType | None = None,
 ) -> XmppNotificationService:
     """Get the Jabber (XMPP) notification service."""
-    if sys.version_info >= (3, 14):
-        raise HomeAssistantError(
-            "Jabber (XMPP) is not supported on Python 3.14. Please use Python 3.13."
-        )
     return XmppNotificationService(
         config.get(CONF_SENDER),
         config.get(CONF_RESOURCE),
@@ -109,7 +102,8 @@ class XmppNotificationService(BaseNotificationService):
         self._verify = verify
         self._room = room
 
-    async def async_send_message(self, message="", **kwargs):
+    @override
+    async def async_send_message(self, message: str = "", **kwargs: Any) -> None:
         """Send a message to a user."""
         title = kwargs.get(ATTR_TITLE, ATTR_TITLE_DEFAULT)
         text = f"{title}: {message}" if title else message

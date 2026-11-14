@@ -2,8 +2,17 @@
 
 DOMAIN = "html5"
 DATA_HASS_CONFIG = "html5_hass_config"
-SERVICE_DISMISS = "dismiss"
 
 ATTR_VAPID_PUB_KEY = "vapid_pub_key"
 ATTR_VAPID_PRV_KEY = "vapid_prv_key"
 ATTR_VAPID_EMAIL = "vapid_email"
+
+REGISTRATIONS_FILE = "html5_push_registrations.conf"
+
+ATTR_ACTION = "action"
+ATTR_DATA = "data"
+ATTR_REQUIRE_INTERACTION = "require_interaction"
+ATTR_TAG = "tag"
+ATTR_TIMESTAMP = "timestamp"
+ATTR_SUBSCRIPTION = "subscription"
+ATTR_ENDPOINT = "endpoint"

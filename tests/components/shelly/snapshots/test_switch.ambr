@@ -1,14 +1,65 @@
 # serializer version: 1
-# name: test_cury_switch_entity[switch.test_name_left_slot-entry]
+# name: test_cury_switch_entity[switch.test_name_away_mode-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('shelly', '123456789ABC')]>,
+    'disabled_by': None,
+    'domain': 'switch',
+    'entity_category': None,
+    'entity_id': 'switch.test_name_away_mode',
+    'has_entity_name': True,
+    'hidden_by': None,
+    'icon': None,
+    'id': <ANY>,
+    'labels': set({
+    }),
+    'name': None,
+    'object_id_base': 'Away mode',
+    'options': dict({
+    }),
+    'original_device_class': None,
+    'original_icon': None,
+    'original_name': 'Away mode',
+    'platform': 'shelly',
+    'previous_unique_id': None,
+    'suggested_object_id': None,
+    'supported_features': 0,
+    'translation_key': 'cury_away_mode',
+    'unique_id': '123456789ABC-cury:0-cury_away_mode',
+    'unit_of_measurement': None,
+  })
+# ---
+# name: test_cury_switch_entity[switch.test_name_away_mode-state]
+  StateSnapshot({
+    'attributes': ReadOnlyDict({
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Test name Away mode',
+    }),
+    'context': <ANY>,
+    'entity_id': 'switch.test_name_away_mode',
+    'last_changed': <ANY>,
+    'last_reported': <ANY>,
+    'last_updated': <ANY>,
+    'state': 'off',
+  })
+# ---
+# name: test_cury_switch_entity[switch.test_name_left_slot-entry]
+  EntityRegistryEntrySnapshot({
+    'aliases': list([
+      None,
+    ]),
+    'area_id': None,
+    'capabilities': None,
+    'config_entry_id': <ANY>,
+    'config_subentry_id': None,
+    'device_class': None,
+    'device_id': <DeviceEntry identifiers=[('shelly', '123456789ABC')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -20,6 +71,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Left slot',
     'options': dict({
     }),
     'original_device_class': None,
@@ -29,7 +81,7 @@
     'previous_unique_id': None,
     'suggested_object_id': None,
     'supported_features': 0,
-    'translation_key': 'cury_slot',
+    'translation_key': 'left_slot',
     'unique_id': '123456789ABC-cury:0-cury_left',
     'unit_of_measurement': None,
   })
@@ -37,7 +89,7 @@
 # name: test_cury_switch_entity[switch.test_name_left_slot-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'Test name Left slot',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Test name Left slot',
     }),
     'context': <ANY>,
     'entity_id': 'switch.test_name_left_slot',
@@ -49,14 +101,15 @@
 # ---
 # name: test_cury_switch_entity[switch.test_name_left_slot_boost-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('shelly', '123456789ABC')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -68,6 +121,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Left slot boost',
     'options': dict({
     }),
     'original_device_class': None,
@@ -77,7 +131,7 @@
     'previous_unique_id': None,
     'suggested_object_id': None,
     'supported_features': 0,
-    'translation_key': 'cury_boost',
+    'translation_key': 'left_slot_boost',
     'unique_id': '123456789ABC-cury:0-cury_left_boost',
     'unit_of_measurement': None,
   })
@@ -85,7 +139,7 @@
 # name: test_cury_switch_entity[switch.test_name_left_slot_boost-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'Test name Left slot boost',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Test name Left slot boost',
     }),
     'context': <ANY>,
     'entity_id': 'switch.test_name_left_slot_boost',
@@ -97,14 +151,15 @@
 # ---
 # name: test_cury_switch_entity[switch.test_name_right_slot-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('shelly', '123456789ABC')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -116,6 +171,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Right slot',
     'options': dict({
     }),
     'original_device_class': None,
@@ -125,7 +181,7 @@
     'previous_unique_id': None,
     'suggested_object_id': None,
     'supported_features': 0,
-    'translation_key': 'cury_slot',
+    'translation_key': 'right_slot',
     'unique_id': '123456789ABC-cury:0-cury_right',
     'unit_of_measurement': None,
   })
@@ -133,7 +189,7 @@
 # name: test_cury_switch_entity[switch.test_name_right_slot-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'Test name Right slot',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Test name Right slot',
     }),
     'context': <ANY>,
     'entity_id': 'switch.test_name_right_slot',
@@ -145,14 +201,15 @@
 # ---
 # name: test_cury_switch_entity[switch.test_name_right_slot_boost-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('shelly', '123456789ABC')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -164,6 +221,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Right slot boost',
     'options': dict({
     }),
     'original_device_class': None,
@@ -173,7 +231,7 @@
     'previous_unique_id': None,
     'suggested_object_id': None,
     'supported_features': 0,
-    'translation_key': 'cury_boost',
+    'translation_key': 'right_slot_boost',
     'unique_id': '123456789ABC-cury:0-cury_right_boost',
     'unit_of_measurement': None,
   })
@@ -181,7 +239,7 @@
 # name: test_cury_switch_entity[switch.test_name_right_slot_boost-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'friendly_name': 'Test name Right slot boost',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Test name Right slot boost',
     }),
     'context': <ANY>,
     'entity_id': 'switch.test_name_right_slot_boost',
@@ -189,5 +247,55 @@
     'last_reported': <ANY>,
     'last_updated': <ANY>,
     'state': 'off',
+  })
+# ---
+# name: test_rpc_ledstrip_reverse_switch[switch.test_name_reverse_effect-entry]
+  EntityRegistryEntrySnapshot({
+    'aliases': list([
+      None,
+    ]),
+    'area_id': None,
+    'capabilities': None,
+    'config_entry_id': <ANY>,
+    'config_subentry_id': None,
+    'device_class': None,
+    'device_id': <DeviceEntry identifiers=[('shelly', '123456789ABC')]>,
+    'disabled_by': None,
+    'domain': 'switch',
+    'entity_category': None,
+    'entity_id': 'switch.test_name_reverse_effect',
+    'has_entity_name': True,
+    'hidden_by': None,
+    'icon': None,
+    'id': <ANY>,
+    'labels': set({
+    }),
+    'name': None,
+    'object_id_base': 'Reverse effect',
+    'options': dict({
+    }),
+    'original_device_class': None,
+    'original_icon': None,
+    'original_name': 'Reverse effect',
+    'platform': 'shelly',
+    'previous_unique_id': None,
+    'suggested_object_id': None,
+    'supported_features': 0,
+    'translation_key': 'effect_reverse',
+    'unique_id': '123456789ABC-ledstrip:0-ledstrip_reverse',
+    'unit_of_measurement': None,
+  })
+# ---
+# name: test_rpc_ledstrip_reverse_switch[switch.test_name_reverse_effect-state]
+  StateSnapshot({
+    'attributes': ReadOnlyDict({
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Test name Reverse effect',
+    }),
+    'context': <ANY>,
+    'entity_id': 'switch.test_name_reverse_effect',
+    'last_changed': <ANY>,
+    'last_reported': <ANY>,
+    'last_updated': <ANY>,
+    'state': 'on',
   })
 # ---

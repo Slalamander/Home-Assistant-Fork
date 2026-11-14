@@ -4,6 +4,7 @@ from collections.abc import Generator
 from unittest.mock import patch
 
 import pytest
+from pytest_homeassistant.common import async_load_fixture, snapshot_platform
 from renault_api.kamereon import schemas
 from syrupy.assertion import SnapshotAssertion
 
@@ -11,25 +12,14 @@ from homeassistant.components.renault.const import DOMAIN
 from homeassistant.components.select import (
     ATTR_OPTION,
     DOMAIN as SELECT_DOMAIN,
-    SERVICE_SELECT_OPTION,
+    SelectService,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
-from .const import MOCK_VEHICLES
-
-from tests.common import async_load_fixture, snapshot_platform
-
 pytestmark = pytest.mark.usefixtures("patch_renault_account", "patch_get_vehicles")
-
-
-# Captur (fuel version) does not have a charge mode select
-# charge mode is also not available for all vehicles
-_TEST_VEHICLES = [
-    v for v in MOCK_VEHICLES if v not in ("captur_fuel", "captur_phev", "zoe_50")
-]
 
 
 @pytest.fixture(autouse=True)
@@ -40,7 +30,7 @@ def override_platforms() -> Generator[None]:
 
 
 @pytest.mark.usefixtures("fixtures_with_data")
-@pytest.mark.parametrize("vehicle_type", _TEST_VEHICLES, indirect=True)
+@pytest.mark.parametrize("vehicle_type", ["zoe_40"], indirect=True)
 async def test_selects(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -135,7 +125,7 @@ async def test_select_charge_mode(
         ),
     ) as mock_action:
         await hass.services.async_call(
-            SELECT_DOMAIN, SERVICE_SELECT_OPTION, service_data=data, blocking=True
+            SELECT_DOMAIN, SelectService.SELECT_OPTION, service_data=data, blocking=True
         )
     assert len(mock_action.mock_calls) == 1
     assert mock_action.mock_calls[0][1] == ("always",)

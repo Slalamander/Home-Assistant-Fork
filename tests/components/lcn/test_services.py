@@ -6,36 +6,15 @@ import pypck
 import pytest
 
 from homeassistant.components.lcn import DOMAIN
-from homeassistant.components.lcn.const import (
-    CONF_KEYS,
-    CONF_LED,
-    CONF_OUTPUT,
-    CONF_PCK,
-    CONF_RELVARREF,
-    CONF_ROW,
-    CONF_SETPOINT,
-    CONF_TABLE,
-    CONF_TEXT,
-    CONF_TIME,
-    CONF_TIME_UNIT,
-    CONF_TRANSITION,
-    CONF_VALUE,
-    CONF_VARIABLE,
-)
-from homeassistant.components.lcn.services import LcnService
-from homeassistant.const import (
-    CONF_BRIGHTNESS,
-    CONF_DEVICE_ID,
-    CONF_STATE,
-    CONF_UNIT_OF_MEASUREMENT,
-)
-from homeassistant.core import HomeAssistant
+from homeassistant.components.lcn.services import LcnService, LcnServiceArgument
+from homeassistant.const import CONF_DEVICE_ID
+from homeassistant.core import DOMAIN as HOMEASSISTANT_DOMAIN, HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.setup import async_setup_component
 
 from .conftest import (
     MockConfigEntry,
-    MockModuleConnection,
+    MockDeviceConnection,
     get_device,
     init_integration,
 )
@@ -49,15 +28,15 @@ async def test_service_output_abs(
     await async_setup_component(hass, "persistent_notification", {})
     await init_integration(hass, entry)
 
-    with patch.object(MockModuleConnection, "dim_output") as dim_output:
+    with patch.object(MockDeviceConnection, "dim_output") as dim_output:
         await hass.services.async_call(
             DOMAIN,
             LcnService.OUTPUT_ABS,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_OUTPUT: "output1",
-                CONF_BRIGHTNESS: 100,
-                CONF_TRANSITION: 5,
+                LcnServiceArgument.OUTPUT: "output1",
+                LcnServiceArgument.BRIGHTNESS: 100,
+                LcnServiceArgument.TRANSITION: 5,
             },
             blocking=True,
         )
@@ -73,14 +52,14 @@ async def test_service_output_rel(
     await async_setup_component(hass, "persistent_notification", {})
     await init_integration(hass, entry)
 
-    with patch.object(MockModuleConnection, "rel_output") as rel_output:
+    with patch.object(MockDeviceConnection, "rel_output") as rel_output:
         await hass.services.async_call(
             DOMAIN,
             LcnService.OUTPUT_REL,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_OUTPUT: "output1",
-                CONF_BRIGHTNESS: 25,
+                LcnServiceArgument.OUTPUT: "output1",
+                LcnServiceArgument.BRIGHTNESS: 25,
             },
             blocking=True,
         )
@@ -96,14 +75,14 @@ async def test_service_output_toggle(
     await async_setup_component(hass, "persistent_notification", {})
     await init_integration(hass, entry)
 
-    with patch.object(MockModuleConnection, "toggle_output") as toggle_output:
+    with patch.object(MockDeviceConnection, "toggle_output") as toggle_output:
         await hass.services.async_call(
             DOMAIN,
             LcnService.OUTPUT_TOGGLE,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_OUTPUT: "output1",
-                CONF_TRANSITION: 5,
+                LcnServiceArgument.OUTPUT: "output1",
+                LcnServiceArgument.TRANSITION: 5,
             },
             blocking=True,
         )
@@ -119,13 +98,13 @@ async def test_service_relays(
     await async_setup_component(hass, "persistent_notification", {})
     await init_integration(hass, entry)
 
-    with patch.object(MockModuleConnection, "control_relays") as control_relays:
+    with patch.object(MockDeviceConnection, "control_relays") as control_relays:
         await hass.services.async_call(
             DOMAIN,
             LcnService.RELAYS,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_STATE: "0011TT--",
+                LcnServiceArgument.STATE: "0011TT--",
             },
             blocking=True,
         )
@@ -137,7 +116,7 @@ async def test_service_relays(
 
     # wrong states string
     with (
-        patch.object(MockModuleConnection, "control_relays") as control_relays,
+        patch.object(MockDeviceConnection, "control_relays") as control_relays,
         pytest.raises(HomeAssistantError) as exc_info,
     ):
         await hass.services.async_call(
@@ -145,7 +124,7 @@ async def test_service_relays(
             LcnService.RELAYS,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_STATE: "0011TT--00",
+                LcnServiceArgument.STATE: "0011TT--00",
             },
             blocking=True,
         )
@@ -161,14 +140,14 @@ async def test_service_led(
     await async_setup_component(hass, "persistent_notification", {})
     await init_integration(hass, entry)
 
-    with patch.object(MockModuleConnection, "control_led") as control_led:
+    with patch.object(MockDeviceConnection, "control_led") as control_led:
         await hass.services.async_call(
             DOMAIN,
             LcnService.LED,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_LED: "led6",
-                CONF_STATE: "blink",
+                LcnServiceArgument.LED: "led6",
+                LcnServiceArgument.STATE: "blink",
             },
             blocking=True,
         )
@@ -187,15 +166,15 @@ async def test_service_var_abs(
     await async_setup_component(hass, "persistent_notification", {})
     await init_integration(hass, entry)
 
-    with patch.object(MockModuleConnection, "var_abs") as var_abs:
+    with patch.object(MockDeviceConnection, "var_abs") as var_abs:
         await hass.services.async_call(
             DOMAIN,
             LcnService.VAR_ABS,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_VARIABLE: "var1",
-                CONF_VALUE: 75,
-                CONF_UNIT_OF_MEASUREMENT: "%",
+                LcnServiceArgument.VARIABLE: "var1",
+                LcnServiceArgument.VALUE: 75,
+                LcnServiceArgument.UNIT_OF_MEASUREMENT: "%",
             },
             blocking=True,
         )
@@ -213,16 +192,16 @@ async def test_service_var_rel(
     await async_setup_component(hass, "persistent_notification", {})
     await init_integration(hass, entry)
 
-    with patch.object(MockModuleConnection, "var_rel") as var_rel:
+    with patch.object(MockDeviceConnection, "var_rel") as var_rel:
         await hass.services.async_call(
             DOMAIN,
             LcnService.VAR_REL,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_VARIABLE: "var1",
-                CONF_VALUE: 10,
-                CONF_UNIT_OF_MEASUREMENT: "%",
-                CONF_RELVARREF: "current",
+                LcnServiceArgument.VARIABLE: "var1",
+                LcnServiceArgument.VALUE: 10,
+                LcnServiceArgument.UNIT_OF_MEASUREMENT: "%",
+                LcnServiceArgument.VALUE_REFERENCE: "current",
             },
             blocking=True,
         )
@@ -243,13 +222,13 @@ async def test_service_var_reset(
     await async_setup_component(hass, "persistent_notification", {})
     await init_integration(hass, entry)
 
-    with patch.object(MockModuleConnection, "var_reset") as var_reset:
+    with patch.object(MockDeviceConnection, "var_reset") as var_reset:
         await hass.services.async_call(
             DOMAIN,
             LcnService.VAR_RESET,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_VARIABLE: "var1",
+                LcnServiceArgument.VARIABLE: "var1",
             },
             blocking=True,
         )
@@ -265,14 +244,14 @@ async def test_service_lock_regulator(
     await async_setup_component(hass, "persistent_notification", {})
     await init_integration(hass, entry)
 
-    with patch.object(MockModuleConnection, "lock_regulator") as lock_regulator:
+    with patch.object(MockDeviceConnection, "lock_regulator") as lock_regulator:
         await hass.services.async_call(
             DOMAIN,
             LcnService.LOCK_REGULATOR,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_SETPOINT: "r1varsetpoint",
-                CONF_STATE: True,
+                LcnServiceArgument.SETPOINT: "r1varsetpoint",
+                LcnServiceArgument.STATE: True,
             },
             blocking=True,
         )
@@ -288,14 +267,14 @@ async def test_service_send_keys(
     await async_setup_component(hass, "persistent_notification", {})
     await init_integration(hass, entry)
 
-    with patch.object(MockModuleConnection, "send_keys") as send_keys:
+    with patch.object(MockDeviceConnection, "send_keys") as send_keys:
         await hass.services.async_call(
             DOMAIN,
             LcnService.SEND_KEYS,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_KEYS: "a1a5d8",
-                CONF_STATE: "hit",
+                LcnServiceArgument.KEYS: "a1a5d8",
+                LcnServiceArgument.STATE: "hit",
             },
             blocking=True,
         )
@@ -323,16 +302,16 @@ async def test_service_send_keys_hit_deferred(
 
     # success
     with patch.object(
-        MockModuleConnection, "send_keys_hit_deferred"
+        MockDeviceConnection, "send_keys_hit_deferred"
     ) as send_keys_hit_deferred:
         await hass.services.async_call(
             DOMAIN,
             LcnService.SEND_KEYS,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_KEYS: "a1a5d8",
-                CONF_TIME: 5,
-                CONF_TIME_UNIT: "s",
+                LcnServiceArgument.KEYS: "a1a5d8",
+                LcnServiceArgument.TIME: 5,
+                LcnServiceArgument.TIME_UNIT: "s",
             },
             blocking=True,
         )
@@ -344,7 +323,7 @@ async def test_service_send_keys_hit_deferred(
     # wrong key action
     with (
         patch.object(
-            MockModuleConnection, "send_keys_hit_deferred"
+            MockDeviceConnection, "send_keys_hit_deferred"
         ) as send_keys_hit_deferred,
         pytest.raises(ServiceValidationError) as exc_info,
     ):
@@ -353,10 +332,10 @@ async def test_service_send_keys_hit_deferred(
             LcnService.SEND_KEYS,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_KEYS: "a1a5d8",
-                CONF_STATE: "make",
-                CONF_TIME: 5,
-                CONF_TIME_UNIT: "s",
+                LcnServiceArgument.KEYS: "a1a5d8",
+                LcnServiceArgument.STATE: "make",
+                LcnServiceArgument.TIME: 5,
+                LcnServiceArgument.TIME_UNIT: "s",
             },
             blocking=True,
         )
@@ -372,14 +351,14 @@ async def test_service_lock_keys(
     await async_setup_component(hass, "persistent_notification", {})
     await init_integration(hass, entry)
 
-    with patch.object(MockModuleConnection, "lock_keys") as lock_keys:
+    with patch.object(MockDeviceConnection, "lock_keys") as lock_keys:
         await hass.services.async_call(
             DOMAIN,
             LcnService.LOCK_KEYS,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_TABLE: "a",
-                CONF_STATE: "0011TT--",
+                LcnServiceArgument.TABLE: "a",
+                LcnServiceArgument.STATE: "0011TT--",
             },
             blocking=True,
         )
@@ -391,7 +370,7 @@ async def test_service_lock_keys(
 
     # wrong states string
     with (
-        patch.object(MockModuleConnection, "lock_keys") as lock_keys,
+        patch.object(MockDeviceConnection, "lock_keys") as lock_keys,
         pytest.raises(HomeAssistantError) as exc_info,
     ):
         await hass.services.async_call(
@@ -399,8 +378,8 @@ async def test_service_lock_keys(
             LcnService.LOCK_KEYS,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_TABLE: "a",
-                CONF_STATE: "0011TT--00",
+                LcnServiceArgument.TABLE: "a",
+                LcnServiceArgument.STATE: "0011TT--00",
             },
             blocking=True,
         )
@@ -418,16 +397,16 @@ async def test_service_lock_keys_tab_a_temporary(
 
     # success
     with patch.object(
-        MockModuleConnection, "lock_keys_tab_a_temporary"
+        MockDeviceConnection, "lock_keys_tab_a_temporary"
     ) as lock_keys_tab_a_temporary:
         await hass.services.async_call(
             DOMAIN,
             LcnService.LOCK_KEYS,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_STATE: "0011TT--",
-                CONF_TIME: 10,
-                CONF_TIME_UNIT: "s",
+                LcnServiceArgument.STATE: "0011TT--",
+                LcnServiceArgument.TIME: 10,
+                LcnServiceArgument.TIME_UNIT: "s",
             },
             blocking=True,
         )
@@ -442,7 +421,7 @@ async def test_service_lock_keys_tab_a_temporary(
     # wrong table
     with (
         patch.object(
-            MockModuleConnection, "lock_keys_tab_a_temporary"
+            MockDeviceConnection, "lock_keys_tab_a_temporary"
         ) as lock_keys_tab_a_temporary,
         pytest.raises(ServiceValidationError) as exc_info,
     ):
@@ -451,10 +430,10 @@ async def test_service_lock_keys_tab_a_temporary(
             LcnService.LOCK_KEYS,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_TABLE: "b",
-                CONF_STATE: "0011TT--",
-                CONF_TIME: 10,
-                CONF_TIME_UNIT: "s",
+                LcnServiceArgument.TABLE: "b",
+                LcnServiceArgument.STATE: "0011TT--",
+                LcnServiceArgument.TIME: 10,
+                LcnServiceArgument.TIME_UNIT: "s",
             },
             blocking=True,
         )
@@ -470,14 +449,14 @@ async def test_service_dyn_text(
     await async_setup_component(hass, "persistent_notification", {})
     await init_integration(hass, entry)
 
-    with patch.object(MockModuleConnection, "dyn_text") as dyn_text:
+    with patch.object(MockDeviceConnection, "dyn_text") as dyn_text:
         await hass.services.async_call(
             DOMAIN,
             LcnService.DYN_TEXT,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_ROW: 1,
-                CONF_TEXT: "text in row 1",
+                LcnServiceArgument.ROW: 1,
+                LcnServiceArgument.TEXT: "text in row 1",
             },
             blocking=True,
         )
@@ -493,15 +472,61 @@ async def test_service_pck(
     await async_setup_component(hass, "persistent_notification", {})
     await init_integration(hass, entry)
 
-    with patch.object(MockModuleConnection, "pck") as pck:
+    with patch.object(MockDeviceConnection, "pck") as pck:
         await hass.services.async_call(
             DOMAIN,
             LcnService.PCK,
             {
                 CONF_DEVICE_ID: get_device(hass, entry, (0, 7, False)).id,
-                CONF_PCK: "PIN4",
+                LcnServiceArgument.PCK: "PIN4",
             },
             blocking=True,
         )
 
     pck.assert_awaited_with("PIN4")
+
+
+async def test_service_unknown_device_id(
+    hass: HomeAssistant,
+    entry: MockConfigEntry,
+) -> None:
+    """Test service call with an unknown device id raises."""
+    await async_setup_component(hass, "persistent_notification", {})
+    await init_integration(hass, entry)
+
+    with pytest.raises(ServiceValidationError) as exc_info:
+        await hass.services.async_call(
+            DOMAIN,
+            LcnService.PCK,
+            {
+                CONF_DEVICE_ID: "unknown_device_id",
+                LcnServiceArgument.PCK: "PIN4",
+            },
+            blocking=True,
+        )
+    assert exc_info.value.translation_domain == HOMEASSISTANT_DOMAIN
+    assert exc_info.value.translation_key == "service_device_not_found"
+
+
+async def test_service_unloaded_config_entry(
+    hass: HomeAssistant,
+    entry: MockConfigEntry,
+) -> None:
+    """Test service call to a device of an unloaded config entry raises."""
+    await async_setup_component(hass, "persistent_notification", {})
+    await init_integration(hass, entry)
+    device_id = get_device(hass, entry, (0, 7, False)).id
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+    with pytest.raises(ServiceValidationError) as exc_info:
+        await hass.services.async_call(
+            DOMAIN,
+            LcnService.PCK,
+            {
+                CONF_DEVICE_ID: device_id,
+                LcnServiceArgument.PCK: "PIN4",
+            },
+            blocking=True,
+        )
+    assert exc_info.value.translation_domain == HOMEASSISTANT_DOMAIN
+    assert exc_info.value.translation_key == "service_config_entry_not_loaded"

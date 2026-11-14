@@ -2,6 +2,7 @@
 
 from unittest.mock import AsyncMock, patch
 
+from pytest_homeassistant.common import MockConfigEntry, snapshot_platform
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.const import Platform
@@ -9,8 +10,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from . import setup_integration
-
-from tests.common import MockConfigEntry, snapshot_platform
 
 
 async def test_sensor_cloud(
@@ -60,7 +59,7 @@ async def test_multiple_devices_create_individual_sensors(
             "id": "1",
             "homeId": "1",
             "name": "Room 1",
-            "temperature": 15,
+            "temperature": 15.0,
             "targetTemperature": 20,
             "heatingEnabled": True,
             "energyWh": 1500,
@@ -69,7 +68,7 @@ async def test_multiple_devices_create_individual_sensors(
             "id": "2",
             "homeId": "1",
             "name": "Room 2",
-            "temperature": 18,
+            "temperature": 18.0,
             "targetTemperature": 22,
             "heatingEnabled": True,
             "energyWh": 2500,
@@ -102,7 +101,7 @@ async def test_fallback_to_get_rooms(
             "id": "1",
             "homeId": "1",
             "name": "Room 1",
-            "temperature": 15,
+            "temperature": 15.0,
             "targetTemperature": 20,
             "heatingEnabled": True,
             "energyWh": 0,  # No energy data from get_rooms

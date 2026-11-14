@@ -1,16 +1,14 @@
 """Config flow for ista EcoTrend integration."""
 
-from __future__ import annotations
-
 from collections.abc import Mapping
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, override
 
+import probatio
 from pyecotrend_ista import KeycloakError, LoginError, PyEcotrendIsta, ServerError
-import voluptuous as vol
 
 from homeassistant.config_entries import SOURCE_REAUTH, ConfigFlow, ConfigFlowResult
-from homeassistant.const import CONF_EMAIL, CONF_NAME, CONF_PASSWORD
+from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.helpers.selector import (
     TextSelector,
     TextSelectorConfig,
@@ -21,15 +19,15 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-STEP_USER_DATA_SCHEMA = vol.Schema(
+STEP_USER_DATA_SCHEMA = probatio.Schema(
     {
-        vol.Required(CONF_EMAIL): TextSelector(
+        probatio.Required(CONF_EMAIL): TextSelector(
             TextSelectorConfig(
                 type=TextSelectorType.EMAIL,
                 autocomplete="email",
             )
         ),
-        vol.Required(CONF_PASSWORD): TextSelector(
+        probatio.Required(probatio.Secret(CONF_PASSWORD)): TextSelector(
             TextSelectorConfig(
                 type=TextSelectorType.PASSWORD,
                 autocomplete="current-password",
@@ -42,6 +40,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 class IstaConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for ista EcoTrend."""
 
+    @override
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -51,14 +50,13 @@ class IstaConfigFlow(ConfigFlow, domain=DOMAIN):
             ista = PyEcotrendIsta(
                 user_input[CONF_EMAIL],
                 user_input[CONF_PASSWORD],
-                _LOGGER,
             )
             try:
                 await self.hass.async_add_executor_job(ista.login)
                 info = ista.get_account()
             except ServerError:
                 errors["base"] = "cannot_connect"
-            except (LoginError, KeycloakError):
+            except LoginError, KeycloakError:
                 errors["base"] = "invalid_auth"
             except Exception:
                 _LOGGER.exception("Unexpected exception")
@@ -102,7 +100,6 @@ class IstaConfigFlow(ConfigFlow, domain=DOMAIN):
             ista = PyEcotrendIsta(
                 user_input[CONF_EMAIL],
                 user_input[CONF_PASSWORD],
-                _LOGGER,
             )
 
             def get_consumption_units() -> set[str]:
@@ -119,7 +116,7 @@ class IstaConfigFlow(ConfigFlow, domain=DOMAIN):
 
             except ServerError:
                 errors["base"] = "cannot_connect"
-            except (LoginError, KeycloakError):
+            except LoginError, KeycloakError:
                 errors["base"] = "invalid_auth"
             except Exception:
                 _LOGGER.exception("Unexpected exception")
@@ -129,6 +126,7 @@ class IstaConfigFlow(ConfigFlow, domain=DOMAIN):
                     return self.async_abort(reason="unique_id_mismatch")
                 return self.async_update_reload_and_abort(reauth_entry, data=user_input)
 
+        # pylint: disable-next=home-assistant-step_id-match-method
         return self.async_show_form(
             step_id="reauth_confirm" if self.source == SOURCE_REAUTH else "reconfigure",
             data_schema=self.add_suggested_values_to_schema(
@@ -140,8 +138,8 @@ class IstaConfigFlow(ConfigFlow, domain=DOMAIN):
                 },
             ),
             description_placeholders={
-                CONF_NAME: reauth_entry.title,
-                CONF_EMAIL: reauth_entry.data[CONF_EMAIL],
+                "name": reauth_entry.title,
+                "email": reauth_entry.data[CONF_EMAIL],
             },
             errors=errors,
         )

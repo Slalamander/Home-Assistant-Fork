@@ -24,7 +24,7 @@
       ]),
       'title': 'Mock Title',
       'unique_id': 'aabbccddeeaa',
-      'version': 1,
+      'version': 2,
     }),
     'service_info': dict({
       'address': 'AA:BB:CC:DD:EE:FF',

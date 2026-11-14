@@ -1,22 +1,31 @@
 """The Powerfox integration."""
 
-from __future__ import annotations
-
 import asyncio
 
-from powerfox import DeviceType, Powerfox, PowerfoxConnectionError
+from powerfox import (
+    DeviceType,
+    Powerfox,
+    PowerfoxAuthenticationError,
+    PowerfoxConnectionError,
+    PowerfoxNoDataError,
+)
 
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .coordinator import PowerfoxConfigEntry, PowerfoxDataUpdateCoordinator
+from .const import DOMAIN
+from .coordinator import (
+    PowerfoxConfigEntry,
+    PowerfoxDataUpdateCoordinator,
+    PowerfoxReportDataUpdateCoordinator,
+)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: PowerfoxConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: PowerfoxConfigEntry) -> None:
     """Set up Powerfox from a config entry."""
     client = Powerfox(
         username=entry.data[CONF_EMAIL],
@@ -26,16 +35,35 @@ async def async_setup_entry(hass: HomeAssistant, entry: PowerfoxConfigEntry) -> 
 
     try:
         devices = await client.all_devices()
+    except PowerfoxAuthenticationError as err:
+        await client.close()
+        raise ConfigEntryAuthFailed(
+            translation_domain=DOMAIN,
+            translation_key="auth_failed",
+        ) from err
     except PowerfoxConnectionError as err:
         await client.close()
-        raise ConfigEntryNotReady from err
+        raise ConfigEntryNotReady(
+            translation_domain=DOMAIN,
+            translation_key="connection_error",
+        ) from err
+    except PowerfoxNoDataError as err:
+        await client.close()
+        raise ConfigEntryNotReady(
+            translation_domain=DOMAIN,
+            translation_key="no_devices",
+        ) from err
 
-    coordinators: list[PowerfoxDataUpdateCoordinator] = [
-        PowerfoxDataUpdateCoordinator(hass, entry, client, device)
-        for device in devices
-        # Filter out gas meter devices (Powerfox FLOW adapters) as they are not yet supported and cause integration failures
-        if device.type != DeviceType.GAS_METER
-    ]
+    coordinators: list[
+        PowerfoxDataUpdateCoordinator | PowerfoxReportDataUpdateCoordinator
+    ] = []
+    for device in devices:
+        if device.type == DeviceType.GAS_METER:
+            coordinators.append(
+                PowerfoxReportDataUpdateCoordinator(hass, entry, client, device)
+            )
+            continue
+        coordinators.append(PowerfoxDataUpdateCoordinator(hass, entry, client, device))
 
     await asyncio.gather(
         *[
@@ -47,9 +75,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: PowerfoxConfigEntry) -> 
     entry.runtime_data = coordinators
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: PowerfoxConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: PowerfoxConfigEntry) -> None:
     """Unload a config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    await hass.config_entries.async_unload_platforms_or_raise(entry, PLATFORMS)

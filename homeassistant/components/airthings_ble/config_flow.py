@@ -1,10 +1,8 @@
 """Config flow for Airthings BlE integration."""
 
-from __future__ import annotations
-
 import dataclasses
 import logging
-from typing import Any
+from typing import Any, override
 
 from airthings_ble import (
     AirthingsBluetoothDeviceData,
@@ -13,7 +11,7 @@ from airthings_ble import (
 )
 from bleak import BleakError
 from habluetooth import BluetoothServiceInfoBleak
-import voluptuous as vol
+import probatio
 
 from homeassistant.components import bluetooth
 from homeassistant.components.bluetooth import (
@@ -23,7 +21,7 @@ from homeassistant.components.bluetooth import (
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_ADDRESS
 
-from .const import DOMAIN, MFCT_ID
+from .const import DEVICE_MODEL, DOMAIN, MFCT_ID
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -63,6 +61,7 @@ class AirthingsConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Airthings BLE."""
 
     VERSION = 1
+    MINOR_VERSION = 2
 
     def __init__(self) -> None:
         """Initialize the config flow."""
@@ -98,6 +97,7 @@ class AirthingsConfigFlow(ConfigFlow, domain=DOMAIN):
             raise
         return device
 
+    @override
     async def async_step_bluetooth(
         self, discovery_info: BluetoothServiceInfo
     ) -> ConfigFlowResult:
@@ -128,23 +128,23 @@ class AirthingsConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Confirm discovery."""
+        assert self._discovered_device is not None
+
         if user_input is not None:
-            if (
-                self._discovered_device is not None
-                and self._discovered_device.device.firmware.need_firmware_upgrade
-            ):
+            if self._discovered_device.device.firmware.need_firmware_upgrade:
                 return self.async_abort(reason="firmware_upgrade_required")
 
             return self.async_create_entry(
-                title=self.context["title_placeholders"]["name"], data={}
+                title=self.context["title_placeholders"]["name"],
+                data={DEVICE_MODEL: self._discovered_device.device.model.value},
             )
 
-        self._set_confirm_only()
         return self.async_show_form(
             step_id="bluetooth_confirm",
             description_placeholders=self.context["title_placeholders"],
         )
 
+    @override
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -164,7 +164,10 @@ class AirthingsConfigFlow(ConfigFlow, domain=DOMAIN):
 
             self._discovered_device = discovery
 
-            return self.async_create_entry(title=discovery.name, data={})
+            return self.async_create_entry(
+                title=discovery.name,
+                data={DEVICE_MODEL: discovery.device.model.value},
+            )
 
         current_addresses = self._async_current_ids(include_ignore=False)
         devices: list[BluetoothServiceInfoBleak] = []
@@ -218,9 +221,9 @@ class AirthingsConfigFlow(ConfigFlow, domain=DOMAIN):
         }
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema(
+            data_schema=probatio.Schema(
                 {
-                    vol.Required(CONF_ADDRESS): vol.In(titles),
+                    probatio.Required(CONF_ADDRESS): probatio.In(titles),
                 },
             ),
         )

@@ -1,10 +1,10 @@
 """Growatt Sensor definitions for the Storage type."""
 
-from __future__ import annotations
-
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import (
     PERCENTAGE,
+    EntityCategory,
+    UnitOfApparentPower,
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
     UnitOfEnergy,
@@ -139,7 +139,7 @@ STORAGE_SENSOR_TYPES: tuple[GrowattSensorEntityDescription, ...] = (
         key="storage_load_consumption_solar_storage",
         translation_key="storage_load_consumption_solar_storage",
         api_key="rateVA",
-        native_unit_of_measurement="VA",
+        native_unit_of_measurement=UnitOfApparentPower.VOLT_AMPERE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     GrowattSensorEntityDescription(
@@ -189,7 +189,7 @@ STORAGE_SENSOR_TYPES: tuple[GrowattSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        precision=2,
+        suggested_display_precision=2,
     ),
     GrowattSensorEntityDescription(
         key="storage_pv_charging_voltage",
@@ -198,7 +198,7 @@ STORAGE_SENSOR_TYPES: tuple[GrowattSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        precision=2,
+        suggested_display_precision=2,
     ),
     GrowattSensorEntityDescription(
         key="storage_pv_charging_voltage_2",
@@ -207,7 +207,7 @@ STORAGE_SENSOR_TYPES: tuple[GrowattSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        precision=2,
+        suggested_display_precision=2,
     ),
     GrowattSensorEntityDescription(
         key="storage_ac_input_frequency_out",
@@ -216,7 +216,9 @@ STORAGE_SENSOR_TYPES: tuple[GrowattSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfFrequency.HERTZ,
         device_class=SensorDeviceClass.FREQUENCY,
         state_class=SensorStateClass.MEASUREMENT,
-        precision=2,
+        suggested_display_precision=2,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
     ),
     GrowattSensorEntityDescription(
         key="storage_output_voltage",
@@ -225,7 +227,7 @@ STORAGE_SENSOR_TYPES: tuple[GrowattSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        precision=2,
+        suggested_display_precision=2,
     ),
     GrowattSensorEntityDescription(
         key="storage_ac_output_frequency",
@@ -234,7 +236,9 @@ STORAGE_SENSOR_TYPES: tuple[GrowattSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfFrequency.HERTZ,
         device_class=SensorDeviceClass.FREQUENCY,
         state_class=SensorStateClass.MEASUREMENT,
-        precision=2,
+        suggested_display_precision=2,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
     ),
     GrowattSensorEntityDescription(
         key="storage_current_PV",
@@ -243,7 +247,7 @@ STORAGE_SENSOR_TYPES: tuple[GrowattSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
-        precision=2,
+        suggested_display_precision=2,
     ),
     GrowattSensorEntityDescription(
         key="storage_current_1",
@@ -252,7 +256,7 @@ STORAGE_SENSOR_TYPES: tuple[GrowattSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
-        precision=2,
+        suggested_display_precision=2,
     ),
     GrowattSensorEntityDescription(
         key="storage_current_2",
@@ -261,7 +265,7 @@ STORAGE_SENSOR_TYPES: tuple[GrowattSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
-        precision=2,
+        suggested_display_precision=2,
     ),
     GrowattSensorEntityDescription(
         key="storage_grid_amperage_input",
@@ -270,7 +274,7 @@ STORAGE_SENSOR_TYPES: tuple[GrowattSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
-        precision=2,
+        suggested_display_precision=2,
     ),
     GrowattSensorEntityDescription(
         key="storage_grid_out_current",
@@ -279,7 +283,7 @@ STORAGE_SENSOR_TYPES: tuple[GrowattSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
-        precision=2,
+        suggested_display_precision=2,
     ),
     GrowattSensorEntityDescription(
         key="storage_battery_voltage",
@@ -288,7 +292,7 @@ STORAGE_SENSOR_TYPES: tuple[GrowattSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        precision=2,
+        suggested_display_precision=2,
     ),
     GrowattSensorEntityDescription(
         key="storage_load_percentage",
@@ -297,6 +301,6 @@ STORAGE_SENSOR_TYPES: tuple[GrowattSensorEntityDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
-        precision=2,
+        suggested_display_precision=2,
     ),
 )

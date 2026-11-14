@@ -1,7 +1,5 @@
 """Fixtures for Tesla Fleet."""
 
-from __future__ import annotations
-
 from collections.abc import Generator
 from copy import deepcopy
 import time
@@ -9,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 import jwt
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 from tesla_fleet_api.const import Scope
 
 from homeassistant.components.tesla_fleet.const import DOMAIN, SCOPES
@@ -23,8 +22,6 @@ from .const import (
     VEHICLE_ONLINE,
 )
 
-from tests.common import MockConfigEntry
-
 UID = "abc-123"
 
 
@@ -35,7 +32,10 @@ def mock_expires_at() -> int:
 
 
 def create_config_entry(
-    expires_at: int, scopes: list[Scope], implementation: str = DOMAIN
+    expires_at: int,
+    scopes: list[Scope],
+    implementation: str = DOMAIN,
+    region: str = "NA",
 ) -> MockConfigEntry:
     """Create Tesla Fleet entry in Home Assistant."""
     access_token = jwt.encode(
@@ -43,7 +43,7 @@ def create_config_entry(
             "sub": UID,
             "aud": [],
             "scp": scopes,
-            "ou_code": "NA",
+            "ou_code": region,
         },
         key="",
         algorithm="none",

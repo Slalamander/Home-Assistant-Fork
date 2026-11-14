@@ -1,9 +1,10 @@
 """Test init of Brother integration."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 from brother import SnmpError
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.brother.const import (
     CONF_COMMUNITY,
@@ -15,8 +16,6 @@ from homeassistant.const import CONF_HOST, CONF_PORT, CONF_TYPE
 from homeassistant.core import HomeAssistant
 
 from . import init_integration
-
-from tests.common import MockConfigEntry
 
 
 async def test_async_setup_entry(
@@ -45,14 +44,16 @@ async def test_config_not_ready(
 
 @pytest.mark.parametrize("exc", [(SnmpError("SNMP Error")), (ConnectionError)])
 async def test_error_on_init(
-    hass: HomeAssistant, exc: Exception, mock_config_entry: MockConfigEntry
+    hass: HomeAssistant,
+    exc: Exception,
+    mock_config_entry: MockConfigEntry,
+    mock_brother: AsyncMock,
+    mock_brother_client: AsyncMock,
 ) -> None:
     """Test for error on init."""
-    with patch(
-        "homeassistant.components.brother.Brother.create",
-        new=AsyncMock(side_effect=exc),
-    ):
-        await init_integration(hass, mock_config_entry)
+    mock_brother.create.side_effect = exc
+
+    await init_integration(hass, mock_config_entry)
 
     assert mock_config_entry.state is ConfigEntryState.SETUP_RETRY
 
@@ -96,3 +97,17 @@ async def test_migrate_entry(
     assert config_entry.minor_version == 2
     assert config_entry.data[SECTION_ADVANCED_SETTINGS][CONF_PORT] == 161
     assert config_entry.data[SECTION_ADVANCED_SETTINGS][CONF_COMMUNITY] == "public"
+
+
+async def test_serial_mismatch(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_brother: AsyncMock,
+    mock_brother_client: AsyncMock,
+) -> None:
+    """Test if the serial number matches on init."""
+    mock_brother_client.serial = "DIFFERENT_SERIAL"
+
+    await init_integration(hass, mock_config_entry)
+
+    assert mock_config_entry.state is ConfigEntryState.SETUP_ERROR

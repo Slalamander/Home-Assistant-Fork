@@ -1,13 +1,12 @@
 """Constants used by Home Assistant components."""
 
-from __future__ import annotations
-
 from enum import StrEnum
 from functools import partial
 from typing import TYPE_CHECKING, Final
 
 from .generated.entity_platforms import EntityPlatforms
 from .helpers.deprecation import (
+    DeprecatedConstant,
     DeprecatedConstantEnum,
     all_with_deprecated_constants,
     check_if_deprecated_constant,
@@ -22,15 +21,12 @@ if TYPE_CHECKING:
     from .helpers.typing import NoEventData
 
 APPLICATION_NAME: Final = "HomeAssistant"
-MAJOR_VERSION: Final = 2025
-MINOR_VERSION: Final = 11
+MAJOR_VERSION: Final = 2026
+MINOR_VERSION: Final = 12
 PATCH_VERSION: Final = "0.dev0"
 __short_version__: Final = f"{MAJOR_VERSION}.{MINOR_VERSION}"
 __version__: Final = f"{__short_version__}.{PATCH_VERSION}"
-REQUIRED_PYTHON_VER: Final[tuple[int, int, int]] = (3, 13, 2)
-REQUIRED_NEXT_PYTHON_VER: Final[tuple[int, int, int]] = (3, 13, 2)
-# Truthy date string triggers showing related deprecation warning messages.
-REQUIRED_NEXT_PYTHON_HA_RELEASE: Final = ""
+REQUIRED_PYTHON_VER: Final[tuple[int, int, int]] = (3, 14, 2)
 
 # Format for platform files
 PLATFORM_FORMAT: Final = "{platform}.{domain}"
@@ -51,6 +47,9 @@ ENTITY_MATCH_ANY: Final = "any"
 
 # If no name is specified
 DEVICE_DEFAULT_NAME: Final = "Unnamed Device"
+
+# Default radius of the Home Zone (in meters)
+DEFAULT_RADIUS: Final = 100
 
 # Max characters for data stored in the recorder (changes to these limits would require
 # a database migration)
@@ -182,6 +181,7 @@ CONF_MODEL_ID: Final = "model_id"
 CONF_MONITORED_CONDITIONS: Final = "monitored_conditions"
 CONF_MONITORED_VARIABLES: Final = "monitored_variables"
 CONF_NAME: Final = "name"
+CONF_NOTE: Final = "note"
 CONF_OFFSET: Final = "offset"
 CONF_OPTIMISTIC: Final = "optimistic"
 CONF_OPTIONS: Final = "options"
@@ -278,6 +278,7 @@ EVENT_HOMEASSISTANT_STOP: EventType[NoEventData] = EventType("homeassistant_stop
 EVENT_HOMEASSISTANT_FINAL_WRITE: EventType[NoEventData] = EventType(
     "homeassistant_final_write"
 )
+EVENT_LABS_UPDATED: Final = "labs_updated"
 EVENT_LOGBOOK_ENTRY: Final = "logbook_entry"
 EVENT_LOGGING_CHANGED: Final = "logging_changed"
 EVENT_SERVICE_REGISTERED: Final = "service_registered"
@@ -341,6 +342,9 @@ ATTR_NAME: Final = "name"
 # Contains one string or a list of strings, each being an entity id
 ATTR_ENTITY_ID: Final = "entity_id"
 
+# Contains a list of entity ids that are members of a group
+ATTR_GROUP_ENTITIES: Final = "group_entities"
+
 # Contains one string, the config entry ID
 ATTR_CONFIG_ENTRY_ID: Final = "config_entry_id"
 
@@ -362,8 +366,6 @@ ATTR_FRIENDLY_NAME: Final = "friendly_name"
 # A picture to represent entity
 ATTR_ENTITY_PICTURE: Final = "entity_picture"
 
-ATTR_IDENTIFIERS: Final = "identifiers"
-
 # Icon to use in the frontend
 ATTR_ICON: Final = "icon"
 
@@ -383,17 +385,22 @@ ATTR_LOCATION: Final = "location"
 
 ATTR_MODE: Final = "mode"
 
-ATTR_CONFIGURATION_URL: Final = "configuration_url"
-ATTR_CONNECTIONS: Final = "connections"
-ATTR_DEFAULT_NAME: Final = "default_name"
-ATTR_MANUFACTURER: Final = "manufacturer"
-ATTR_MODEL: Final = "model"
-ATTR_MODEL_ID: Final = "model_id"
-ATTR_SERIAL_NUMBER: Final = "serial_number"
-ATTR_SUGGESTED_AREA: Final = "suggested_area"
-ATTR_SW_VERSION: Final = "sw_version"
-ATTR_HW_VERSION: Final = "hw_version"
-ATTR_VIA_DEVICE: Final = "via_device"
+_DEPRECATED_ATTR_CONFIGURATION_URL = DeprecatedConstant(
+    "configuration_url", None, "2027.12"
+)
+_DEPRECATED_ATTR_CONNECTIONS = DeprecatedConstant("connections", None, "2027.12")
+_DEPRECATED_ATTR_DEFAULT_NAME = DeprecatedConstant("default_name", None, "2027.12")
+_DEPRECATED_ATTR_HW_VERSION = DeprecatedConstant("hw_version", None, "2027.12")
+_DEPRECATED_ATTR_IDENTIFIERS = DeprecatedConstant("identifiers", None, "2027.12")
+_DEPRECATED_ATTR_MANUFACTURER = DeprecatedConstant("manufacturer", None, "2027.12")
+_DEPRECATED_ATTR_MODEL = DeprecatedConstant("model", None, "2027.12")
+_DEPRECATED_ATTR_MODEL_ID = DeprecatedConstant("model_id", None, "2027.12")
+_DEPRECATED_ATTR_SERIAL_NUMBER = DeprecatedConstant("serial_number", None, "2027.12")
+_DEPRECATED_ATTR_SUGGESTED_AREA = DeprecatedConstant("suggested_area", None, "2027.12")
+_DEPRECATED_ATTR_SW_VERSION = DeprecatedConstant("sw_version", None, "2027.12")
+_DEPRECATED_ATTR_VIA_DEVICE = DeprecatedConstant(
+    "via_device", "via_device_id", "2027.8"
+)
 
 ATTR_BATTERY_CHARGING: Final = "battery_charging"
 ATTR_BATTERY_LEVEL: Final = "battery_level"
@@ -455,6 +462,36 @@ ATTR_TEMPERATURE: Final = "temperature"
 ATTR_PERSONS: Final = "persons"
 
 
+class CommonServiceArgument(StrEnum):
+    """Action fields shared by the actions of many integrations."""
+
+    CONFIG_ENTRY_ID = "config_entry_id"
+    DEVICE_ID = "device_id"
+    ENTITY_ID = "entity_id"
+
+
+class EntityCapabilityAttribute(StrEnum):
+    """Capability attributes shared by all entities."""
+
+    GROUP_ENTITIES = "group_entities"
+
+
+class EntityStateAttribute(StrEnum):
+    """State attributes shared by all entities."""
+
+    ASSUMED_STATE = "assumed_state"
+    ATTRIBUTION = "attribution"
+    DEVICE_CLASS = "device_class"
+    ENTITY_PICTURE = "entity_picture"
+    FRIENDLY_NAME = "friendly_name"
+    ICON = "icon"
+    LATITUDE = "latitude"
+    LONGITUDE = "longitude"
+    RESTORED = "restored"
+    SUPPORTED_FEATURES = "supported_features"
+    UNIT_OF_MEASUREMENT = "unit_of_measurement"
+
+
 # #### UNITS OF MEASUREMENT ####
 # Apparent power units
 class UnitOfApparentPower(StrEnum):
@@ -487,13 +524,6 @@ class UnitOfReactivePower(StrEnum):
     KILO_VOLT_AMPERE_REACTIVE = "kvar"
 
 
-_DEPRECATED_POWER_VOLT_AMPERE_REACTIVE: Final = DeprecatedConstantEnum(
-    UnitOfReactivePower.VOLT_AMPERE_REACTIVE,
-    "2025.9",
-)
-"""Deprecated: please use UnitOfReactivePower.VOLT_AMPERE_REACTIVE."""
-
-
 # Energy units
 class UnitOfEnergy(StrEnum):
     """Energy units."""
@@ -512,6 +542,7 @@ class UnitOfEnergy(StrEnum):
     KILO_CALORIE = "kcal"
     MEGA_CALORIE = "Mcal"
     GIGA_CALORIE = "Gcal"
+    THERM = "thm"
 
 
 # Reactive energy units
@@ -536,6 +567,7 @@ class UnitOfEnergyDistance(StrEnum):
 class UnitOfElectricCurrent(StrEnum):
     """Electric current units."""
 
+    MICROAMPERE = "μA"
     MILLIAMPERE = "mA"
     AMPERE = "A"
 
@@ -603,6 +635,7 @@ class UnitOfLength(StrEnum):
 class UnitOfFrequency(StrEnum):
     """Frequency units."""
 
+    MILLIHERTZ = "mHz"
     HERTZ = "Hz"
     KILOHERTZ = "kHz"
     MEGAHERTZ = "MHz"
@@ -624,6 +657,7 @@ class UnitOfPressure(StrEnum):
     INHG = "inHg"
     INH2O = "inH₂O"
     PSI = "psi"
+    ATM = "atm"
 
 
 # Sound pressure units
@@ -667,6 +701,7 @@ class UnitOfVolumeFlowRate(StrEnum):
     LITERS_PER_SECOND = "L/s"
     GALLONS_PER_HOUR = "gal/h"
     GALLONS_PER_MINUTE = "gal/min"
+    GALLONS_PER_DAY = "gal/d"
     MILLILITERS_PER_SECOND = "mL/s"
 
 
@@ -683,13 +718,6 @@ class UnitOfArea(StrEnum):
     SQUARE_MILES = "mi²"
     ACRES = "ac"
     HECTARES = "ha"
-
-
-_DEPRECATED_AREA_SQUARE_METERS: Final = DeprecatedConstantEnum(
-    UnitOfArea.SQUARE_METERS,
-    "2025.12",
-)
-"""Deprecated: please use UnitOfArea.SQUARE_METERS"""
 
 
 # Mass units
@@ -718,9 +746,6 @@ LIGHT_LUX: Final = "lx"
 
 # UV Index units
 UV_INDEX: Final = "UV index"
-
-# Percentage units
-PERCENTAGE: Final = "%"
 
 # Rotational speed units
 REVOLUTIONS_PER_MINUTE: Final = "rpm"
@@ -771,14 +796,49 @@ class UnitOfPrecipitationDepth(StrEnum):
     """Derived from cm³/cm²"""
 
 
+class UnitOfDensity(StrEnum):
+    """Density units.
+
+    Ratio of a substance's mass to its volume.
+    """
+
+    GRAMS_PER_CUBIC_METER = "g/m³"
+    MILLIGRAMS_PER_CUBIC_METER = "mg/m³"
+    MICROGRAMS_PER_CUBIC_METER = "μg/m³"
+    MICROGRAMS_PER_CUBIC_FOOT = "μg/ft³"
+
+
+class UnitOfRatio(StrEnum):
+    """Ratio units."""
+
+    PARTS_PER_MILLION = "ppm"
+    PARTS_PER_BILLION = "ppb"
+    PERCENTAGE = "%"
+
+
 # Concentration units
-CONCENTRATION_GRAMS_PER_CUBIC_METER: Final = "g/m³"
-CONCENTRATION_MILLIGRAMS_PER_CUBIC_METER: Final = "mg/m³"
-CONCENTRATION_MICROGRAMS_PER_CUBIC_METER: Final = "μg/m³"
-CONCENTRATION_MICROGRAMS_PER_CUBIC_FOOT: Final = "μg/ft³"
-CONCENTRATION_PARTS_PER_CUBIC_METER: Final = "p/m³"
-CONCENTRATION_PARTS_PER_MILLION: Final = "ppm"
-CONCENTRATION_PARTS_PER_BILLION: Final = "ppb"
+_DEPRECATED_CONCENTRATION_GRAMS_PER_CUBIC_METER = DeprecatedConstantEnum(
+    UnitOfDensity.GRAMS_PER_CUBIC_METER, "2027.8"
+)
+_DEPRECATED_CONCENTRATION_MILLIGRAMS_PER_CUBIC_METER = DeprecatedConstantEnum(
+    UnitOfDensity.MILLIGRAMS_PER_CUBIC_METER, "2027.8"
+)
+_DEPRECATED_CONCENTRATION_MICROGRAMS_PER_CUBIC_METER = DeprecatedConstantEnum(
+    UnitOfDensity.MICROGRAMS_PER_CUBIC_METER, "2027.8"
+)
+_DEPRECATED_CONCENTRATION_MICROGRAMS_PER_CUBIC_FOOT = DeprecatedConstantEnum(
+    UnitOfDensity.MICROGRAMS_PER_CUBIC_FOOT, "2027.8"
+)
+_DEPRECATED_CONCENTRATION_PARTS_PER_CUBIC_METER = DeprecatedConstant(
+    "p/m³", "p/m³", "2027.8"
+)
+_DEPRECATED_CONCENTRATION_PARTS_PER_MILLION = DeprecatedConstantEnum(
+    UnitOfRatio.PARTS_PER_MILLION, "2027.8"
+)
+_DEPRECATED_CONCENTRATION_PARTS_PER_BILLION = DeprecatedConstantEnum(
+    UnitOfRatio.PARTS_PER_BILLION, "2027.8"
+)
+PERCENTAGE: Final = UnitOfRatio.PERCENTAGE.value
 
 
 class UnitOfBloodGlucoseConcentration(StrEnum):
@@ -786,6 +846,13 @@ class UnitOfBloodGlucoseConcentration(StrEnum):
 
     MILLIGRAMS_PER_DECILITER = "mg/dL"
     MILLIMOLE_PER_LITER = "mmol/L"
+
+
+class UnitOfRadiationConcentration(StrEnum):
+    """Radiation concentration units."""
+
+    BECQUEREL_PER_CUBIC_METER = "Bq/m³"
+    PICOCURIES_PER_LITER = "pCi/L"
 
 
 # Speed units
@@ -964,10 +1031,6 @@ PRECISION_WHOLE: Final = 1
 PRECISION_HALVES: Final = 0.5
 PRECISION_TENTHS: Final = 0.1
 
-# Static list of entities that will never be exposed to
-# cloud, alexa, or google_home components
-CLOUD_NEVER_EXPOSED_ENTITIES: Final[list[str]] = ["group.all_locks"]
-
 
 class EntityCategory(StrEnum):
     """Category of an entity.
@@ -1000,8 +1063,9 @@ SIGNAL_BOOTSTRAP_INTEGRATIONS: SignalType[dict[str, float]] = SignalType(
 )
 
 
-# hass.data key for logging information.
+# hass.data keys for logging information.
 KEY_DATA_LOGGING: HassKey[str] = HassKey("logging")
+KEY_DATA_LOGGING_DISABLED_REASON: HassKey[str] = HassKey("logging_disabled_reason")
 
 
 # Date/Time formats
@@ -1015,7 +1079,7 @@ FORMAT_DATETIME: Final = f"{FORMAT_DATE} {FORMAT_TIME}"
 # data structures will be pre-allocated to this size
 MAX_EXPECTED_ENTITY_IDS: Final = 16384
 
-# These can be removed if no deprecated constant are in this module anymore
+# These can be removed if no deprecated constants are in this module anymore
 __getattr__ = partial(check_if_deprecated_constant, module_globals=globals())
 __dir__ = partial(
     dir_with_deprecated_constants, module_globals_keys=[*globals().keys()]

@@ -3,12 +3,10 @@
 from unittest.mock import ANY, patch
 
 import pytest
+from pytest_homeassistant.components.recorder.common import async_wait_recording_done
+from pytest_homeassistant.typing import RecorderInstanceContextManager
 
 from homeassistant.core import HomeAssistant
-
-from ...common import async_wait_recording_done
-
-from tests.typing import RecorderInstanceContextManager
 
 
 @pytest.fixture
@@ -82,7 +80,7 @@ async def test_validate_db_schema_fix_utf8_issue_event_data(
         in caplog.text
     )
     assert (
-        "Updating character set and collation of table event_data to utf8mb4"
+        "Updating table event_data to character set utf8mb4 and collation utf8mb4_bin"
         in caplog.text
     )
 
@@ -103,7 +101,7 @@ async def test_validate_db_schema_fix_collation_issue(
     with (
         patch(
             "homeassistant.components.recorder.auto_repairs.schema._validate_table_schema_has_correct_collation",
-            return_value={"events.utf8mb4_unicode_ci"},
+            return_value={"events.utf8mb4_bin"},
         ),
     ):
         async with async_test_recorder(hass):
@@ -111,9 +109,10 @@ async def test_validate_db_schema_fix_collation_issue(
 
     assert "Schema validation failed" not in caplog.text
     assert (
-        "Database is about to correct DB schema errors: events.utf8mb4_unicode_ci"
+        "Database is about to correct DB schema errors: events.utf8mb4_bin"
         in caplog.text
     )
     assert (
-        "Updating character set and collation of table events to utf8mb4" in caplog.text
+        "Updating table events to character set utf8mb4 and collation utf8mb4_bin"
+        in caplog.text
     )

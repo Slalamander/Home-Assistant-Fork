@@ -20,6 +20,7 @@ from kasa.smart.modules import Speaker
 from kasa.smart.modules.alarm import Alarm
 from kasa.smart.modules.clean import AreaUnit, Clean, ErrorCode, Status
 from kasa.smartcam.modules.camera import LOCAL_STREAMING_PORT, Camera
+from pytest_homeassistant.common import MockConfigEntry, load_json_value_fixture
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components.automation import DOMAIN as AUTOMATION_DOMAIN
@@ -29,7 +30,7 @@ from homeassistant.const import CONF_HOST, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.translation import async_get_translations
-from homeassistant.helpers.typing import UNDEFINED
+from homeassistant.helpers.typing import Undefined
 from homeassistant.setup import async_setup_component
 
 from .const import (
@@ -41,8 +42,6 @@ from .const import (
     MAC_ADDRESS,
     MODEL,
 )
-
-from tests.common import MockConfigEntry, load_json_value_fixture
 
 ColorTempRange = namedtuple("ColorTempRange", ["min", "max"])  # noqa: PYI024
 
@@ -104,14 +103,18 @@ async def snapshot_platform(
     unique_device_classes = []
     for entity_entry in entity_entries:
         if entity_entry.translation_key:
-            key = f"component.{DOMAIN}.entity.{entity_entry.domain}.{entity_entry.translation_key}.name"
+            key = (
+                f"component.{DOMAIN}.entity.{entity_entry.domain}"
+                f".{entity_entry.translation_key}.name"
+            )
             single_device_class_translation = False
             if key not in translations:  # No name translation
                 if entity_entry.original_device_class not in unique_device_classes:
                     single_device_class_translation = True
                     unique_device_classes.append(entity_entry.original_device_class)
             assert (key in translations) or single_device_class_translation, (
-                f"No translation or non unique device_class for entity {entity_entry.unique_id}, expected {key}"
+                f"No translation or non unique device_class for"
+                f" entity {entity_entry.unique_id}, expected {key}"
             )
         assert entity_entry == snapshot(name=f"{entity_entry.entity_id}-entry"), (
             f"entity entry snapshot failed for {entity_entry.entity_id}"
@@ -215,15 +218,14 @@ def _mocked_device(
     for mod in device.modules.values():
         # Some tests remove the feature from device_features to test missing
         # features, so check the key is still present there.
-        mod.get_feature.side_effect = (
-            lambda mod_id: mod_feat
+        mod.get_feature.side_effect = lambda mod_id: (
+            mod_feat
             if (mod_feat := module_features.get(mod_id))
             and mod_feat.id in device_features
             else None
         )
-        mod.has_feature.side_effect = (
-            lambda mod_id: (mod_feat := module_features.get(mod_id))
-            and mod_feat.id in device_features
+        mod.has_feature.side_effect = lambda mod_id: (
+            (mod_feat := module_features.get(mod_id)) and mod_feat.id in device_features
         )
 
     device.parent = None
@@ -233,7 +235,7 @@ def _mocked_device(
             child.mac = mac
             child.parent = device
         device.children = children
-    device.device_type = device_type if device_type else DeviceType.Unknown
+    device.device_type = device_type or DeviceType.Unknown
     if (
         not device_type
         and device.children
@@ -254,7 +256,7 @@ def _mocked_feature(
     id: str,
     *,
     require_fixture=False,
-    value: Any = UNDEFINED,
+    value: Any = Undefined,
     name=None,
     type_=None,
     category=None,
@@ -267,7 +269,8 @@ def _mocked_feature(
 ) -> Feature:
     """Get a mocked feature.
 
-    If kwargs are provided they will override the attributes for any features defined in fixtures.json
+    If kwargs are provided they will override the attributes for any
+    features defined in fixtures.json
     """
     feature = MagicMock(spec=Feature, name=f"Mocked {id} feature")
     feature.id = id
@@ -291,12 +294,12 @@ def _mocked_feature(
         assert require_fixture is False, (
             f"No fixture defined for feature {id} and require_fixture is True"
         )
-        assert value is not UNDEFINED, (
+        assert value is not Undefined, (
             f"Value must be provided if feature {id} not defined in features.json"
         )
         fixture = {"value": value, "category": "Primary", "type": "Sensor"}
 
-    if value is not UNDEFINED:
+    if value is not Undefined:
         fixture["value"] = value
     feature.value = fixture["value"]
 
@@ -557,7 +560,7 @@ def _patch_discovery(device=None, no_device=False, ip_address=IP_ADDRESS):
     async def _discovery(*args, **kwargs):
         if no_device:
             return {}
-        return {ip_address: device if device else _mocked_device()}
+        return {ip_address: device or _mocked_device()}
 
     return patch("homeassistant.components.tplink.Discover.discover", new=_discovery)
 
@@ -566,7 +569,7 @@ def _patch_single_discovery(device=None, no_device=False):
     async def _discover_single(*args, **kwargs):
         if no_device:
             raise KasaException
-        return device if device else _mocked_device()
+        return device or _mocked_device()
 
     return patch(
         "homeassistant.components.tplink.Discover.discover_single", new=_discover_single
@@ -577,7 +580,7 @@ def _patch_connect(device=None, no_device=False):
     async def _connect(*args, **kwargs):
         if no_device:
             raise KasaException
-        return device if device else _mocked_device()
+        return device or _mocked_device()
 
     return patch("homeassistant.components.tplink.Device.connect", new=_connect)
 

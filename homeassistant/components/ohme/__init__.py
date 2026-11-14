@@ -11,7 +11,6 @@ from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN, PLATFORMS
 from .coordinator import (
-    OhmeAdvancedSettingsCoordinator,
     OhmeChargeSessionCoordinator,
     OhmeConfigEntry,
     OhmeDeviceInfoCoordinator,
@@ -29,7 +28,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: OhmeConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: OhmeConfigEntry) -> None:
     """Set up Ohme from a config entry."""
 
     client = OhmeApiClient(
@@ -56,7 +55,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: OhmeConfigEntry) -> bool
 
     coordinators = (
         OhmeChargeSessionCoordinator(hass, entry, client),
-        OhmeAdvancedSettingsCoordinator(hass, entry, client),
         OhmeDeviceInfoCoordinator(hass, entry, client),
     )
 
@@ -67,10 +65,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: OhmeConfigEntry) -> bool
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    return True
 
-
-async def async_unload_entry(hass: HomeAssistant, entry: OhmeConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: OhmeConfigEntry) -> None:
     """Unload a config entry."""
 
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    await hass.config_entries.async_unload_platforms_or_raise(entry, PLATFORMS)

@@ -1,7 +1,5 @@
 """The Cync integration."""
 
-from __future__ import annotations
-
 from pycync import Auth, Cync, User
 from pycync.exceptions import AuthFailedError, CyncError
 
@@ -9,6 +7,7 @@ from homeassistant.const import CONF_ACCESS_TOKEN, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.util.ssl import get_default_context
 
 from .const import (
     CONF_AUTHORIZE_STRING,
@@ -21,7 +20,7 @@ from .coordinator import CyncConfigEntry, CyncCoordinator
 _PLATFORMS: list[Platform] = [Platform.LIGHT]
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: CyncConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: CyncConfigEntry) -> None:
     """Set up Cync from a config entry."""
     user_info = User(
         entry.data[CONF_ACCESS_TOKEN],
@@ -31,9 +30,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: CyncConfigEntry) -> bool
         expires_at=entry.data[CONF_EXPIRES_AT],
     )
     cync_auth = Auth(async_get_clientsession(hass), user=user_info)
+    ssl_context = get_default_context()
 
     try:
-        cync = await Cync.create(cync_auth)
+        cync = await Cync.create(
+            auth=cync_auth,
+            ssl_context=ssl_context,
+        )
     except AuthFailedError as ex:
         raise ConfigEntryAuthFailed("User token invalid") from ex
     except CyncError as ex:
@@ -48,11 +51,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: CyncConfigEntry) -> bool
 
     await hass.config_entries.async_forward_entry_setups(entry, _PLATFORMS)
 
-    return True
 
-
-async def async_unload_entry(hass: HomeAssistant, entry: CyncConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: CyncConfigEntry) -> None:
     """Unload a config entry."""
     cync = entry.runtime_data.cync
     await cync.shut_down()
-    return await hass.config_entries.async_unload_platforms(entry, _PLATFORMS)
+    await hass.config_entries.async_unload_platforms_or_raise(entry, _PLATFORMS)

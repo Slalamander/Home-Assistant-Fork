@@ -1,26 +1,33 @@
 """The Dexcom integration."""
 
-from pydexcom import AccountError, Dexcom, SessionError
+from pydexcom import Dexcom, Region
+from pydexcom.errors import AccountError, SessionError
 
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 
-from .const import CONF_SERVER, PLATFORMS, SERVER_OUS
+from .const import CONF_SERVER, DOMAIN, PLATFORMS, SERVER_OUS
 from .coordinator import DexcomConfigEntry, DexcomCoordinator
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: DexcomConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: DexcomConfigEntry) -> None:
     """Set up Dexcom from a config entry."""
     try:
         dexcom = await hass.async_add_executor_job(
-            Dexcom,
-            entry.data[CONF_USERNAME],
-            entry.data[CONF_PASSWORD],
-            entry.data[CONF_SERVER] == SERVER_OUS,
+            lambda: Dexcom(
+                username=entry.data[CONF_USERNAME],
+                password=entry.data[CONF_PASSWORD],
+                region=Region.OUS
+                if entry.data[CONF_SERVER] == SERVER_OUS
+                else Region.US,
+            )
         )
-    except AccountError:
-        return False
+    except AccountError as error:
+        raise ConfigEntryAuthFailed(
+            translation_domain=DOMAIN,
+            translation_key="account_error",
+        ) from error
     except SessionError as error:
         raise ConfigEntryNotReady from error
 
@@ -31,9 +38,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DexcomConfigEntry) -> bo
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    return True
 
-
-async def async_unload_entry(hass: HomeAssistant, entry: DexcomConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: DexcomConfigEntry) -> None:
     """Unload a config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    await hass.config_entries.async_unload_platforms_or_raise(entry, PLATFORMS)

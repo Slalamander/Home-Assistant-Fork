@@ -4,17 +4,15 @@ from collections.abc import Generator
 from http import HTTPStatus
 from unittest.mock import patch
 
-from freezegun.api import freeze_time
 import pytest
+from pytest_homeassistant.common import MockConfigEntry, snapshot_platform
+from pytest_homeassistant.typing import ClientSessionGenerator
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_UNKNOWN, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
-
-from tests.common import MockConfigEntry, snapshot_platform
-from tests.typing import ClientSessionGenerator
 
 
 @pytest.fixture(autouse=True)
@@ -28,7 +26,7 @@ def event_only() -> Generator[None]:
 
 
 @pytest.mark.usefixtures("entity_registry_enabled_by_default")
-@freeze_time("2025-01-01T03:30:00.000Z")
+@pytest.mark.freeze_time("2025-01-01T03:30:00.000Z")
 async def test_setup(
     hass: HomeAssistant,
     config_entry: MockConfigEntry,
@@ -129,7 +127,7 @@ async def test_setup(
     ],
 )
 @pytest.mark.usefixtures("entity_registry_enabled_by_default")
-@freeze_time("2025-01-01T03:30:00.000+00:00")
+@pytest.mark.freeze_time("2025-01-01T03:30:00.000+00:00")
 async def test_webhook_event(
     hass: HomeAssistant,
     config_entry: MockConfigEntry,

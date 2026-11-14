@@ -4,7 +4,7 @@ from collections.abc import Callable, Coroutine
 from unittest.mock import AsyncMock, call, patch, sentinel
 
 import pytest
-from zigpy.device import Device
+from zigpy.device import ZigbeeDevice
 from zigpy.profiles import zha
 from zigpy.zcl import Cluster
 from zigpy.zcl.clusters import security
@@ -29,7 +29,7 @@ from .conftest import SIG_EP_INPUT, SIG_EP_OUTPUT, SIG_EP_PROFILE, SIG_EP_TYPE
 
 @pytest.fixture(autouse=True)
 def alarm_control_panel_platform_only():
-    """Only set up the alarm_control_panel and required base platforms to speed up tests."""
+    """Only set up alarm_control_panel and base platforms."""
     with patch(
         "homeassistant.components.zha.PLATFORMS",
         (
@@ -49,7 +49,7 @@ def alarm_control_panel_platform_only():
 async def test_alarm_control_panel(
     hass: HomeAssistant,
     setup_zha: Callable[..., Coroutine[None]],
-    zigpy_device_mock: Callable[..., Device],
+    zigpy_device_mock: Callable[..., ZigbeeDevice],
 ) -> None:
     """Test ZHA alarm control panel platform."""
 
@@ -60,8 +60,8 @@ async def test_alarm_control_panel(
     zigpy_device = zigpy_device_mock(
         {
             1: {
-                SIG_EP_INPUT: [security.IasAce.cluster_id],
-                SIG_EP_OUTPUT: [],
+                SIG_EP_INPUT: [],
+                SIG_EP_OUTPUT: [security.IasAce.cluster_id],
                 SIG_EP_TYPE: zha.DeviceType.IAS_ANCILLARY_CONTROL,
                 SIG_EP_PROFILE: zha.PROFILE_ID,
             }
@@ -75,7 +75,7 @@ async def test_alarm_control_panel(
 
     zha_device_proxy: ZHADeviceProxy = gateway_proxy.get_device_proxy(zigpy_device.ieee)
     entity_id = find_entity_id(Platform.ALARM_CONTROL_PANEL, zha_device_proxy, hass)
-    cluster = zigpy_device.endpoints[1].ias_ace
+    cluster = zigpy_device.endpoints[1].out_clusters[security.IasAce.cluster_id]
     assert entity_id is not None
 
     assert hass.states.get(entity_id).state == AlarmControlPanelState.DISARMED

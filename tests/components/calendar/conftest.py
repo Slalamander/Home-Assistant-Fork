@@ -1,21 +1,13 @@
 """Test fixtures for calendar sensor platforms."""
 
 from collections.abc import Generator
-import datetime
+import datetime as dt
 import secrets
 from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
-
-from homeassistant.components.calendar import DOMAIN, CalendarEntity, CalendarEvent
-from homeassistant.config_entries import ConfigEntry, ConfigFlow
-from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
-from homeassistant.util import dt as dt_util
-
-from tests.common import (
+from pytest_homeassistant.common import (
     MockConfigEntry,
     MockModule,
     MockPlatform,
@@ -23,6 +15,18 @@ from tests.common import (
     mock_integration,
     mock_platform,
 )
+
+from homeassistant.components.calendar import (
+    DOMAIN,
+    CalendarEntity,
+    CalendarEntityDescription,
+    CalendarEvent,
+)
+from homeassistant.config_entries import ConfigEntry, ConfigFlow
+from homeassistant.const import Platform
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 TEST_DOMAIN = "test"
 
@@ -44,10 +48,21 @@ class MockCalendarEntity(CalendarEntity):
 
     _attr_has_entity_name = True
 
-    def __init__(self, name: str, events: list[CalendarEvent] | None = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        events: list[CalendarEvent] | None = None,
+        initial_color: str | None = None,
+        unique_id: str | None = None,
+    ) -> None:
         """Initialize entity."""
         self._attr_name = name.capitalize()
         self._events = events or []
+        self._attr_unique_id = unique_id
+        self.entity_description = CalendarEntityDescription(
+            key=unique_id or name,
+            initial_color=initial_color,
+        )
 
     @property
     def event(self) -> CalendarEvent | None:
@@ -56,8 +71,8 @@ class MockCalendarEntity(CalendarEntity):
 
     def create_event(
         self,
-        start: datetime.datetime,
-        end: datetime.datetime,
+        start: dt.date | dt.datetime,
+        end: dt.date | dt.datetime,
         summary: str | None = None,
         description: str | None = None,
         location: str | None = None,
@@ -66,7 +81,7 @@ class MockCalendarEntity(CalendarEntity):
         event = CalendarEvent(
             start=start,
             end=end,
-            summary=summary if summary else f"Event {secrets.token_hex(16)}",
+            summary=summary or f"Event {secrets.token_hex(16)}",
             description=description,
             location=location,
         )
@@ -76,18 +91,29 @@ class MockCalendarEntity(CalendarEntity):
     async def async_get_events(
         self,
         hass: HomeAssistant,
-        start_date: datetime.datetime,
-        end_date: datetime.datetime,
+        start_date: dt.datetime,
+        end_date: dt.datetime,
     ) -> list[CalendarEvent]:
         """Return calendar events within a datetime range."""
-        assert start_date < end_date
-        events = []
-        for event in self._events:
-            if event.start_datetime_local >= end_date:
-                continue
-            if event.end_datetime_local < start_date:
-                continue
-            events.append(event)
+        assert start_date.tzinfo == dt_util.get_default_time_zone()
+        assert end_date.tzinfo == dt_util.get_default_time_zone()
+        start_utc = dt_util.as_utc(start_date)
+        end_utc = dt_util.as_utc(end_date)
+        assert start_utc < end_utc
+
+        def _as_utc(value: dt.date | dt.datetime) -> dt.datetime:
+            if isinstance(value, dt.datetime):
+                return dt_util.as_utc(value)
+            return dt_util.as_utc(
+                dt.datetime.combine(value, dt.time(), tzinfo=start_date.tzinfo)
+            )
+
+        events = [
+            event
+            for event in self._events
+            if _as_utc(event.start) < end_utc and _as_utc(event.end) >= start_utc
+        ]
+        events.sort(key=lambda event: _as_utc(event.start))
         return events
 
 
@@ -118,21 +144,19 @@ def mock_setup_integration(
 
     async def async_setup_entry_init(
         hass: HomeAssistant, config_entry: ConfigEntry
-    ) -> bool:
+    ) -> None:
         """Set up test config entry."""
         await hass.config_entries.async_forward_entry_setups(
             config_entry, [Platform.CALENDAR]
         )
-        return True
 
     async def async_unload_entry_init(
         hass: HomeAssistant,
         config_entry: ConfigEntry,
-    ) -> bool:
+    ) -> None:
         await hass.config_entries.async_unload_platforms(
             config_entry, [Platform.CALENDAR]
         )
-        return True
 
     mock_platform(hass, f"{TEST_DOMAIN}.config_flow")
     mock_integration(
@@ -170,32 +194,42 @@ def mock_test_entities() -> list[MockCalendarEntity]:
 
 def create_test_entities() -> list[MockCalendarEntity]:
     """Create test entities used during the test."""
-    half_hour_from_now = dt_util.now() + datetime.timedelta(minutes=30)
+    half_hour_from_now = dt_util.now() + dt.timedelta(minutes=30)
     entity1 = MockCalendarEntity(
         "Calendar 1",
         [
             CalendarEvent(
                 start=half_hour_from_now,
-                end=half_hour_from_now + datetime.timedelta(minutes=60),
+                end=half_hour_from_now + dt.timedelta(minutes=60),
                 summary="Future Event",
                 description="Future Description",
                 location="Future Location",
+                uid="calendar-event-uid-1",
+                rrule="FREQ=WEEKLY;COUNT=3",
+                recurrence_id="20260415",
             )
         ],
+        unique_id="calendar_1_id",
     )
     entity1.async_get_events = AsyncMock(wraps=entity1.async_get_events)
 
-    middle_of_event = dt_util.now() - datetime.timedelta(minutes=30)
+    middle_of_event = dt_util.now() - dt.timedelta(minutes=30)
     entity2 = MockCalendarEntity(
         "Calendar 2",
         [
             CalendarEvent(
                 start=middle_of_event,
-                end=middle_of_event + datetime.timedelta(minutes=60),
+                end=middle_of_event + dt.timedelta(minutes=60),
                 summary="Current Event",
             )
         ],
+        unique_id="calendar_2_id",
     )
     entity2.async_get_events = AsyncMock(wraps=entity2.async_get_events)
 
-    return [entity1, entity2]
+    entity3 = MockCalendarEntity(
+        "Calendar 3", [], initial_color="#FF0000", unique_id="calendar_3"
+    )
+    entity3.async_get_events = AsyncMock(wraps=entity3.async_get_events)
+
+    return [entity1, entity2, entity3]

@@ -9,6 +9,8 @@ from unittest.mock import Mock
 from freezegun.api import FrozenDateTimeFactory
 from httplib2 import Response
 import pytest
+from pytest_homeassistant.common import async_fire_time_changed
+from pytest_homeassistant.typing import WebSocketGenerator
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components.google_tasks.coordinator import UPDATE_INTERVAL
@@ -30,9 +32,6 @@ from .conftest import (
     LIST_TASKS_RESPONSE_WATER,
     create_response_object,
 )
-
-from tests.common import async_fire_time_changed
-from tests.typing import WebSocketGenerator
 
 ENTITY_ID = "todo.my_tasks"
 EMPTY_RESPONSE = {}
@@ -222,6 +221,7 @@ def setup_http_response(mock_http_response: Mock) -> None:
                         "status": "needsAction",
                         "position": "0000000000000001",
                         "due": "2023-11-18T00:00:00Z",
+                        "updated": "2023-11-10T23:00:00.333Z",
                     },
                     {
                         "id": "task-2",
@@ -229,6 +229,8 @@ def setup_http_response(mock_http_response: Mock) -> None:
                         "status": "completed",
                         "position": "0000000000000002",
                         "notes": "long description",
+                        "updated": "2023-11-12T12:31:04.132Z",
+                        "completed": "2023-11-12T12:31:04.132Z",
                     },
                 ],
             },
@@ -262,6 +264,7 @@ async def test_get_items(
             "uid": "task-2",
             "summary": "Task 2",
             "status": "completed",
+            "completed": "2023-11-12T12:31:04.132000+00:00",
             "description": "long description",
         },
     ]

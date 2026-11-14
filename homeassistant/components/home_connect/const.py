@@ -1,8 +1,13 @@
 """Constants for the Home Connect integration."""
 
-from typing import cast
-
-from aiohomeconnect.model import EventKey, OptionKey, ProgramKey, SettingKey, StatusKey
+from aiohomeconnect.model import (
+    ApplianceType,
+    EventKey,
+    OptionKey,
+    ProgramKey,
+    SettingKey,
+    StatusKey,
+)
 
 from homeassistant.const import UnitOfTemperature, UnitOfTime, UnitOfVolume
 
@@ -13,15 +18,17 @@ DOMAIN = "home_connect"
 API_DEFAULT_RETRY_AFTER = 60
 
 APPLIANCES_WITH_PROGRAMS = (
-    "CleaningRobot",
-    "CoffeeMaker",
-    "Dishwasher",
-    "Dryer",
-    "Hood",
-    "Oven",
-    "WarmingDrawer",
-    "Washer",
-    "WasherDryer",
+    ApplianceType.AIR_CONDITIONER,
+    ApplianceType.CLEANING_ROBOT,
+    ApplianceType.COFFEE_MAKER,
+    ApplianceType.DISHWASHER,
+    ApplianceType.DRYER,
+    ApplianceType.HOOD,
+    ApplianceType.MICROWAVE,
+    ApplianceType.OVEN,
+    ApplianceType.WARMING_DRAWER,
+    ApplianceType.WASHER,
+    ApplianceType.WASHER_DRYER,
 )
 
 UNIT_MAP = {
@@ -42,9 +49,19 @@ BSH_EVENT_PRESENT_STATE_CONFIRMED = "BSH.Common.EnumType.EventPresentState.Confi
 BSH_EVENT_PRESENT_STATE_OFF = "BSH.Common.EnumType.EventPresentState.Off"
 
 
+BSH_OPERATION_STATE_INACTIVE = "BSH.Common.EnumType.OperationState.Inactive"
+BSH_OPERATION_STATE_READY = "BSH.Common.EnumType.OperationState.Ready"
+BSH_OPERATION_STATE_DELAYED_START = "BSH.Common.EnumType.OperationState.DelayedStart"
 BSH_OPERATION_STATE_RUN = "BSH.Common.EnumType.OperationState.Run"
 BSH_OPERATION_STATE_PAUSE = "BSH.Common.EnumType.OperationState.Pause"
 BSH_OPERATION_STATE_FINISHED = "BSH.Common.EnumType.OperationState.Finished"
+
+# Option events that only describe the current run of the active program
+PROGRAM_PROGRESS_EVENT_KEYS = (
+    EventKey.BSH_COMMON_OPTION_ELAPSED_PROGRAM_TIME,
+    EventKey.BSH_COMMON_OPTION_PROGRAM_PROGRESS,
+    EventKey.BSH_COMMON_OPTION_REMAINING_PROGRAM_TIME,
+)
 
 
 REFRIGERATION_STATUS_DOOR_CLOSED = "Refrigeration.Common.EnumType.Door.States.Closed"
@@ -61,26 +78,49 @@ BSH_DOOR_STATE_LOCKED = "BSH.Common.EnumType.DoorState.Locked"
 BSH_DOOR_STATE_OPEN = "BSH.Common.EnumType.DoorState.Open"
 
 
-SERVICE_SET_PROGRAM_AND_OPTIONS = "set_program_and_options"
-SERVICE_SETTING = "change_setting"
-
-ATTR_AFFECTS_TO = "affects_to"
-ATTR_KEY = "key"
-ATTR_PROGRAM = "program"
-ATTR_VALUE = "value"
-
 AFFECTS_TO_ACTIVE_PROGRAM = "active_program"
 AFFECTS_TO_SELECTED_PROGRAM = "selected_program"
 
 
-TRANSLATION_KEYS_PROGRAMS_MAP = {
-    bsh_key_to_translation_key(program.value): cast(ProgramKey, program)
-    for program in ProgramKey
-    if program != ProgramKey.UNKNOWN
+FAVORITE_PROGRAMS = {
+    ProgramKey.BSH_COMMON_FAVORITE_001,
+    ProgramKey.BSH_COMMON_FAVORITE_002,
+    ProgramKey.BSH_COMMON_FAVORITE_003,
+    ProgramKey.BSH_COMMON_FAVORITE_004,
+    ProgramKey.BSH_COMMON_FAVORITE_005,
+    ProgramKey.BSH_COMMON_FAVORITE_006,
+    ProgramKey.BSH_COMMON_FAVORITE_007,
+    ProgramKey.BSH_COMMON_FAVORITE_008,
+    ProgramKey.BSH_COMMON_FAVORITE_009,
+    ProgramKey.BSH_COMMON_FAVORITE_010,
+    ProgramKey.BSH_COMMON_FAVORITE_011,
+    ProgramKey.BSH_COMMON_FAVORITE_012,
+    ProgramKey.BSH_COMMON_FAVORITE_013,
+    ProgramKey.BSH_COMMON_FAVORITE_014,
+    ProgramKey.BSH_COMMON_FAVORITE_015,
+    ProgramKey.BSH_COMMON_FAVORITE_016,
+    ProgramKey.BSH_COMMON_FAVORITE_017,
+    ProgramKey.BSH_COMMON_FAVORITE_018,
+    ProgramKey.BSH_COMMON_FAVORITE_019,
+    ProgramKey.BSH_COMMON_FAVORITE_020,
 }
 
-PROGRAMS_TRANSLATION_KEYS_MAP = {
+TRANSLATION_KEYS_PROGRAMS_MAP = {
+    bsh_key_to_translation_key(program.value): program
+    for program in ProgramKey
+    if program not in (ProgramKey.UNKNOWN, *FAVORITE_PROGRAMS)
+}
+
+PROGRAMS_TRANSLATION_KEYS_MAP: dict[ProgramKey, str] = {
     value: key for key, value in TRANSLATION_KEYS_PROGRAMS_MAP.items()
+}
+
+FAN_SPEED_MODE_OPTIONS = {
+    bsh_key_to_translation_key(option): option
+    for option in (
+        "HeatingVentilationAirConditioning.AirConditioner.EnumType.FanSpeedMode.Automatic",
+        "HeatingVentilationAirConditioning.AirConditioner.EnumType.FanSpeedMode.Manual",
+    )
 }
 
 AVAILABLE_MAPS_ENUM = {
@@ -147,6 +187,7 @@ COFFEE_TEMPERATURE_OPTIONS = {
         "ConsumerProducts.CoffeeMaker.EnumType.CoffeeTemperature.94C",
         "ConsumerProducts.CoffeeMaker.EnumType.CoffeeTemperature.95C",
         "ConsumerProducts.CoffeeMaker.EnumType.CoffeeTemperature.96C",
+        "ConsumerProducts.CoffeeMaker.EnumType.CoffeeTemperature.98C",
     )
 }
 
@@ -260,6 +301,10 @@ WARMING_LEVEL_OPTIONS = {
     )
 }
 
+RINSE_PLUS_OPTIONS = {
+    bsh_key_to_translation_key(option): option
+    for option in ("LaundryCare.Washer.EnumType.RinsePlus.Off",)
+}
 TEMPERATURE_OPTIONS = {
     bsh_key_to_translation_key(option): option
     for option in (
@@ -299,6 +344,12 @@ SPIN_SPEED_OPTIONS = {
     )
 }
 
+STAINS_OPTIONS = {
+    bsh_key_to_translation_key(option): option
+    for option in ("LaundryCare.Washer.EnumType.Stains.Off",)
+}
+
+
 VARIO_PERFECT_OPTIONS = {
     bsh_key_to_translation_key(option): option
     for option in (
@@ -315,6 +366,10 @@ PROGRAM_ENUM_OPTIONS = {
         options,
     )
     for option_key, options in (
+        (
+            OptionKey.HEATING_VENTILATION_AIR_CONDITIONING_AIR_CONDITIONER_FAN_SPEED_MODE,
+            FAN_SPEED_MODE_OPTIONS,
+        ),
         (
             OptionKey.CONSUMER_PRODUCTS_CLEANING_ROBOT_REFERENCE_MAP_ID,
             AVAILABLE_MAPS_ENUM,
@@ -349,8 +404,10 @@ PROGRAM_ENUM_OPTIONS = {
         (OptionKey.COOKING_COMMON_HOOD_VENTING_LEVEL, VENTING_LEVEL_OPTIONS),
         (OptionKey.COOKING_COMMON_HOOD_INTENSIVE_LEVEL, INTENSIVE_LEVEL_OPTIONS),
         (OptionKey.COOKING_OVEN_WARMING_LEVEL, WARMING_LEVEL_OPTIONS),
+        (OptionKey.LAUNDRY_CARE_WASHER_RINSE_PLUS, RINSE_PLUS_OPTIONS),
         (OptionKey.LAUNDRY_CARE_WASHER_TEMPERATURE, TEMPERATURE_OPTIONS),
         (OptionKey.LAUNDRY_CARE_WASHER_SPIN_SPEED, SPIN_SPEED_OPTIONS),
+        (OptionKey.LAUNDRY_CARE_WASHER_STAINS, STAINS_OPTIONS),
         (OptionKey.LAUNDRY_CARE_COMMON_VARIO_PERFECT, VARIO_PERFECT_OPTIONS),
     )
 }
@@ -368,17 +425,29 @@ OLD_NEW_UNIQUE_ID_SUFFIX_MAP = {
     "Remote Control": StatusKey.BSH_COMMON_REMOTE_CONTROL_ACTIVE,
     "Remote Start": StatusKey.BSH_COMMON_REMOTE_CONTROL_START_ALLOWED,
     "Supermode Freezer": SettingKey.REFRIGERATION_FRIDGE_FREEZER_SUPER_MODE_FREEZER,
-    "Supermode Refrigerator": SettingKey.REFRIGERATION_FRIDGE_FREEZER_SUPER_MODE_REFRIGERATOR,
+    "Supermode Refrigerator": (
+        SettingKey.REFRIGERATION_FRIDGE_FREEZER_SUPER_MODE_REFRIGERATOR
+    ),
     "Dispenser Enabled": SettingKey.REFRIGERATION_COMMON_DISPENSER_ENABLED,
     "Internal Light": SettingKey.REFRIGERATION_COMMON_LIGHT_INTERNAL_POWER,
     "External Light": SettingKey.REFRIGERATION_COMMON_LIGHT_EXTERNAL_POWER,
     "Chiller Door": StatusKey.REFRIGERATION_COMMON_DOOR_CHILLER,
     "Freezer Door": StatusKey.REFRIGERATION_COMMON_DOOR_FREEZER,
     "Refrigerator Door": StatusKey.REFRIGERATION_COMMON_DOOR_REFRIGERATOR,
-    "Door Alarm Freezer": EventKey.REFRIGERATION_FRIDGE_FREEZER_EVENT_DOOR_ALARM_FREEZER,
-    "Door Alarm Refrigerator": EventKey.REFRIGERATION_FRIDGE_FREEZER_EVENT_DOOR_ALARM_REFRIGERATOR,
-    "Temperature Alarm Freezer": EventKey.REFRIGERATION_FRIDGE_FREEZER_EVENT_TEMPERATURE_ALARM_FREEZER,
-    "Bean Container Empty": EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_EVENT_BEAN_CONTAINER_EMPTY,
-    "Water Tank Empty": EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_EVENT_WATER_TANK_EMPTY,
+    "Door Alarm Freezer": (
+        EventKey.REFRIGERATION_FRIDGE_FREEZER_EVENT_DOOR_ALARM_FREEZER
+    ),
+    "Door Alarm Refrigerator": (
+        EventKey.REFRIGERATION_FRIDGE_FREEZER_EVENT_DOOR_ALARM_REFRIGERATOR
+    ),
+    "Temperature Alarm Freezer": (
+        EventKey.REFRIGERATION_FRIDGE_FREEZER_EVENT_TEMPERATURE_ALARM_FREEZER
+    ),
+    "Bean Container Empty": (
+        EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_EVENT_BEAN_CONTAINER_EMPTY
+    ),
+    "Water Tank Empty": (
+        EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_EVENT_WATER_TANK_EMPTY
+    ),
     "Drip Tray Full": EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_EVENT_DRIP_TRAY_FULL,
 }

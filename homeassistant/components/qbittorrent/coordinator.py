@@ -1,9 +1,8 @@
 """The QBittorrent coordinator."""
 
-from __future__ import annotations
-
 from datetime import timedelta
 import logging
+from typing import override
 
 from qbittorrentapi import (
     APIConnectionError,
@@ -24,14 +23,16 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
+type QBittorrentConfigEntry = ConfigEntry[QBittorrentDataCoordinator]
+
 
 class QBittorrentDataCoordinator(DataUpdateCoordinator[SyncMainDataDictionary]):
     """Coordinator for updating QBittorrent data."""
 
-    config_entry: ConfigEntry
+    config_entry: QBittorrentConfigEntry
 
     def __init__(
-        self, hass: HomeAssistant, config_entry: ConfigEntry, client: Client
+        self, hass: HomeAssistant, config_entry: QBittorrentConfigEntry, client: Client
     ) -> None:
         """Initialize coordinator."""
         self.client = client
@@ -52,14 +53,11 @@ class QBittorrentDataCoordinator(DataUpdateCoordinator[SyncMainDataDictionary]):
             update_interval=timedelta(seconds=30),
         )
 
+    @override
     async def _async_update_data(self) -> SyncMainDataDictionary:
         try:
-            data = await self.hass.async_add_executor_job(self.client.sync_maindata)
-            self._is_alternative_mode_enabled = (
-                await self.hass.async_add_executor_job(
-                    self.client.transfer_speed_limits_mode
-                )
-                == "1"
+            data, speed_limits_mode = await self.hass.async_add_executor_job(
+                self._fetch_data
             )
         except (LoginFailed, Forbidden403Error) as exc:
             raise HomeAssistantError(
@@ -69,7 +67,15 @@ class QBittorrentDataCoordinator(DataUpdateCoordinator[SyncMainDataDictionary]):
             raise HomeAssistantError(
                 translation_domain=DOMAIN, translation_key="cannot_connect"
             ) from exc
+        self._is_alternative_mode_enabled = speed_limits_mode == "1"
         return data
+
+    def _fetch_data(self) -> tuple[SyncMainDataDictionary, str]:
+        """Fetch the main data and the speed limits mode."""
+        return (
+            self.client.sync_maindata(),
+            self.client.transfer_speed_limits_mode(),
+        )
 
     def set_alt_speed_enabled(self, is_enabled: bool) -> None:
         """Set the alternative speed mode."""

@@ -2,18 +2,18 @@
 
 from collections.abc import Awaitable, Callable, Coroutine
 from functools import wraps
-from typing import Any, Concatenate
+from typing import TYPE_CHECKING, Any, Concatenate, Literal
 
-from aiocomelit.api import (
-    ComelitSerialBridgeObject,
-    ComelitVedoAreaObject,
-    ComelitVedoZoneObject,
+from aiocomelit.api import ComelitDeviceObject
+from aiocomelit.exceptions import (
+    CannotAuthenticate,
+    CannotConnect,
+    CannotRetrieveData,
+    DeviceStorageFailureError,
 )
-from aiocomelit.exceptions import CannotAuthenticate, CannotConnect, CannotRetrieveData
 from aiohttp import ClientSession, CookieJar
 
 from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import (
@@ -22,11 +22,9 @@ from homeassistant.helpers import (
     entity_registry as er,
 )
 
-from .const import _LOGGER, DOMAIN
-from .coordinator import ComelitBaseCoordinator
+from .const import DOMAIN, LOGGER, ObjectClassType
+from .coordinator import ComelitBaseCoordinator, ComelitConfigEntry
 from .entity import ComelitBridgeBaseEntity
-
-DeviceType = ComelitSerialBridgeObject | ComelitVedoAreaObject | ComelitVedoZoneObject
 
 
 async def async_client_session(hass: HomeAssistant) -> ClientSession:
@@ -36,13 +34,15 @@ async def async_client_session(hass: HomeAssistant) -> ClientSession:
     )
 
 
-def load_api_data(device: ComelitSerialBridgeObject, domain: str) -> list[Any]:
+def load_api_data(
+    device: ComelitDeviceObject,
+    domain: Literal["climate", "humidifier"],
+) -> list[Any]:
     """Load data from the API."""
-    # This function is called when the data is loaded from the API
-    if not isinstance(device.val, list):
-        raise HomeAssistantError(
-            translation_domain=domain, translation_key="invalid_clima_data"
-        )
+    # This function is called when the data is loaded from the API.
+    # For climate and humidifier device.val is always a list.
+    if TYPE_CHECKING:
+        assert isinstance(device.val, list)
     # CLIMATE has a 2 item tuple:
     # - first  for Clima
     # - second for Humidifier
@@ -51,9 +51,9 @@ def load_api_data(device: ComelitSerialBridgeObject, domain: str) -> list[Any]:
 
 async def cleanup_stale_entity(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: ComelitConfigEntry,
     entry_unique_id: str,
-    device: ComelitSerialBridgeObject,
+    device: ComelitDeviceObject,
 ) -> None:
     """Cleanup stale entity."""
     entity_reg: er.EntityRegistry = er.async_get(hass)
@@ -63,32 +63,27 @@ async def cleanup_stale_entity(
     for entry in er.async_entries_for_config_entry(entity_reg, config_entry.entry_id):
         if entry.unique_id == entry_unique_id:
             entry_name = entry.name or entry.original_name
-            _LOGGER.info("Removing entity: %s [%s]", entry.entity_id, entry_name)
+            LOGGER.info("Removing entity: %s [%s]", entry.entity_id, entry_name)
             entity_reg.async_remove(entry.entity_id)
             identifiers.append(f"{config_entry.entry_id}-{device.type}-{device.index}")
 
     if len(identifiers) > 0:
-        _async_remove_state_config_entry_from_devices(hass, identifiers, config_entry)
+        _async_remove_stale_devices(hass, identifiers, config_entry)
 
 
-def _async_remove_state_config_entry_from_devices(
-    hass: HomeAssistant, identifiers: list[str], config_entry: ConfigEntry
+def _async_remove_stale_devices(
+    hass: HomeAssistant, identifiers: list[str], config_entry: ComelitConfigEntry
 ) -> None:
-    """Remove config entry from device."""
+    """Remove stale devices."""
 
     device_registry = dr.async_get(hass)
     for identifier in identifiers:
-        device = device_registry.async_get_device(identifiers={(DOMAIN, identifier)})
+        device = device_registry.async_get_device_by_identifier(
+            (DOMAIN, identifier), config_entry.entry_id
+        )
         if device:
-            _LOGGER.info(
-                "Removing config entry %s from device %s",
-                config_entry.title,
-                device.name,
-            )
-            device_registry.async_update_device(
-                device_id=device.id,
-                remove_config_entry_id=config_entry.entry_id,
-            )
+            LOGGER.info("Removing device %s", device.name)
+            device_registry.async_remove_device(device.id)
 
 
 def bridge_api_call[_T: ComelitBridgeBaseEntity, **_P](
@@ -115,6 +110,12 @@ def bridge_api_call[_T: ComelitBridgeBaseEntity, **_P](
                 translation_key="cannot_retrieve_data",
                 translation_placeholders={"error": repr(err)},
             ) from err
+        except DeviceStorageFailureError as err:
+            self.coordinator.last_update_success = False
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="device_storage_failure",
+            ) from err
         except CannotAuthenticate:
             self.coordinator.last_update_success = False
             self.coordinator.config_entry.async_start_reauth(self.hass)
@@ -126,11 +127,7 @@ def new_device_listener(
     coordinator: ComelitBaseCoordinator,
     new_devices_callback: Callable[
         [
-            list[
-                ComelitSerialBridgeObject
-                | ComelitVedoAreaObject
-                | ComelitVedoZoneObject
-            ],
+            list[ObjectClassType],
             str,
         ],
         None,
@@ -142,10 +139,10 @@ def new_device_listener(
 
     def _check_devices() -> None:
         """Check for new devices and call callback with any new monitors."""
-        if not coordinator.data:
-            return
+        if TYPE_CHECKING:
+            assert coordinator.data
 
-        new_devices: list[DeviceType] = []
+        new_devices: list[ObjectClassType] = []
         for _id in coordinator.data[data_type]:
             if _id not in (id_list := known_devices.get(data_type, [])):
                 known_devices.update({data_type: [*id_list, _id]})

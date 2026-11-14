@@ -6,10 +6,12 @@ from unittest.mock import AsyncMock
 from devolo_plc_api.exceptions.device import DeviceUnavailable
 from freezegun.api import FrozenDateTimeFactory
 import pytest
+from pytest_homeassistant.common import async_fire_time_changed
+from pytest_homeassistant.typing import ClientSessionGenerator
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components.devolo_home_network.const import SHORT_UPDATE_INTERVAL
-from homeassistant.components.image import DOMAIN as PLATFORM
+from homeassistant.components.image import DOMAIN as IMAGE_DOMAIN
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
@@ -19,9 +21,6 @@ from homeassistant.util import dt as dt_util
 from . import configure_integration
 from .const import GUEST_WIFI_CHANGED
 from .mock import MockDevice
-
-from tests.common import async_fire_time_changed
-from tests.typing import ClientSessionGenerator
 
 
 @pytest.mark.usefixtures("mock_device")
@@ -37,7 +36,7 @@ async def test_image_setup(
     assert entry.state is ConfigEntryState.LOADED
 
     assert not entity_registry.async_get(
-        f"{PLATFORM}.{device_name}_guest_wi_fi_credentials_as_qr_code"
+        f"{IMAGE_DOMAIN}.{device_name}_guest_wi_fi_credentials_as_qr_code"
     ).disabled
 
 
@@ -53,18 +52,18 @@ async def test_guest_wifi_qr(
     """Test showing a QR code of the guest wifi credentials."""
     entry = configure_integration(hass)
     device_name = entry.title.replace(" ", "_").lower()
-    state_key = f"{PLATFORM}.{device_name}_guest_wi_fi_credentials_as_qr_code"
+    entity_id = f"{IMAGE_DOMAIN}.{device_name}_guest_wi_fi_credentials_as_qr_code"
 
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    state = hass.states.get(state_key)
+    state = hass.states.get(entity_id)
     assert state.name == "Mock Title Guest Wi-Fi credentials as QR code"
     assert state.state == dt_util.utcnow().isoformat()
-    assert entity_registry.async_get(state_key) == snapshot
+    assert entity_registry.async_get(entity_id) == snapshot
 
     client = await hass_client()
-    resp = await client.get(f"/api/image_proxy/{state_key}")
+    resp = await client.get(f"/api/image_proxy/{entity_id}")
     assert resp.status == HTTPStatus.OK
     body = await resp.read()
     assert body == snapshot
@@ -75,7 +74,7 @@ async def test_guest_wifi_qr(
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
 
-    state = hass.states.get(state_key)
+    state = hass.states.get(entity_id)
     assert state is not None
     assert state.state == STATE_UNAVAILABLE
 
@@ -87,11 +86,11 @@ async def test_guest_wifi_qr(
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
 
-    state = hass.states.get(state_key)
+    state = hass.states.get(entity_id)
     assert state is not None
     assert state.state == dt_util.utcnow().isoformat()
 
     client = await hass_client()
-    resp = await client.get(f"/api/image_proxy/{state_key}")
+    resp = await client.get(f"/api/image_proxy/{entity_id}")
     assert resp.status == HTTPStatus.OK
     assert await resp.read() != body

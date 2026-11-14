@@ -1,9 +1,7 @@
 """Valve for Shelly."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, cast, override
 
 from aioshelly.block_device import Block
 from aioshelly.const import MODEL_GAS, RPC_GENERATIONS
@@ -17,7 +15,11 @@ from homeassistant.components.valve import (
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import MODEL_FRANKEVER_WATER_VALVE, MODEL_NEO_WATER_VALVE
+from .const import (
+    MODEL_FRANKEVER_IRRIGATION_CONTROLLER,
+    MODEL_FRANKEVER_WATER_VALVE,
+    MODEL_NEO_WATER_VALVE,
+)
 from .coordinator import ShellyBlockCoordinator, ShellyConfigEntry, ShellyRpcCoordinator
 from .entity import (
     BlockEntityDescription,
@@ -45,7 +47,7 @@ class RpcValveDescription(RpcEntityDescription, ValveEntityDescription):
 BLOCK_VALVES: dict[tuple[str, str], BlockValveDescription] = {
     ("valve", "valve"): BlockValveDescription(
         key="valve|valve",
-        name="Valve",
+        translation_key="gas_valve",
         available=lambda block: block.valve not in ("failure", "checking"),
         removal_condition=lambda _, block: block.valve in ("not_connected", "unknown"),
         models={MODEL_GAS},
@@ -83,30 +85,35 @@ class RpcShellyWaterValve(RpcShellyBaseWaterValve):
     _attr_reports_position = True
 
     @property
+    @override
     def current_valve_position(self) -> int:
         """Return current position of valve."""
         return cast(int, self.attribute_value)
 
+    @override
     async def async_set_valve_position(self, position: int) -> None:
         """Move the valve to a specific position."""
         await self.coordinator.device.number_set(self._id, position)
 
 
-class RpcShellyNeoWaterValve(RpcShellyBaseWaterValve):
-    """Entity that controls a valve on RPC Shelly NEO Water Valve."""
+class RpcShellySimpleWaterValve(RpcShellyBaseWaterValve):
+    """Entity that controls a valve on RPC Shelly Open/Close Water Valve."""
 
     _attr_supported_features = ValveEntityFeature.OPEN | ValveEntityFeature.CLOSE
     _attr_reports_position = False
 
     @property
+    @override
     def is_closed(self) -> bool | None:
         """Return if the valve is closed or not."""
         return not self.attribute_value
 
+    @override
     async def async_open_valve(self, **kwargs: Any) -> None:
         """Open valve."""
         await self.coordinator.device.boolean_set(self._id, True)
 
+    @override
     async def async_close_valve(self, **kwargs: Any) -> None:
         """Close valve."""
         await self.coordinator.device.boolean_set(self._id, False)
@@ -124,8 +131,50 @@ RPC_VALVES: dict[str, RpcValveDescription] = {
         key="boolean",
         sub_key="value",
         role="state",
-        entity_class=RpcShellyNeoWaterValve,
+        entity_class=RpcShellySimpleWaterValve,
         models={MODEL_NEO_WATER_VALVE},
+    ),
+    "boolean_zone0": RpcValveDescription(
+        key="boolean",
+        sub_key="value",
+        role="zone0",
+        entity_class=RpcShellySimpleWaterValve,
+        models={MODEL_FRANKEVER_IRRIGATION_CONTROLLER},
+    ),
+    "boolean_zone1": RpcValveDescription(
+        key="boolean",
+        sub_key="value",
+        role="zone1",
+        entity_class=RpcShellySimpleWaterValve,
+        models={MODEL_FRANKEVER_IRRIGATION_CONTROLLER},
+    ),
+    "boolean_zone2": RpcValveDescription(
+        key="boolean",
+        sub_key="value",
+        role="zone2",
+        entity_class=RpcShellySimpleWaterValve,
+        models={MODEL_FRANKEVER_IRRIGATION_CONTROLLER},
+    ),
+    "boolean_zone3": RpcValveDescription(
+        key="boolean",
+        sub_key="value",
+        role="zone3",
+        entity_class=RpcShellySimpleWaterValve,
+        models={MODEL_FRANKEVER_IRRIGATION_CONTROLLER},
+    ),
+    "boolean_zone4": RpcValveDescription(
+        key="boolean",
+        sub_key="value",
+        role="zone4",
+        entity_class=RpcShellySimpleWaterValve,
+        models={MODEL_FRANKEVER_IRRIGATION_CONTROLLER},
+    ),
+    "boolean_zone5": RpcValveDescription(
+        key="boolean",
+        sub_key="value",
+        role="zone5",
+        entity_class=RpcShellySimpleWaterValve,
+        models={MODEL_FRANKEVER_IRRIGATION_CONTROLLER},
     ),
 }
 
@@ -196,6 +245,7 @@ class BlockShellyValve(ShellyBlockAttributeEntity, ValveEntity):
         self._attr_is_closed = bool(self.attribute_value == "closed")
 
     @property
+    @override
     def is_closing(self) -> bool:
         """Return if the valve is closing."""
         if self.control_result:
@@ -204,6 +254,7 @@ class BlockShellyValve(ShellyBlockAttributeEntity, ValveEntity):
         return self.attribute_value == "closing"
 
     @property
+    @override
     def is_opening(self) -> bool:
         """Return if the valve is opening."""
         if self.control_result:
@@ -211,17 +262,20 @@ class BlockShellyValve(ShellyBlockAttributeEntity, ValveEntity):
 
         return self.attribute_value == "opening"
 
+    @override
     async def async_open_valve(self, **kwargs: Any) -> None:
         """Open valve."""
         self.control_result = await self.set_state(go="open")
         self.async_write_ha_state()
 
+    @override
     async def async_close_valve(self, **kwargs: Any) -> None:
         """Close valve."""
         self.control_result = await self.set_state(go="close")
         self.async_write_ha_state()
 
     @callback
+    @override
     def _update_callback(self) -> None:
         """When device updates, clear control result that overrides state."""
         self.control_result = None

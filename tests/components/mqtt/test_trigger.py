@@ -3,19 +3,13 @@
 from unittest.mock import ANY
 
 import pytest
+from pytest_homeassistant.common import async_fire_mqtt_message, mock_component
+from pytest_homeassistant.typing import MqttMockHAClient, MqttMockHAClientGenerator
 
 from homeassistant.components import automation
 from homeassistant.const import ATTR_ENTITY_ID, ENTITY_MATCH_ALL, SERVICE_TURN_OFF
 from homeassistant.core import HassJobType, HomeAssistant, ServiceCall
 from homeassistant.setup import async_setup_component
-
-from tests.common import async_fire_mqtt_message, mock_component
-from tests.typing import MqttMockHAClient, MqttMockHAClientGenerator
-
-
-@pytest.fixture(autouse=True, name="stub_blueprint_populate")
-def stub_blueprint_populate_autouse(stub_blueprint_populate: None) -> None:
-    """Stub copying the blueprints to the config folder."""
 
 
 @pytest.fixture(autouse=True)
@@ -207,8 +201,8 @@ async def test_non_allowed_templates(
     )
 
     assert (
-        "Got error 'TemplateError: Use of 'states' is not supported in limited templates' when setting up triggers"
-        in caplog.text
+        "Got error 'TemplateError: Use of 'states' is not"
+        " supported in limited templates' when setting up triggers" in caplog.text
     )
 
 

@@ -1,20 +1,22 @@
 """DataUpdateCoordinator for coolmaster integration."""
 
-from __future__ import annotations
-
+import asyncio
+from datetime import timedelta
 import logging
+from typing import override
 
 from pycoolmasternet_async import CoolMasterNet
 from pycoolmasternet_async.coolmasternet import CoolMasterNetUnit
 
-from homeassistant.components.climate import SCAN_INTERVAL
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN
+from .const import BACKOFF_BASE_DELAY, DOMAIN, MAX_RETRIES
 
 _LOGGER = logging.getLogger(__name__)
+
+SCAN_INTERVAL = timedelta(seconds=60)
 
 
 type CoolmasterConfigEntry = ConfigEntry[CoolmasterDataUpdateCoordinator]
@@ -24,6 +26,8 @@ class CoolmasterDataUpdateCoordinator(
     DataUpdateCoordinator[dict[str, CoolMasterNetUnit]]
 ):
     """Class to manage fetching Coolmaster data."""
+
+    config_entry: CoolmasterConfigEntry
 
     def __init__(
         self,
@@ -44,9 +48,42 @@ class CoolmasterDataUpdateCoordinator(
             update_interval=SCAN_INTERVAL,
         )
 
+    @override
     async def _async_update_data(self) -> dict[str, CoolMasterNetUnit]:
         """Fetch data from Coolmaster."""
-        try:
-            return await self._coolmaster.status()
-        except OSError as error:
-            raise UpdateFailed from error
+        retries_left = MAX_RETRIES
+        status: dict[str, CoolMasterNetUnit] = {}
+        while retries_left > 0 and not status:
+            retries_left -= 1
+            try:
+                status = await self._coolmaster.status()
+            except OSError as error:
+                if retries_left == 0:
+                    raise UpdateFailed(
+                        "Error communicating with Coolmaster"
+                        f" (aborting after {MAX_RETRIES}"
+                        f" retries): {error}"
+                    ) from error
+                _LOGGER.debug(
+                    "Error communicating with coolmaster (%d retries left): %s",
+                    retries_left,
+                    str(error),
+                )
+            else:
+                if status:
+                    return status
+
+                _LOGGER.debug(
+                    "Error communicating with coolmaster:"
+                    " empty status received (%d retries left)",
+                    retries_left,
+                )
+
+            backoff = BACKOFF_BASE_DELAY ** (MAX_RETRIES - retries_left)
+            await asyncio.sleep(backoff)
+
+        raise UpdateFailed(
+            "Error communicating with Coolmaster"
+            f" (aborting after {MAX_RETRIES} retries):"
+            " empty status received"
+        )

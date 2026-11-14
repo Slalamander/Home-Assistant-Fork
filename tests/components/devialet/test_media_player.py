@@ -4,10 +4,14 @@ from unittest.mock import PropertyMock, patch
 
 from devialet import DevialetApi
 from devialet.const import UrlSuffix
+from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
 from yarl import URL
 
 from homeassistant.components.devialet.media_player import SUPPORT_DEVIALET
-from homeassistant.components.homeassistant import SERVICE_UPDATE_ENTITY
+from homeassistant.components.homeassistant import (
+    DOMAIN as HOMEASSISTANT_DOMAIN,
+    SERVICE_UPDATE_ENTITY,
+)
 from homeassistant.components.media_player import (
     ATTR_INPUT_SOURCE,
     ATTR_INPUT_SOURCE_LIST,
@@ -48,8 +52,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 
 from . import HOST, NAME, setup_integration
-
-from tests.test_util.aiohttp import AiohttpClientMocker
 
 SERVICE_TO_URL = {
     SERVICE_MEDIA_SEEK: [UrlSuffix.SEEK],
@@ -104,13 +106,13 @@ async def test_media_player_playing(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:
     """Test the Devialet configuration entry loading and unloading."""
-    await async_setup_component(hass, "homeassistant", {})
+    await async_setup_component(hass, HOMEASSISTANT_DOMAIN, {})
     entry = await setup_integration(hass, aioclient_mock)
 
     assert entry.state is ConfigEntryState.LOADED
 
     await hass.services.async_call(
-        "homeassistant",
+        HOMEASSISTANT_DOMAIN,
         SERVICE_UPDATE_ENTITY,
         {ATTR_ENTITY_ID: [f"{MP_DOMAIN}.{NAME.lower()}"]},
         blocking=True,

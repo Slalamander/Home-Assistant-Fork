@@ -1,10 +1,8 @@
 """Support for sensor entities."""
 
-from __future__ import annotations
-
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, cast, override
 
 from togrill_bluetooth.packets import Packet, PacketA0Notify, PacketA1Notify
 
@@ -13,15 +11,14 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorEntityDescription,
     SensorStateClass,
-    StateType,
 )
 from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.typing import StateType
 
-from . import ToGrillConfigEntry
-from .const import CONF_PROBE_COUNT, MAX_PROBE_COUNT
-from .coordinator import ToGrillCoordinator
+from .const import CONF_HAS_AMBIENT, CONF_PROBE_COUNT, MAX_PROBE_COUNT
+from .coordinator import ToGrillConfigEntry, ToGrillCoordinator
 from .entity import ToGrillEntity
 
 PARALLEL_UPDATES = 0
@@ -63,6 +60,27 @@ def _get_temperature_description(probe_number: int):
     )
 
 
+def _get_ambient_temperature(packet: Packet) -> StateType:
+    """Extract ambient temperature from packet.
+
+    The ambient temperature is the last value in the temperatures list
+    when the device has an ambient sensor.
+    """
+    assert isinstance(packet, PacketA1Notify)
+    if not packet.temperatures:
+        return None
+    # Ambient is always the last temperature value
+    temperature = packet.temperatures[-1]
+    if temperature is None:
+        return None
+    return temperature
+
+
+def _ambient_supported(config: Mapping[str, Any]) -> bool:
+    """Check if ambient sensor is supported."""
+    return config.get(CONF_HAS_AMBIENT, False)
+
+
 ENTITY_DESCRIPTIONS = (
     ToGrillSensorEntityDescription(
         key="battery",
@@ -78,6 +96,17 @@ ENTITY_DESCRIPTIONS = (
         _get_temperature_description(probe_number)
         for probe_number in range(1, MAX_PROBE_COUNT + 1)
     ],
+    ToGrillSensorEntityDescription(
+        key="ambient_temperature",
+        translation_key="ambient_temperature",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        packet_type=PacketA1Notify.type,
+        packet_extract=_get_ambient_temperature,
+        entity_supported=_ambient_supported,
+    ),
 )
 
 
@@ -114,11 +143,13 @@ class ToGrillSensor(ToGrillEntity, SensorEntity):
         self._attr_unique_id = f"{coordinator.address}_{entity_description.key}"
 
     @property
+    @override
     def available(self) -> bool:
         """Return if entity is available."""
         return super().available and self.native_value is not None
 
     @property
+    @override
     def native_value(self) -> StateType:
         """Get current value."""
         if packet := self.coordinator.data.get(

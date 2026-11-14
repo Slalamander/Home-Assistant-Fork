@@ -1,46 +1,23 @@
 """Platform for sensor integration."""
 
 from enum import Enum
-from typing import Any
+from typing import Any, override
 
 import smarttub
-import voluptuous as vol
 
 from homeassistant.components.sensor import SensorEntity
+from homeassistant.const import ATTR_MODE
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
-from homeassistant.helpers.typing import VolDictType
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
+from .const import ATTR_DURATION, ATTR_START_HOUR, SmartTubServiceArgument
 from .controller import SmartTubConfigEntry
 from .entity import SmartTubOnboardSensorBase
 
-# the desired duration, in hours, of the cycle
-ATTR_DURATION = "duration"
 ATTR_CYCLE_LAST_UPDATED = "cycle_last_updated"
-ATTR_MODE = "mode"
-# the hour of the day at which to start the cycle (0-23)
-ATTR_START_HOUR = "start_hour"
 
-SET_PRIMARY_FILTRATION_SCHEMA = vol.All(
-    cv.has_at_least_one_key(ATTR_DURATION, ATTR_START_HOUR),
-    cv.make_entity_service_schema(
-        {
-            vol.Optional(ATTR_DURATION): vol.All(int, vol.Range(min=1, max=24)),
-            vol.Optional(ATTR_START_HOUR): vol.All(int, vol.Range(min=0, max=23)),
-        },
-    ),
-)
-
-SET_SECONDARY_FILTRATION_SCHEMA: VolDictType = {
-    vol.Required(ATTR_MODE): vol.In(
-        {
-            mode.name.lower()
-            for mode in smarttub.SpaSecondaryFiltrationCycle.SecondaryFiltrationMode
-        }
-    ),
-}
+PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
@@ -75,25 +52,23 @@ async def async_setup_entry(
 
     async_add_entities(entities)
 
-    platform = entity_platform.async_get_current_platform()
-
-    platform.async_register_entity_service(
-        "set_primary_filtration",
-        SET_PRIMARY_FILTRATION_SCHEMA,
-        "async_set_primary_filtration",
-    )
-
-    platform.async_register_entity_service(
-        "set_secondary_filtration",
-        SET_SECONDARY_FILTRATION_SCHEMA,
-        "async_set_secondary_filtration",
-    )
-
 
 class SmartTubBuiltinSensor(SmartTubOnboardSensorBase, SensorEntity):
     """Generic class for SmartTub status sensors."""
 
+    def __init__(
+        self,
+        coordinator: DataUpdateCoordinator[dict[str, Any]],
+        spa: smarttub.Spa,
+        sensor_name: str,
+        state_key: str,
+    ) -> None:
+        """Initialize the entity."""
+        super().__init__(coordinator, spa, sensor_name, state_key)
+        self._attr_translation_key = state_key
+
     @property
+    @override
     def native_value(self) -> str | None:
         """Return the current state of the sensor."""
         if self._state is None:
@@ -115,6 +90,7 @@ class SmartTubPrimaryFiltrationCycle(SmartTubBuiltinSensor):
         super().__init__(
             coordinator, spa, "Primary Filtration Cycle", "primary_filtration"
         )
+        self._attr_translation_key = "primary_filtration_cycle"
 
     @property
     def cycle(self) -> smarttub.SpaPrimaryFiltrationCycle:
@@ -122,11 +98,13 @@ class SmartTubPrimaryFiltrationCycle(SmartTubBuiltinSensor):
         return self._state
 
     @property
+    @override
     def native_value(self) -> str:
         """Return the current state of the sensor."""
         return self.cycle.status.name.lower()
 
     @property
+    @override
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the state attributes."""
         return {
@@ -139,8 +117,8 @@ class SmartTubPrimaryFiltrationCycle(SmartTubBuiltinSensor):
     async def async_set_primary_filtration(self, **kwargs):
         """Update primary filtration settings."""
         await self.cycle.set(
-            duration=kwargs.get(ATTR_DURATION),
-            start_hour=kwargs.get(ATTR_START_HOUR),
+            duration=kwargs.get(SmartTubServiceArgument.DURATION),
+            start_hour=kwargs.get(SmartTubServiceArgument.START_HOUR),
         )
         await self.coordinator.async_request_refresh()
 
@@ -155,6 +133,7 @@ class SmartTubSecondaryFiltrationCycle(SmartTubBuiltinSensor):
         super().__init__(
             coordinator, spa, "Secondary Filtration Cycle", "secondary_filtration"
         )
+        self._attr_translation_key = "secondary_filtration_cycle"
 
     @property
     def cycle(self) -> smarttub.SpaSecondaryFiltrationCycle:
@@ -162,11 +141,13 @@ class SmartTubSecondaryFiltrationCycle(SmartTubBuiltinSensor):
         return self._state
 
     @property
+    @override
     def native_value(self) -> str:
         """Return the current state of the sensor."""
         return self.cycle.status.name.lower()
 
     @property
+    @override
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the state attributes."""
         return {
@@ -177,7 +158,7 @@ class SmartTubSecondaryFiltrationCycle(SmartTubBuiltinSensor):
     async def async_set_secondary_filtration(self, **kwargs):
         """Update primary filtration settings."""
         mode = smarttub.SpaSecondaryFiltrationCycle.SecondaryFiltrationMode[
-            kwargs[ATTR_MODE].upper()
+            kwargs[SmartTubServiceArgument.MODE].upper()
         ]
         await self.cycle.set_mode(mode)
         await self.coordinator.async_request_refresh()

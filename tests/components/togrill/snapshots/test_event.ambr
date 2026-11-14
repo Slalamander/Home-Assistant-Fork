@@ -1,11 +1,12 @@
 # serializer version: 1
-# name: test_setup[no_data][event.probe_1_event-entry]
+# name: test_setup[no_data][event.pro_05_probe_1_event-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'event_types': list([
+      <EventEntityCapabilityAttribute.EVENT_TYPES: 'event_types'>: list([
         'probe_acknowledge',
         'device_low_power',
         'device_high_temp',
@@ -21,13 +22,13 @@
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <ChildDeviceEntry identifiers=[('togrill', '00000000-0000-0000-0000-000000000001_1')]>,
     'disabled_by': None,
     'domain': 'event',
     'entity_category': None,
-    'entity_id': 'event.probe_1_event',
+    'entity_id': 'event.pro_05_probe_1_event',
     'has_entity_name': True,
     'hidden_by': None,
     'icon': None,
@@ -35,6 +36,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Event',
     'options': dict({
     }),
     'original_device_class': None,
@@ -49,11 +51,11 @@
     'unit_of_measurement': None,
   })
 # ---
-# name: test_setup[no_data][event.probe_1_event-state]
+# name: test_setup[no_data][event.pro_05_probe_1_event-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'event_type': None,
-      'event_types': list([
+      <EventEntityStateAttribute.EVENT_TYPE: 'event_type'>: None,
+      <EventEntityCapabilityAttribute.EVENT_TYPES: 'event_types'>: list([
         'probe_acknowledge',
         'device_low_power',
         'device_high_temp',
@@ -67,23 +69,24 @@
         'ambient_cool_down',
         'probe_timer_alarm',
       ]),
-      'friendly_name': 'Probe 1 Event',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Probe 1 Event',
     }),
     'context': <ANY>,
-    'entity_id': 'event.probe_1_event',
+    'entity_id': 'event.pro_05_probe_1_event',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,
     'state': 'unknown',
   })
 # ---
-# name: test_setup[no_data][event.probe_2_event-entry]
+# name: test_setup[no_data][event.pro_05_probe_2_event-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'event_types': list([
+      <EventEntityCapabilityAttribute.EVENT_TYPES: 'event_types'>: list([
         'probe_acknowledge',
         'device_low_power',
         'device_high_temp',
@@ -99,13 +102,13 @@
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <ChildDeviceEntry identifiers=[('togrill', '00000000-0000-0000-0000-000000000001_2')]>,
     'disabled_by': None,
     'domain': 'event',
     'entity_category': None,
-    'entity_id': 'event.probe_2_event',
+    'entity_id': 'event.pro_05_probe_2_event',
     'has_entity_name': True,
     'hidden_by': None,
     'icon': None,
@@ -113,6 +116,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Event',
     'options': dict({
     }),
     'original_device_class': None,
@@ -127,11 +131,11 @@
     'unit_of_measurement': None,
   })
 # ---
-# name: test_setup[no_data][event.probe_2_event-state]
+# name: test_setup[no_data][event.pro_05_probe_2_event-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'event_type': None,
-      'event_types': list([
+      <EventEntityStateAttribute.EVENT_TYPE: 'event_type'>: None,
+      <EventEntityCapabilityAttribute.EVENT_TYPES: 'event_types'>: list([
         'probe_acknowledge',
         'device_low_power',
         'device_high_temp',
@@ -145,23 +149,24 @@
         'ambient_cool_down',
         'probe_timer_alarm',
       ]),
-      'friendly_name': 'Probe 2 Event',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Probe 2 Event',
     }),
     'context': <ANY>,
-    'entity_id': 'event.probe_2_event',
+    'entity_id': 'event.pro_05_probe_2_event',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,
     'state': 'unknown',
   })
 # ---
-# name: test_setup[non_event_packet][event.probe_1_event-entry]
+# name: test_setup[non_event_packet][event.pro_05_probe_1_event-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'event_types': list([
+      <EventEntityCapabilityAttribute.EVENT_TYPES: 'event_types'>: list([
         'probe_acknowledge',
         'device_low_power',
         'device_high_temp',
@@ -177,13 +182,13 @@
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <ChildDeviceEntry identifiers=[('togrill', '00000000-0000-0000-0000-000000000001_1')]>,
     'disabled_by': None,
     'domain': 'event',
     'entity_category': None,
-    'entity_id': 'event.probe_1_event',
+    'entity_id': 'event.pro_05_probe_1_event',
     'has_entity_name': True,
     'hidden_by': None,
     'icon': None,
@@ -191,6 +196,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Event',
     'options': dict({
     }),
     'original_device_class': None,
@@ -205,11 +211,11 @@
     'unit_of_measurement': None,
   })
 # ---
-# name: test_setup[non_event_packet][event.probe_1_event-state]
+# name: test_setup[non_event_packet][event.pro_05_probe_1_event-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'event_type': None,
-      'event_types': list([
+      <EventEntityStateAttribute.EVENT_TYPE: 'event_type'>: None,
+      <EventEntityCapabilityAttribute.EVENT_TYPES: 'event_types'>: list([
         'probe_acknowledge',
         'device_low_power',
         'device_high_temp',
@@ -223,23 +229,24 @@
         'ambient_cool_down',
         'probe_timer_alarm',
       ]),
-      'friendly_name': 'Probe 1 Event',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Probe 1 Event',
     }),
     'context': <ANY>,
-    'entity_id': 'event.probe_1_event',
+    'entity_id': 'event.pro_05_probe_1_event',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,
     'state': 'unknown',
   })
 # ---
-# name: test_setup[non_event_packet][event.probe_2_event-entry]
+# name: test_setup[non_event_packet][event.pro_05_probe_2_event-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'event_types': list([
+      <EventEntityCapabilityAttribute.EVENT_TYPES: 'event_types'>: list([
         'probe_acknowledge',
         'device_low_power',
         'device_high_temp',
@@ -255,13 +262,13 @@
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <ChildDeviceEntry identifiers=[('togrill', '00000000-0000-0000-0000-000000000001_2')]>,
     'disabled_by': None,
     'domain': 'event',
     'entity_category': None,
-    'entity_id': 'event.probe_2_event',
+    'entity_id': 'event.pro_05_probe_2_event',
     'has_entity_name': True,
     'hidden_by': None,
     'icon': None,
@@ -269,6 +276,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Event',
     'options': dict({
     }),
     'original_device_class': None,
@@ -283,11 +291,11 @@
     'unit_of_measurement': None,
   })
 # ---
-# name: test_setup[non_event_packet][event.probe_2_event-state]
+# name: test_setup[non_event_packet][event.pro_05_probe_2_event-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'event_type': None,
-      'event_types': list([
+      <EventEntityStateAttribute.EVENT_TYPE: 'event_type'>: None,
+      <EventEntityCapabilityAttribute.EVENT_TYPES: 'event_types'>: list([
         'probe_acknowledge',
         'device_low_power',
         'device_high_temp',
@@ -301,23 +309,24 @@
         'ambient_cool_down',
         'probe_timer_alarm',
       ]),
-      'friendly_name': 'Probe 2 Event',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Probe 2 Event',
     }),
     'context': <ANY>,
-    'entity_id': 'event.probe_2_event',
+    'entity_id': 'event.pro_05_probe_2_event',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,
     'state': 'unknown',
   })
 # ---
-# name: test_setup[non_known_message][event.probe_1_event-entry]
+# name: test_setup[non_known_message][event.pro_05_probe_1_event-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'event_types': list([
+      <EventEntityCapabilityAttribute.EVENT_TYPES: 'event_types'>: list([
         'probe_acknowledge',
         'device_low_power',
         'device_high_temp',
@@ -333,13 +342,13 @@
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <ChildDeviceEntry identifiers=[('togrill', '00000000-0000-0000-0000-000000000001_1')]>,
     'disabled_by': None,
     'domain': 'event',
     'entity_category': None,
-    'entity_id': 'event.probe_1_event',
+    'entity_id': 'event.pro_05_probe_1_event',
     'has_entity_name': True,
     'hidden_by': None,
     'icon': None,
@@ -347,6 +356,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Event',
     'options': dict({
     }),
     'original_device_class': None,
@@ -361,11 +371,11 @@
     'unit_of_measurement': None,
   })
 # ---
-# name: test_setup[non_known_message][event.probe_1_event-state]
+# name: test_setup[non_known_message][event.pro_05_probe_1_event-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'event_type': None,
-      'event_types': list([
+      <EventEntityStateAttribute.EVENT_TYPE: 'event_type'>: None,
+      <EventEntityCapabilityAttribute.EVENT_TYPES: 'event_types'>: list([
         'probe_acknowledge',
         'device_low_power',
         'device_high_temp',
@@ -379,23 +389,24 @@
         'ambient_cool_down',
         'probe_timer_alarm',
       ]),
-      'friendly_name': 'Probe 1 Event',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Probe 1 Event',
     }),
     'context': <ANY>,
-    'entity_id': 'event.probe_1_event',
+    'entity_id': 'event.pro_05_probe_1_event',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,
     'state': 'unknown',
   })
 # ---
-# name: test_setup[non_known_message][event.probe_2_event-entry]
+# name: test_setup[non_known_message][event.pro_05_probe_2_event-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': dict({
-      'event_types': list([
+      <EventEntityCapabilityAttribute.EVENT_TYPES: 'event_types'>: list([
         'probe_acknowledge',
         'device_low_power',
         'device_high_temp',
@@ -411,13 +422,13 @@
       ]),
     }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <ChildDeviceEntry identifiers=[('togrill', '00000000-0000-0000-0000-000000000001_2')]>,
     'disabled_by': None,
     'domain': 'event',
     'entity_category': None,
-    'entity_id': 'event.probe_2_event',
+    'entity_id': 'event.pro_05_probe_2_event',
     'has_entity_name': True,
     'hidden_by': None,
     'icon': None,
@@ -425,6 +436,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Event',
     'options': dict({
     }),
     'original_device_class': None,
@@ -439,11 +451,11 @@
     'unit_of_measurement': None,
   })
 # ---
-# name: test_setup[non_known_message][event.probe_2_event-state]
+# name: test_setup[non_known_message][event.pro_05_probe_2_event-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'event_type': None,
-      'event_types': list([
+      <EventEntityStateAttribute.EVENT_TYPE: 'event_type'>: None,
+      <EventEntityCapabilityAttribute.EVENT_TYPES: 'event_types'>: list([
         'probe_acknowledge',
         'device_low_power',
         'device_high_temp',
@@ -457,10 +469,10 @@
         'ambient_cool_down',
         'probe_timer_alarm',
       ]),
-      'friendly_name': 'Probe 2 Event',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Probe 2 Event',
     }),
     'context': <ANY>,
-    'entity_id': 'event.probe_2_event',
+    'entity_id': 'event.pro_05_probe_2_event',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,

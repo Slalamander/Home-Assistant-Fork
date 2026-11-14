@@ -1,14 +1,26 @@
 """Test initialization of lamarzocco."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import timedelta
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, create_autospec, patch
 
-from pylamarzocco.const import FirmwareType, ModelName
-from pylamarzocco.exceptions import AuthFail, RequestNotSuccessful
+from freezegun.api import FrozenDateTimeFactory
+from pylamarzocco import LaMarzoccoMachine
+from pylamarzocco.const import FirmwareType
+from pylamarzocco.exceptions import (
+    AuthFail,
+    PolicyAcceptanceRequired,
+    RequestNotSuccessful,
+)
 from pylamarzocco.models import WebSocketDetails
 import pytest
+from pytest_homeassistant.common import MockConfigEntry, async_fire_time_changed
 from syrupy.assertion import SnapshotAssertion
 
-from homeassistant.components.lamarzocco.const import CONF_INSTALLATION_KEY, DOMAIN
+from homeassistant.components.lamarzocco.const import (
+    CONF_INSTALLATION_KEY,
+    CONF_USE_BLUETOOTH,
+    DOMAIN,
+)
 from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
 from homeassistant.const import (
     CONF_ADDRESS,
@@ -27,10 +39,10 @@ from . import (
     MOCK_INSTALLATION_KEY,
     USER_INPUT,
     async_init_integration,
-    get_bluetooth_service_info,
+    configure_machine_mock,
 )
 
-from tests.common import MockConfigEntry
+OTHER_SERIAL = "GS054321"
 
 
 async def test_load_unload_config_entry(
@@ -54,6 +66,7 @@ async def test_config_entry_not_ready(
     mock_lamarzocco: MagicMock,
 ) -> None:
     """Test the La Marzocco configuration entry not ready."""
+    mock_lamarzocco.bluetooth_client_available = False
     mock_lamarzocco.websocket.connected = False
     mock_lamarzocco.get_dashboard.side_effect = RequestNotSuccessful("")
 
@@ -67,6 +80,7 @@ async def test_config_entry_not_ready(
     ("side_effect", "expected_state"),
     [
         (AuthFail(""), ConfigEntryState.SETUP_ERROR),
+        (PolicyAcceptanceRequired(""), ConfigEntryState.SETUP_ERROR),
         (RequestNotSuccessful(""), ConfigEntryState.SETUP_RETRY),
     ],
 )
@@ -86,14 +100,22 @@ async def test_get_settings_errors(
     assert mock_config_entry.state is expected_state
 
 
+@pytest.mark.parametrize(
+    "side_effect",
+    [
+        pytest.param(AuthFail(""), id="auth_fail"),
+        pytest.param(PolicyAcceptanceRequired(""), id="policy_acceptance_required"),
+    ],
+)
 async def test_invalid_auth(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_lamarzocco: MagicMock,
+    side_effect: Exception,
 ) -> None:
     """Test auth error during setup."""
     mock_lamarzocco.websocket.connected = False
-    mock_lamarzocco.get_dashboard.side_effect = AuthFail("")
+    mock_lamarzocco.get_dashboard.side_effect = side_effect
     await async_init_integration(hass, mock_config_entry)
 
     assert mock_config_entry.state is ConfigEntryState.SETUP_ERROR
@@ -128,6 +150,10 @@ async def test_v1_migration_fails(
     await hass.async_block_till_done()
 
     assert entry_v1.state is ConfigEntryState.MIGRATION_ERROR
+    assert entry_v1.reason == (
+        "Migration from version 1 is no longer supported, remove and re-add the"
+        " integration"
+    )
 
 
 async def test_v4_migration(
@@ -159,14 +185,34 @@ async def test_v4_migration(
     }
 
 
+@pytest.mark.parametrize(
+    ("side_effect", "state", "reason"),
+    [
+        pytest.param(
+            AuthFail("Error"),
+            ConfigEntryState.MIGRATION_ERROR,
+            "Authentication failed",
+            id="auth_failed",
+        ),
+        pytest.param(
+            RequestNotSuccessful("Error"),
+            ConfigEntryState.SETUP_RETRY,
+            "Error while communicating with the API",
+            id="request_not_successful",
+        ),
+    ],
+)
 async def test_migration_errors(
     hass: HomeAssistant,
     mock_cloud_client: MagicMock,
     mock_lamarzocco: MagicMock,
+    side_effect: Exception,
+    state: ConfigEntryState,
+    reason: str,
 ) -> None:
     """Test errors during migration."""
 
-    mock_cloud_client.async_register_client.side_effect = RequestNotSuccessful("Error")
+    mock_cloud_client.async_register_client.side_effect = side_effect
 
     entry_v3 = MockConfigEntry(
         domain=DOMAIN,
@@ -181,7 +227,9 @@ async def test_migration_errors(
     entry_v3.add_to_hass(hass)
 
     assert not await hass.config_entries.async_setup(entry_v3.entry_id)
-    assert entry_v3.state is ConfigEntryState.MIGRATION_ERROR
+    assert entry_v3.state is state
+    assert entry_v3.reason == reason
+    assert entry_v3.version == 3
 
 
 async def test_config_flow_entry_migration_downgrade(
@@ -192,38 +240,6 @@ async def test_config_flow_entry_migration_downgrade(
     entry.add_to_hass(hass)
 
     assert not await hass.config_entries.async_setup(entry.entry_id)
-
-
-async def test_bluetooth_is_set_from_discovery(
-    hass: HomeAssistant,
-    mock_config_entry: MockConfigEntry,
-    mock_lamarzocco: MagicMock,
-    mock_cloud_client: MagicMock,
-) -> None:
-    """Check we can fill a device from discovery info."""
-
-    service_info = get_bluetooth_service_info(
-        ModelName.GS3_MP, mock_lamarzocco.serial_number
-    )
-    mock_cloud_client.get_thing_settings.return_value.ble_auth_token = "token"
-    with (
-        patch(
-            "homeassistant.components.lamarzocco.async_discovered_service_info",
-            return_value=[service_info],
-        ) as discovery,
-        patch(
-            "homeassistant.components.lamarzocco.LaMarzoccoMachine"
-        ) as mock_machine_class,
-    ):
-        mock_machine_class.return_value = mock_lamarzocco
-        await async_init_integration(hass, mock_config_entry)
-    discovery.assert_called_once()
-    assert mock_machine_class.call_count == 1
-    _, kwargs = mock_machine_class.call_args
-    assert kwargs["bluetooth_client"] is not None
-
-    assert mock_config_entry.data[CONF_MAC] == service_info.address
-    assert mock_config_entry.data[CONF_TOKEN] == "token"
 
 
 async def test_websocket_closed_on_unload(
@@ -254,6 +270,7 @@ async def test_websocket_closed_on_unload(
 )
 async def test_gateway_version_issue(
     hass: HomeAssistant,
+    issue_registry: ir.IssueRegistry,
     mock_config_entry: MockConfigEntry,
     mock_cloud_client: MagicMock,
     version: str,
@@ -266,9 +283,132 @@ async def test_gateway_version_issue(
 
     await async_init_integration(hass, mock_config_entry)
 
-    issue_registry = ir.async_get(hass)
-    issue = issue_registry.async_get_issue(DOMAIN, "unsupported_gateway_firmware")
+    issue = issue_registry.async_get_issue(
+        DOMAIN, f"unsupported_gateway_firmware_{mock_config_entry.entry_id}"
+    )
     assert (issue is not None) == issue_exists
+
+
+@pytest.mark.parametrize(
+    ("entry_token", "cloud_token", "use_bluetooth", "issue_exists"),
+    [
+        pytest.param(None, None, True, True, id="missing_token"),
+        pytest.param("token", None, True, False, id="stored_token"),
+        pytest.param(None, "token", True, False, id="token_from_cloud"),
+        pytest.param(None, None, False, False, id="bluetooth_disabled"),
+    ],
+)
+async def test_missing_bluetooth_token_issue(
+    hass: HomeAssistant,
+    issue_registry: ir.IssueRegistry,
+    mock_config_entry: MockConfigEntry,
+    mock_cloud_client: MagicMock,
+    entry_token: str | None,
+    cloud_token: str | None,
+    use_bluetooth: bool,
+    issue_exists: bool,
+) -> None:
+    """Test the issue for a missing Bluetooth token."""
+    mock_cloud_client.get_thing_settings.return_value.ble_auth_token = cloud_token
+    entry = MockConfigEntry(
+        title=mock_config_entry.title,
+        domain=DOMAIN,
+        version=4,
+        data=mock_config_entry.data | {CONF_TOKEN: entry_token},
+        options={CONF_USE_BLUETOOTH: use_bluetooth},
+        unique_id=mock_config_entry.unique_id,
+    )
+
+    await async_init_integration(hass, entry)
+
+    assert (
+        issue_registry.async_get_issue(
+            DOMAIN, f"missing_bluetooth_token_{entry.entry_id}"
+        )
+        is not None
+    ) == issue_exists
+
+
+async def test_gateway_version_issue_per_entry(
+    hass: HomeAssistant,
+    issue_registry: ir.IssueRegistry,
+    mock_config_entry: MockConfigEntry,
+    mock_cloud_client: MagicMock,
+    mock_lamarzocco: MagicMock,
+) -> None:
+    """Test each entry gets its own gateway issue, removed with the entry."""
+    mock_cloud_client.get_thing_settings.return_value.firmwares[
+        FirmwareType.GATEWAY
+    ].build_version = "v3.5-rc6"
+    other_machine = create_autospec(LaMarzoccoMachine, instance=True)
+    configure_machine_mock(
+        other_machine, mock_lamarzocco.dashboard.model_name, OTHER_SERIAL
+    )
+    machines = {
+        mock_lamarzocco.serial_number: mock_lamarzocco,
+        OTHER_SERIAL: other_machine,
+    }
+    other_entry = MockConfigEntry(
+        title="My other LaMarzocco",
+        domain=DOMAIN,
+        version=4,
+        data=mock_config_entry.data,
+        unique_id=OTHER_SERIAL,
+    )
+    other_entry.add_to_hass(hass)
+    with patch(
+        "homeassistant.components.lamarzocco.LaMarzoccoMachine",
+        side_effect=lambda serial_number, **_: machines[serial_number],
+    ):
+        await async_init_integration(hass, mock_config_entry)
+
+    entries = (mock_config_entry, other_entry)
+    for entry in entries:
+        issue = issue_registry.async_get_issue(
+            DOMAIN, f"unsupported_gateway_firmware_{entry.entry_id}"
+        )
+        assert issue is not None
+        assert issue.config_entry_id == entry.entry_id
+        assert issue.translation_key == "unsupported_gateway_firmware"
+        assert issue.translation_placeholders == {
+            "gateway_version": "3.5rc6",
+            "name": entry.title,
+        }
+
+    await hass.config_entries.async_remove(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert (
+        DOMAIN,
+        f"unsupported_gateway_firmware_{mock_config_entry.entry_id}",
+    ) not in issue_registry.issues
+    assert (
+        DOMAIN,
+        f"unsupported_gateway_firmware_{other_entry.entry_id}",
+    ) in issue_registry.issues
+
+
+async def test_gateway_version_issue_deleted_after_update(
+    hass: HomeAssistant,
+    issue_registry: ir.IssueRegistry,
+    mock_config_entry: MockConfigEntry,
+    mock_cloud_client: MagicMock,
+) -> None:
+    """Test the gateway issue is deleted once the gateway firmware is updated."""
+    gateway_firmware = mock_cloud_client.get_thing_settings.return_value.firmwares[
+        FirmwareType.GATEWAY
+    ]
+    gateway_firmware.build_version = "v3.5-rc6"
+    await async_init_integration(hass, mock_config_entry)
+    issue_id = f"unsupported_gateway_firmware_{mock_config_entry.entry_id}"
+    assert (DOMAIN, issue_id) in issue_registry.issues
+
+    gateway_firmware.build_version = "v5.0.9"
+    await hass.config_entries.async_reload(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert mock_config_entry.state is ConfigEntryState.LOADED
+    assert (DOMAIN, issue_id) not in issue_registry.issues
 
 
 async def test_device(
@@ -310,3 +450,31 @@ async def test_device(
     device = device_registry.async_get(entry.device_id)
     assert device
     assert device == snapshot
+
+
+async def test_websocket_reconnects_after_termination(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_lamarzocco: MagicMock,
+    freezer: FrozenDateTimeFactory,
+    mock_websocket_terminated: PropertyMock,
+) -> None:
+    """Test the websocket reconnects after background task terminates."""
+    # Setup: websocket disconnected initially
+    mock_websocket_terminated.return_value = True
+
+    await async_init_integration(hass, mock_config_entry)
+
+    # Verify initial websocket connection was attempted
+    assert mock_lamarzocco.connect_dashboard_websocket.call_count == 1
+
+    # Simulate websocket disconnection (e.g., after internet outage)
+    mock_websocket_terminated.return_value = True
+
+    # Trigger the coordinator's update (which runs every 60 seconds)
+    freezer.tick(timedelta(seconds=61))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+
+    # Verify websocket reconnection was attempted
+    assert mock_lamarzocco.connect_dashboard_websocket.call_count == 2

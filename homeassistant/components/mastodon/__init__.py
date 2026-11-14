@@ -1,7 +1,5 @@
 """The Mastodon integration."""
 
-from __future__ import annotations
-
 from mastodon.Mastodon import (
     Account,
     Instance,
@@ -9,6 +7,7 @@ from mastodon.Mastodon import (
     Mastodon,
     MastodonError,
     MastodonNotFoundError,
+    MastodonUnauthorizedError,
 )
 
 from homeassistant.const import (
@@ -18,28 +17,32 @@ from homeassistant.const import (
     Platform,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    ConfigEntryError,
+    ConfigEntryNotReady,
+)
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import slugify
 
 from .const import CONF_BASE_URL, DOMAIN, LOGGER
 from .coordinator import MastodonConfigEntry, MastodonCoordinator, MastodonData
-from .services import setup_services
+from .services import async_setup_services
 from .utils import construct_mastodon_username, create_mastodon_client
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the Mastodon component."""
-    setup_services(hass)
+    async_setup_services(hass)
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: MastodonConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: MastodonConfigEntry) -> None:
     """Set up Mastodon from a config entry."""
 
     try:
@@ -48,8 +51,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: MastodonConfigEntry) -> 
             entry,
         )
 
+    except MastodonUnauthorizedError as error:
+        raise ConfigEntryAuthFailed(
+            translation_domain=DOMAIN,
+            translation_key="auth_failed",
+        ) from error
     except MastodonError as ex:
-        raise ConfigEntryNotReady("Failed to connect") from ex
+        raise ConfigEntryNotReady(
+            translation_domain=DOMAIN,
+            translation_key="failed_to_connect",
+        ) from ex
 
     assert entry.unique_id
 
@@ -61,15 +72,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: MastodonConfigEntry) -> 
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    return True
 
-
-async def async_unload_entry(hass: HomeAssistant, entry: MastodonConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: MastodonConfigEntry) -> None:
     """Unload a config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    await hass.config_entries.async_unload_platforms_or_raise(entry, PLATFORMS)
 
 
-async def async_migrate_entry(hass: HomeAssistant, entry: MastodonConfigEntry) -> bool:
+async def async_migrate_entry(hass: HomeAssistant, entry: MastodonConfigEntry) -> None:
     """Migrate old config."""
 
     if entry.version == 1 and entry.minor_version == 1:
@@ -81,9 +90,16 @@ async def async_migrate_entry(hass: HomeAssistant, entry: MastodonConfigEntry) -
                 setup_mastodon,
                 entry,
             )
+        except MastodonUnauthorizedError as ex:
+            raise ConfigEntryError(
+                translation_domain=DOMAIN,
+                translation_key="auth_failed",
+            ) from ex
         except MastodonError as ex:
-            LOGGER.error("Migration failed with error %s", ex)
-            return False
+            raise ConfigEntryNotReady(
+                translation_domain=DOMAIN,
+                translation_key="failed_to_connect",
+            ) from ex
 
         hass.config_entries.async_update_entry(
             entry,
@@ -97,8 +113,6 @@ async def async_migrate_entry(hass: HomeAssistant, entry: MastodonConfigEntry) -
             entry.version,
             entry.minor_version,
         )
-
-    return True
 
 
 def setup_mastodon(

@@ -1,6 +1,11 @@
 """The tests for Vacuum device actions."""
 
 import pytest
+from pytest_homeassistant.common import (
+    MockConfigEntry,
+    async_get_device_automations,
+    async_mock_service,
+)
 from pytest_unordered import unordered
 
 from homeassistant.components import automation
@@ -11,17 +16,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.entity_registry import RegistryEntryHider
 from homeassistant.setup import async_setup_component
-
-from tests.common import (
-    MockConfigEntry,
-    async_get_device_automations,
-    async_mock_service,
-)
-
-
-@pytest.fixture(autouse=True, name="stub_blueprint_populate")
-def stub_blueprint_populate_autouse(stub_blueprint_populate: None) -> None:
-    """Stub copying the blueprints to the config folder."""
 
 
 async def test_get_actions(
@@ -146,8 +140,8 @@ async def test_action(
         },
     )
 
-    dock_calls = async_mock_service(hass, "vacuum", "return_to_base")
-    clean_calls = async_mock_service(hass, "vacuum", "start")
+    dock_calls = async_mock_service(hass, DOMAIN, "return_to_base")
+    clean_calls = async_mock_service(hass, DOMAIN, "start")
 
     hass.bus.async_fire("test_event_dock")
     await hass.async_block_till_done()
@@ -197,7 +191,7 @@ async def test_action_legacy(
         },
     )
 
-    dock_calls = async_mock_service(hass, "vacuum", "return_to_base")
+    dock_calls = async_mock_service(hass, DOMAIN, "return_to_base")
 
     hass.bus.async_fire("test_event_dock")
     await hass.async_block_till_done()

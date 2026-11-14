@@ -1,10 +1,10 @@
 """Test the Mold indicator config flow."""
 
-from __future__ import annotations
-
 from unittest.mock import AsyncMock
 
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
+from pytest_homeassistant.typing import WebSocketGenerator
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant import config_entries
@@ -20,9 +20,6 @@ from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import CONF_NAME, CONF_UNIT_OF_MEASUREMENT, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-
-from tests.common import MockConfigEntry
-from tests.typing import WebSocketGenerator
 
 
 async def test_form_sensor(hass: HomeAssistant, mock_setup_entry: AsyncMock) -> None:
@@ -229,7 +226,7 @@ async def test_config_flow_preview_success(
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
-    assert result["type"] == FlowResultType.FORM
+    assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "user"
     assert result["errors"] is None
     assert result["preview"] == "mold_indicator"
@@ -294,7 +291,7 @@ async def test_options_flow_preview(
     await hass.async_block_till_done()
 
     result = await hass.config_entries.options.async_init(config_entry.entry_id)
-    assert result["type"] == FlowResultType.FORM
+    assert result["type"] is FlowResultType.FORM
     assert result["errors"] is None
     assert result["preview"] == "mold_indicator"
 
@@ -361,7 +358,7 @@ async def test_options_flow_sensor_preview_config_entry_removed(
     await hass.async_block_till_done()
 
     result = await hass.config_entries.options.async_init(config_entry.entry_id)
-    assert result["type"] == FlowResultType.FORM
+    assert result["type"] is FlowResultType.FORM
     assert result["errors"] is None
     assert result["preview"] == "mold_indicator"
 

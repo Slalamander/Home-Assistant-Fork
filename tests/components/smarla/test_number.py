@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pytest_homeassistant.common import MockConfigEntry, snapshot_platform
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components.number import (
@@ -15,8 +16,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from . import setup_integration, update_property_listeners
-
-from tests.common import MockConfigEntry, snapshot_platform
 
 NUMBER_ENTITIES = [
     {
@@ -67,7 +66,6 @@ async def test_number_action(
 
     entity_id = entity_info["entity_id"]
 
-    # Turn on
     await hass.services.async_call(
         NUMBER_DOMAIN,
         service,
@@ -93,11 +91,15 @@ async def test_number_state_update(
 
     entity_id = entity_info["entity_id"]
 
-    assert hass.states.get(entity_id).state == "1.0"
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == "1.0"
 
     mock_number_property.get.return_value = 100
 
     await update_property_listeners(mock_number_property)
     await hass.async_block_till_done()
 
-    assert hass.states.get(entity_id).state == "100.0"
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == "100.0"

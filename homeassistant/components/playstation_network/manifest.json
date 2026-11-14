@@ -1,8 +1,10 @@
 {
   "domain": "playstation_network",
   "name": "PlayStation Network",
+  "categories": ["media_entertainment.gaming"],
   "codeowners": ["@jackjpowell", "@tr4nt0r"],
   "config_flow": true,
+  "connectivity": ["cloud"],
   "dhcp": [
     {
       "macaddress": "AC8995*"
@@ -75,11 +77,20 @@
     },
     {
       "macaddress": "84E657*"
+    },
+    {
+      "hostname": "ps5-*"
+    },
+    {
+      "hostname": "ps4-*"
+    },
+    {
+      "hostname": "ps3"
     }
   ],
   "documentation": "https://www.home-assistant.io/integrations/playstation_network",
-  "integration_type": "service",
+  "integration_type": "hub",
   "iot_class": "cloud_polling",
   "quality_scale": "bronze",
-  "requirements": ["PSNAWP==3.0.0", "pyrate-limiter==3.9.0"]
+  "requirements": ["PSNAWP==3.1.0", "pyrate-limiter==4.5.1"]
 }

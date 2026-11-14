@@ -1,26 +1,22 @@
 """Config flow for Traccar Server integration."""
 
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, override
 
+import probatio
 from pytraccar import (
     ApiClient,
     ServerModel,
     TraccarAuthenticationException,
     TraccarException,
 )
-import voluptuous as vol
 
-from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import (
+    CONF_API_TOKEN,
     CONF_HOST,
-    CONF_PASSWORD,
     CONF_PORT,
     CONF_SSL,
-    CONF_USERNAME,
     CONF_VERIFY_SSL,
 )
 from homeassistant.core import callback
@@ -52,23 +48,23 @@ from .const import (
     EVENTS,
     LOGGER,
 )
+from .coordinator import TraccarServerConfigEntry
 
-STEP_USER_DATA_SCHEMA = vol.Schema(
+STEP_USER_DATA_SCHEMA = probatio.Schema(
     {
-        vol.Required(CONF_HOST): TextSelector(
+        probatio.Required(CONF_HOST): TextSelector(
             TextSelectorConfig(type=TextSelectorType.TEXT)
         ),
-        vol.Optional(CONF_PORT, default="8082"): TextSelector(
+        probatio.Optional(CONF_PORT, default="8082"): TextSelector(
             TextSelectorConfig(type=TextSelectorType.TEXT)
         ),
-        vol.Required(CONF_USERNAME): TextSelector(
-            TextSelectorConfig(type=TextSelectorType.EMAIL)
-        ),
-        vol.Required(CONF_PASSWORD): TextSelector(
+        probatio.Required(probatio.Secret(CONF_API_TOKEN)): TextSelector(
             TextSelectorConfig(type=TextSelectorType.PASSWORD)
         ),
-        vol.Optional(CONF_SSL, default=False): BooleanSelector(BooleanSelectorConfig()),
-        vol.Optional(CONF_VERIFY_SSL, default=True): BooleanSelector(
+        probatio.Optional(CONF_SSL, default=False): BooleanSelector(
+            BooleanSelectorConfig()
+        ),
+        probatio.Optional(CONF_VERIFY_SSL, default=True): BooleanSelector(
             BooleanSelectorConfig()
         ),
     }
@@ -76,15 +72,15 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 
 OPTIONS_FLOW = {
     "init": SchemaFlowFormStep(
-        schema=vol.Schema(
+        schema=probatio.Schema(
             {
-                vol.Optional(CONF_MAX_ACCURACY, default=0.0): NumberSelector(
+                probatio.Optional(CONF_MAX_ACCURACY, default=0.0): NumberSelector(
                     NumberSelectorConfig(
                         mode=NumberSelectorMode.BOX,
                         min=0.0,
                     )
                 ),
-                vol.Optional(CONF_CUSTOM_ATTRIBUTES, default=[]): SelectSelector(
+                probatio.Optional(CONF_CUSTOM_ATTRIBUTES, default=[]): SelectSelector(
                     SelectSelectorConfig(
                         mode=SelectSelectorMode.DROPDOWN,
                         multiple=True,
@@ -93,7 +89,9 @@ OPTIONS_FLOW = {
                         options=[],
                     )
                 ),
-                vol.Optional(CONF_SKIP_ACCURACY_FILTER_FOR, default=[]): SelectSelector(
+                probatio.Optional(
+                    CONF_SKIP_ACCURACY_FILTER_FOR, default=[]
+                ): SelectSelector(
                     SelectSelectorConfig(
                         mode=SelectSelectorMode.DROPDOWN,
                         multiple=True,
@@ -102,7 +100,7 @@ OPTIONS_FLOW = {
                         options=[],
                     )
                 ),
-                vol.Optional(CONF_EVENTS, default=[]): SelectSelector(
+                probatio.Optional(CONF_EVENTS, default=[]): SelectSelector(
                     SelectSelectorConfig(
                         mode=SelectSelectorMode.DROPDOWN,
                         multiple=True,
@@ -120,19 +118,21 @@ OPTIONS_FLOW = {
 class TraccarServerConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Traccar Server."""
 
+    VERSION = 2
+
     async def _get_server_info(self, user_input: dict[str, Any]) -> ServerModel:
         """Get server info."""
         client = ApiClient(
             client_session=async_get_clientsession(self.hass),
             host=user_input[CONF_HOST],
             port=user_input[CONF_PORT],
-            username=user_input[CONF_USERNAME],
-            password=user_input[CONF_PASSWORD],
             ssl=user_input[CONF_SSL],
             verify_ssl=user_input[CONF_VERIFY_SSL],
+            token=user_input[CONF_API_TOKEN],
         )
         return await client.get_server()
 
+    @override
     async def async_step_user(
         self,
         user_input: dict[str, Any] | None = None,
@@ -201,34 +201,27 @@ class TraccarServerConfigFlow(ConfigFlow, domain=DOMAIN):
                     reauth_entry,
                     data_updates=user_input,
                 )
-        username = (
-            user_input[CONF_USERNAME]
-            if user_input
-            else reauth_entry.data[CONF_USERNAME]
-        )
         return self.async_show_form(
             step_id="reauth_confirm",
-            data_schema=vol.Schema(
+            data_schema=probatio.Schema(
                 {
-                    vol.Required(CONF_USERNAME, default=username): TextSelector(
-                        TextSelectorConfig(type=TextSelectorType.EMAIL)
-                    ),
-                    vol.Required(CONF_PASSWORD): TextSelector(
+                    probatio.Required(probatio.Secret(CONF_API_TOKEN)): TextSelector(
                         TextSelectorConfig(type=TextSelectorType.PASSWORD)
                     ),
                 }
             ),
             errors=errors,
             description_placeholders={
-                CONF_HOST: reauth_entry.data[CONF_HOST],
-                CONF_PORT: reauth_entry.data[CONF_PORT],
+                "host": reauth_entry.data[CONF_HOST],
+                "port": reauth_entry.data[CONF_PORT],
             },
         )
 
     @staticmethod
     @callback
+    @override
     def async_get_options_flow(
-        config_entry: config_entries.ConfigEntry,
+        config_entry: TraccarServerConfigEntry,
     ) -> SchemaOptionsFlowHandler:
         """Get the options flow for this handler."""
         return SchemaOptionsFlowHandler(config_entry, OPTIONS_FLOW)

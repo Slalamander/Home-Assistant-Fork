@@ -2,33 +2,38 @@
 
 from unittest.mock import patch
 
-from homeassistant.components.octoprint.const import (
-    CONF_BAUDRATE,
-    DOMAIN,
-    SERVICE_CONNECT,
+import pytest
+
+from homeassistant.components.octoprint.const import DOMAIN
+from homeassistant.components.octoprint.services import (
+    OctoPrintService,
+    OctoPrintServiceArgument,
 )
-from homeassistant.const import ATTR_DEVICE_ID, CONF_PORT, CONF_PROFILE_NAME
+from homeassistant.const import CommonServiceArgument, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 
-from . import init_integration
+
+@pytest.fixture
+def platform() -> Platform:
+    """Fixture to specify platform."""
+    return Platform.SENSOR
 
 
+@pytest.mark.usefixtures("init_integration")
 async def test_connect_default(
     hass: HomeAssistant, device_registry: dr.DeviceRegistry
 ) -> None:
     """Test the connect to printer service."""
-    await init_integration(hass, "sensor")
-
     device = dr.async_entries_for_config_entry(device_registry, "uuid")[0]
 
     # Test pausing the printer when it is printing
     with patch("pyoctoprintapi.OctoprintClient.connect") as connect_command:
         await hass.services.async_call(
             DOMAIN,
-            SERVICE_CONNECT,
+            OctoPrintService.PRINTER_CONNECT,
             {
-                ATTR_DEVICE_ID: device.id,
+                CommonServiceArgument.DEVICE_ID: device.id,
             },
             blocking=True,
         )
@@ -39,24 +44,23 @@ async def test_connect_default(
         )
 
 
+@pytest.mark.usefixtures("init_integration")
 async def test_connect_all_arguments(
     hass: HomeAssistant, device_registry: dr.DeviceRegistry
 ) -> None:
     """Test the connect to printer service."""
-    await init_integration(hass, "sensor")
-
     device = dr.async_entries_for_config_entry(device_registry, "uuid")[0]
 
     # Test pausing the printer when it is printing
     with patch("pyoctoprintapi.OctoprintClient.connect") as connect_command:
         await hass.services.async_call(
             DOMAIN,
-            SERVICE_CONNECT,
+            OctoPrintService.PRINTER_CONNECT,
             {
-                ATTR_DEVICE_ID: device.id,
-                CONF_PROFILE_NAME: "Test Profile",
-                CONF_PORT: "VIRTUAL",
-                CONF_BAUDRATE: 9600,
+                CommonServiceArgument.DEVICE_ID: device.id,
+                OctoPrintServiceArgument.PROFILE_NAME: "Test Profile",
+                OctoPrintServiceArgument.PORT: "VIRTUAL",
+                OctoPrintServiceArgument.BAUDRATE: 9600,
             },
             blocking=True,
         )

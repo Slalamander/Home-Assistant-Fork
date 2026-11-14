@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 from freezegun.api import FrozenDateTimeFactory
 from fullykiosk import FullyKioskError
+from pytest_homeassistant.common import MockConfigEntry, async_fire_time_changed
 
 from homeassistant.components.fully_kiosk.const import DOMAIN, UPDATE_INTERVAL
 from homeassistant.components.sensor import (
@@ -21,8 +22,6 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.util import dt as dt_util
-
-from tests.common import MockConfigEntry, async_fire_time_changed
 
 
 async def test_sensors_sensors(
@@ -53,6 +52,18 @@ async def test_sensors_sensors(
     entry = entity_registry.async_get("sensor.amazon_fire_screen_orientation")
     assert entry
     assert entry.unique_id == "abcdef-123456-screenOrientation"
+
+    state = hass.states.get("sensor.amazon_fire_battery_temperature")
+    assert state
+    assert state.state == "27"
+    assert state.attributes.get(ATTR_DEVICE_CLASS) == SensorDeviceClass.TEMPERATURE
+    assert state.attributes.get(ATTR_FRIENDLY_NAME) == "Amazon Fire Battery temperature"
+    assert state.attributes.get(ATTR_STATE_CLASS) == SensorStateClass.MEASUREMENT
+
+    entry = entity_registry.async_get("sensor.amazon_fire_battery_temperature")
+    assert entry
+    assert entry.unique_id == "abcdef-123456-batteryTemperature"
+    assert entry.entity_category == EntityCategory.DIAGNOSTIC
 
     state = hass.states.get("sensor.amazon_fire_foreground_app")
     assert state

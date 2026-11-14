@@ -1,16 +1,16 @@
 """Home Assistant module to handle restoring backups."""
 
-from __future__ import annotations
-
 from collections.abc import Iterable
 from dataclasses import dataclass
-import hashlib
 import json
 import logging
+import os
 from pathlib import Path
 import shutil
 import sys
+import tarfile
 from tempfile import TemporaryDirectory
+from typing import IO, TYPE_CHECKING
 
 from awesomeversion import AwesomeVersion
 import securetar
@@ -40,17 +40,6 @@ class RestoreBackupFileContent:
     restore_homeassistant: bool
 
 
-def password_to_key(password: str) -> bytes:
-    """Generate a AES Key from password.
-
-    Matches the implementation in supervisor.backups.utils.password_to_key.
-    """
-    key: bytes = password.encode()
-    for _ in range(100):
-        key = hashlib.sha256(key).digest()
-    return key[:16]
-
-
 def restore_backup_file_content(config_dir: Path) -> RestoreBackupFileContent | None:
     """Return the contents of the restore backup file."""
     instruction_path = config_dir.joinpath(RESTORE_BACKUP_FILE)
@@ -74,7 +63,10 @@ def restore_backup_file_content(config_dir: Path) -> RestoreBackupFileContent | 
 
 
 def _clear_configuration_directory(config_dir: Path, keep: Iterable[str]) -> None:
-    """Delete all files and directories in the config directory except entries in the keep list."""
+    """Delete all files and directories in the config dir.
+
+    Entries in the keep list are preserved.
+    """
     keep_paths = [config_dir.joinpath(path) for path in keep]
     entries_to_remove = sorted(
         entry for entry in config_dir.iterdir() if entry not in keep_paths
@@ -89,6 +81,18 @@ def _clear_configuration_directory(config_dir: Path, keep: Iterable[str]) -> Non
             shutil.rmtree(entrypath)
 
 
+def _extract_member(
+    tar: tarfile.TarFile, members: dict[str, tarfile.TarInfo], name: str
+) -> IO[bytes]:
+    """Return a stream reading a member of the outer backup tar."""
+    if (member := members.get(name)) is None or not member.isfile():
+        raise ValueError(f"Backup does not contain {name}")
+    fileobj = tar.extractfile(member)
+    if TYPE_CHECKING:
+        assert fileobj is not None
+    return fileobj
+
+
 def _extract_backup(
     config_dir: Path,
     restore_content: RestoreBackupFileContent,
@@ -96,19 +100,16 @@ def _extract_backup(
     """Extract the backup file to the config directory."""
     with (
         TemporaryDirectory() as tempdir,
-        securetar.SecureTarFile(
+        securetar.SecureTarArchive(
             restore_content.backup_file_path,
-            gzip=False,
             mode="r",
         ) as ostf,
     ):
-        ostf.extractall(
-            path=Path(tempdir, "extracted"),
-            members=securetar.secure_path(ostf),
-            filter="fully_trusted",
-        )
-        backup_meta_file = Path(tempdir, "extracted", "backup.json")
-        backup_meta = json.loads(backup_meta_file.read_text(encoding="utf8"))
+        # Member names may or may not have a leading "./"
+        members = {
+            os.path.normpath(member.name): member for member in ostf.tar.getmembers()
+        }
+        backup_meta = json.load(_extract_member(ostf.tar, members, "backup.json"))
 
         if (
             backup_meta_version := AwesomeVersion(
@@ -116,25 +117,22 @@ def _extract_backup(
             )
         ) > HA_VERSION:
             raise ValueError(
-                f"You need at least Home Assistant version {backup_meta_version} to restore this backup"
+                f"You need at least Home Assistant version"
+                f" {backup_meta_version} to restore this backup"
             )
 
         with securetar.SecureTarFile(
-            Path(
-                tempdir,
-                "extracted",
+            fileobj=_extract_member(
+                ostf.tar,
+                members,
                 f"homeassistant.tar{'.gz' if backup_meta['compressed'] else ''}",
             ),
             gzip=backup_meta["compressed"],
-            key=password_to_key(restore_content.password)
-            if restore_content.password is not None
-            else None,
-            mode="r",
+            password=restore_content.password,
         ) as istf:
             istf.extractall(
                 path=Path(tempdir, "homeassistant"),
-                members=securetar.secure_path(istf),
-                filter="fully_trusted",
+                filter="tar",
             )
             if restore_content.restore_homeassistant:
                 keep = list(KEEP_BACKUPS)

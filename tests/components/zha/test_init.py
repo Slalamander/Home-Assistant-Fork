@@ -1,21 +1,27 @@
 """Tests for ZHA integration init."""
 
-import asyncio
 from collections.abc import Callable
+from datetime import timedelta
 import typing
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, patch
 import zoneinfo
 
 import pytest
+from pytest_homeassistant.common import MockConfigEntry, async_fire_time_changed
 from zigpy.application import ControllerApplication
 from zigpy.config import CONF_DEVICE, CONF_DEVICE_PATH
-from zigpy.device import Device
+from zigpy.device import ZigbeeDevice
 from zigpy.exceptions import TransientConnectionError
 
+from homeassistant.components.homeassistant_hardware import (
+    DOMAIN as HOMEASSISTANT_HARDWARE_DOMAIN,
+)
 from homeassistant.components.homeassistant_hardware.helpers import (
     async_is_firmware_update_in_progress,
     async_register_firmware_update_in_progress,
 )
+from homeassistant.components.usb import USBDevice
+from homeassistant.components.zha.config_flow import ZhaConfigFlowHandler
 from homeassistant.components.zha.const import (
     CONF_BAUDRATE,
     CONF_FLOW_CONTROL,
@@ -23,21 +29,27 @@ from homeassistant.components.zha.const import (
     CONF_USB_PATH,
     DOMAIN,
 )
-from homeassistant.components.zha.helpers import get_zha_data, get_zha_gateway
+from homeassistant.components.zha.helpers import (
+    create_zha_config,
+    get_zha_data,
+    get_zha_gateway,
+)
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
+    EVENT_HOMEASSISTANT_STARTED,
     EVENT_HOMEASSISTANT_STOP,
     MAJOR_VERSION,
     MINOR_VERSION,
     Platform,
 )
 from homeassistant.core import CoreState, HomeAssistant
-from homeassistant.helpers.event import async_call_later
 from homeassistant.setup import async_setup_component
+from homeassistant.util import dt as dt_util
 
 from .test_light import LIGHT_ON_OFF
 
-from tests.common import MockConfigEntry
+from tests.components.usb import patch_scanned_serial_ports
+from tests.components.usb.conftest import force_usb_polling_watcher  # noqa: F401
 
 DATA_RADIO_TYPE = "ezsp"
 DATA_PORT_PATH = "/dev/serial/by-id/FTDI_USB__-__Serial_Cable_12345678-if00-port0"
@@ -61,7 +73,7 @@ def config_entry_v1(hass: HomeAssistant):
 
 
 @pytest.mark.parametrize("config", [{}, {DOMAIN: {}}])
-@patch("homeassistant.components.zha.async_setup_entry", AsyncMock(return_value=True))
+@patch("homeassistant.components.zha.async_setup_entry", AsyncMock(return_value=None))
 async def test_migration_from_v1_no_baudrate(
     hass: HomeAssistant, config_entry_v1, config
 ) -> None:
@@ -73,10 +85,10 @@ async def test_migration_from_v1_no_baudrate(
     assert CONF_DEVICE in config_entry_v1.data
     assert config_entry_v1.data[CONF_DEVICE][CONF_DEVICE_PATH] == DATA_PORT_PATH
     assert CONF_USB_PATH not in config_entry_v1.data
-    assert config_entry_v1.version == 4
+    assert config_entry_v1.version == 5
 
 
-@patch("homeassistant.components.zha.async_setup_entry", AsyncMock(return_value=True))
+@patch("homeassistant.components.zha.async_setup_entry", AsyncMock(return_value=None))
 async def test_migration_from_v1_with_baudrate(
     hass: HomeAssistant, config_entry_v1
 ) -> None:
@@ -90,10 +102,10 @@ async def test_migration_from_v1_with_baudrate(
     assert CONF_USB_PATH not in config_entry_v1.data
     assert CONF_BAUDRATE in config_entry_v1.data[CONF_DEVICE]
     assert config_entry_v1.data[CONF_DEVICE][CONF_BAUDRATE] == 115200
-    assert config_entry_v1.version == 4
+    assert config_entry_v1.version == 5
 
 
-@patch("homeassistant.components.zha.async_setup_entry", AsyncMock(return_value=True))
+@patch("homeassistant.components.zha.async_setup_entry", AsyncMock(return_value=None))
 async def test_migration_from_v1_wrong_baudrate(
     hass: HomeAssistant, config_entry_v1
 ) -> None:
@@ -105,7 +117,7 @@ async def test_migration_from_v1_wrong_baudrate(
     assert CONF_DEVICE in config_entry_v1.data
     assert config_entry_v1.data[CONF_DEVICE][CONF_DEVICE_PATH] == DATA_PORT_PATH
     assert CONF_USB_PATH not in config_entry_v1.data
-    assert config_entry_v1.version == 4
+    assert config_entry_v1.version == 5
 
 
 @pytest.mark.skipif(
@@ -132,52 +144,77 @@ async def test_config_depreciation(hass: HomeAssistant, zha_config) -> None:
 
 
 @pytest.mark.parametrize(
-    ("path", "cleaned_path"),
+    ("old_path", "new_path"),
     [
-        # No corrections
-        ("/dev/path1", "/dev/path1"),
-        ("/dev/path1[asd]", "/dev/path1[asd]"),
-        ("/dev/path1 ", "/dev/path1 "),
+        ("/dev/ttyUSB0", "/dev/ttyUSB0"),
         ("socket://1.2.3.4:5678", "socket://1.2.3.4:5678"),
-        # Brackets around URI
-        ("socket://[1.2.3.4]:5678", "socket://1.2.3.4:5678"),
-        # Spaces
-        ("socket://dev/path1 ", "socket://dev/path1"),
-        # Both
-        ("socket://[1.2.3.4]:5678 ", "socket://1.2.3.4:5678"),
+        ("socket://1.2.3.4", "socket://1.2.3.4:6638"),
+        ("tcp://hostname", "tcp://hostname:6638"),
+        ("tcp://hostname:1234", "tcp://hostname:1234"),
+        ("socket://[::1]", "socket://[::1]:6638"),
     ],
 )
-@patch(
-    "homeassistant.components.zha.websocket_api.async_load_api", Mock(return_value=True)
-)
-async def test_setup_with_v3_cleaning_uri(
+@patch("homeassistant.components.zha.async_setup_entry", AsyncMock(return_value=None))
+async def test_migration_v5_explicit_socket_port(
+    old_path: str,
+    new_path: str,
     hass: HomeAssistant,
-    path: str,
-    cleaned_path: str,
-    mock_zigpy_connect: ControllerApplication,
+    config_entry: MockConfigEntry,
 ) -> None:
-    """Test migration of config entry from v3, applying corrections to the port path."""
-    config_entry_v4 = MockConfigEntry(
-        domain=DOMAIN,
+    """Test that socket:// and tcp:// paths get an explicit default port."""
+    config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        config_entry,
         data={
-            CONF_RADIO_TYPE: DATA_RADIO_TYPE,
+            **config_entry.data,
             CONF_DEVICE: {
-                CONF_DEVICE_PATH: path,
-                CONF_BAUDRATE: 115200,
-                CONF_FLOW_CONTROL: None,
+                **config_entry.data[CONF_DEVICE],
+                CONF_DEVICE_PATH: old_path,
             },
         },
-        version=4,
+        version=5,
+        minor_version=1,
     )
-    config_entry_v4.add_to_hass(hass)
 
-    await hass.config_entries.async_setup(config_entry_v4.entry_id)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
-    await hass.config_entries.async_unload(config_entry_v4.entry_id)
 
-    assert config_entry_v4.data[CONF_RADIO_TYPE] == DATA_RADIO_TYPE
-    assert config_entry_v4.data[CONF_DEVICE][CONF_DEVICE_PATH] == cleaned_path
-    assert config_entry_v4.version == 4
+    assert config_entry.version == 5
+    assert config_entry.minor_version == 2
+    assert config_entry.data[CONF_DEVICE][CONF_DEVICE_PATH] == new_path
+
+
+@pytest.mark.parametrize(
+    ("version_delta", "minor_delta", "expected_state"),
+    [
+        pytest.param(0, 1, ConfigEntryState.LOADED, id="minor_allowed"),
+        pytest.param(1, 0, ConfigEntryState.MIGRATION_ERROR, id="major_blocked"),
+    ],
+)
+@patch("homeassistant.components.zha.async_setup_entry", AsyncMock(return_value=None))
+async def test_migration_version_downgrade_guard(
+    version_delta: int,
+    minor_delta: int,
+    expected_state: ConfigEntryState,
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+) -> None:
+    """Test the config version downgrade guard."""
+    future_version = ZhaConfigFlowHandler.VERSION + version_delta
+    future_minor_version = ZhaConfigFlowHandler.MINOR_VERSION + minor_delta
+    config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        config_entry,
+        version=future_version,
+        minor_version=future_minor_version,
+    )
+
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert config_entry.state is expected_state
+    assert config_entry.version == future_version
+    assert config_entry.minor_version == future_minor_version
 
 
 @pytest.mark.parametrize(
@@ -196,7 +233,7 @@ async def test_setup_with_v3_cleaning_uri(
         ("deconz", 115200, None, 115200, None),
     ],
 )
-@patch("homeassistant.components.zha.async_setup_entry", AsyncMock(return_value=True))
+@patch("homeassistant.components.zha.async_setup_entry", AsyncMock(return_value=None))
 async def test_migration_baudrate_and_flow_control(
     radio_type: str,
     old_baudrate: int,
@@ -238,7 +275,7 @@ async def test_migration_baudrate_and_flow_control(
 async def test_zha_retry_unique_ids(
     hass: HomeAssistant,
     config_entry: MockConfigEntry,
-    zigpy_device_mock: Callable[..., Device],
+    zigpy_device_mock: Callable[..., ZigbeeDevice],
     mock_zigpy_connect: ControllerApplication,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -257,16 +294,12 @@ async def test_zha_retry_unique_ids(
         "startup",
         side_effect=[TransientConnectionError(), None],
     ) as mock_connect:
-        with patch(
-            "homeassistant.config_entries.async_call_later",
-            lambda hass, delay, action: async_call_later(hass, 0.01, action),
-        ):
-            await hass.config_entries.async_setup(config_entry.entry_id)
-            await hass.async_block_till_done(wait_background_tasks=True)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-            # Wait for the config entry setup to retry
-            await asyncio.sleep(0.1)
-            await hass.async_block_till_done(wait_background_tasks=True)
+        # Wait for the config entry setup to retry
+        async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=1))
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         assert len(mock_connect.mock_calls) == 2
 
@@ -311,11 +344,17 @@ async def test_timezone_update(
 
     assert hass.config.time_zone == "US/Pacific"
     assert gateway.config.local_timezone == zoneinfo.ZoneInfo("US/Pacific")
+    assert gateway.application_controller.local_timezone == zoneinfo.ZoneInfo(
+        "US/Pacific"
+    )
 
     await hass.config.async_update(time_zone="America/New_York")
 
     assert hass.config.time_zone == "America/New_York"
     assert gateway.config.local_timezone == zoneinfo.ZoneInfo("America/New_York")
+    assert gateway.application_controller.local_timezone == zoneinfo.ZoneInfo(
+        "America/New_York"
+    )
 
 
 async def test_setup_no_firmware_update_in_progress(
@@ -324,7 +363,7 @@ async def test_setup_no_firmware_update_in_progress(
     mock_zigpy_connect: ControllerApplication,
 ) -> None:
     """Test that ZHA setup proceeds normally when no firmware update is in progress."""
-    await async_setup_component(hass, "homeassistant_hardware", {})
+    await async_setup_component(hass, HOMEASSISTANT_HARDWARE_DOMAIN, {})
 
     config_entry.add_to_hass(hass)
     device_path = config_entry.data[CONF_DEVICE][CONF_DEVICE_PATH]
@@ -339,7 +378,7 @@ async def test_setup_firmware_update_in_progress(
     config_entry: MockConfigEntry,
 ) -> None:
     """Test that ZHA setup is blocked when firmware update is in progress."""
-    await async_setup_component(hass, "homeassistant_hardware", {})
+    await async_setup_component(hass, HOMEASSISTANT_HARDWARE_DOMAIN, {})
 
     config_entry.add_to_hass(hass)
     device_path = config_entry.data[CONF_DEVICE][CONF_DEVICE_PATH]
@@ -355,8 +394,8 @@ async def test_setup_firmware_update_in_progress_prevents_silabs_warning(
     config_entry: MockConfigEntry,
     mock_zigpy_connect: ControllerApplication,
 ) -> None:
-    """Test firmware update in progress prevents silabs firmware warning on setup failure."""
-    await async_setup_component(hass, "homeassistant_hardware", {})
+    """Test firmware update prevents silabs warning on setup failure."""
+    await async_setup_component(hass, HOMEASSISTANT_HARDWARE_DOMAIN, {})
 
     config_entry.add_to_hass(hass)
     device_path = config_entry.data[CONF_DEVICE][CONF_DEVICE_PATH]
@@ -381,3 +420,212 @@ async def test_setup_firmware_update_in_progress_prevents_silabs_warning(
 
     # But it did not try to check if the wrong firmware is installed
     assert mock_check_firmware.call_count == 0
+
+
+async def test_device_path_migration_to_unique_path(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    mock_zigpy_connect: ControllerApplication,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that device path is migrated to unique path when available."""
+    config_entry.add_to_hass(hass)
+
+    # Update config entry to use a non-unique path
+    hass.config_entries.async_update_entry(
+        config_entry,
+        data={
+            **config_entry.data,
+            CONF_DEVICE: {
+                **config_entry.data[CONF_DEVICE],
+                CONF_DEVICE_PATH: "/dev/ttyACM1",
+            },
+        },
+    )
+
+    # Mock usb_device_from_path to return a device with a unique path
+    mock_usb_device = USBDevice(
+        device="/dev/serial/by-id/coordinator-symlink",
+        vid="1234",
+        pid="5678",
+        serial_number="12345678",
+        manufacturer="Test",
+        description="Test Device",
+    )
+
+    with patch(
+        "homeassistant.components.zha.usb_device_from_path",
+        return_value=mock_usb_device,
+    ):
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    # Verify the config entry was updated with the unique path
+    assert "Migrating ZHA device path from" in caplog.text
+    assert (
+        config_entry.data[CONF_DEVICE][CONF_DEVICE_PATH]
+        == "/dev/serial/by-id/coordinator-symlink"
+    )
+    assert config_entry.state is ConfigEntryState.LOADED
+
+
+@pytest.mark.usefixtures("force_usb_polling_watcher")
+async def test_device_path_follows_moved_radio(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    mock_zigpy_connect: ControllerApplication,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A radio found at a new path at setup is followed there."""
+    config_entry.add_to_hass(hass)
+
+    old_path = (
+        "/dev/serial/by-id/"
+        "usb-ITEAD_SONOFF_Zigbee_3.0_USB_Dongle_Plus_V2_20231214135603-if00"
+    )
+    new_path = (
+        "esphome-hass://esphome/01M0EP649N48N88Z52ZG2B21VT?port_udev_id="
+        "usb-ITEAD_SONOFF_Zigbee_3.0_USB_Dongle_Plus_V2_20231214135603-if00"
+    )
+    hass.config_entries.async_update_entry(
+        config_entry,
+        data={
+            **config_entry.data,
+            CONF_DEVICE: {**config_entry.data[CONF_DEVICE], CONF_DEVICE_PATH: old_path},
+        },
+    )
+
+    with (
+        patch("homeassistant.components.usb.async_get_usb", return_value=[]),
+        patch_scanned_serial_ports(
+            return_value=[
+                USBDevice(
+                    device=new_path,
+                    vid="1A86",
+                    pid="55D4",
+                    serial_number="20231214135603",
+                    manufacturer="ITEAD",
+                    description="SONOFF Zigbee 3.0 USB Dongle Plus V2",
+                )
+            ]
+        ),
+    ):
+        assert await async_setup_component(hass, "usb", {"usb": {}})
+        hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED)
+        await hass.async_block_till_done()
+
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert f"Following ZHA device path from {old_path} to {new_path}" in caplog.text
+    assert config_entry.data[CONF_DEVICE] == {
+        CONF_DEVICE_PATH: new_path,
+        CONF_BAUDRATE: 115200,
+        CONF_FLOW_CONTROL: "hardware",
+    }
+    assert config_entry.state is ConfigEntryState.LOADED
+
+
+async def test_device_path_not_changed_when_already_unique(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    mock_zigpy_connect: ControllerApplication,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that device path is not changed when already using unique path."""
+    config_entry.add_to_hass(hass)
+
+    # Config entry already uses unique path
+    unique_path = "/dev/serial/by-id/coordinator-symlink"
+    hass.config_entries.async_update_entry(
+        config_entry,
+        data={
+            **config_entry.data,
+            CONF_DEVICE: {
+                **config_entry.data[CONF_DEVICE],
+                CONF_DEVICE_PATH: unique_path,
+            },
+        },
+    )
+
+    # Mock usb_device_from_path to return the same unique path
+    mock_usb_device = USBDevice(
+        device=unique_path,
+        vid="1234",
+        pid="5678",
+        serial_number="12345678",
+        manufacturer="Test",
+        description="Test Device",
+    )
+
+    with (
+        patch(
+            "homeassistant.components.zha.usb_device_from_path",
+            return_value=mock_usb_device,
+        ),
+    ):
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    # The path remains the same and the config entry was not updated unnecessarily
+    assert "Migrating ZHA device path from" not in caplog.text
+    assert config_entry.data[CONF_DEVICE][CONF_DEVICE_PATH] == unique_path
+    assert config_entry.state is ConfigEntryState.LOADED
+
+
+async def test_gateway_created_with_migrated_device_path(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    mock_zigpy_connect: ControllerApplication,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that the ZHA gateway is created with the migrated unique device path."""
+    config_entry.add_to_hass(hass)
+
+    # Update config entry to use a non-unique path
+    original_path = "/dev/ttyACM1"
+    hass.config_entries.async_update_entry(
+        config_entry,
+        data={
+            **config_entry.data,
+            CONF_DEVICE: {
+                **config_entry.data[CONF_DEVICE],
+                CONF_DEVICE_PATH: original_path,
+            },
+        },
+    )
+
+    unique_path = "/dev/serial/by-id/usb-Nabu_Casa_SkyConnect_v1.0_1234567890-if00"
+    mock_usb_device = USBDevice(
+        device=unique_path,
+        vid="10C4",
+        pid="EA60",
+        serial_number="1234567890",
+        manufacturer="Nabu Casa",
+        description="SkyConnect v1.0",
+    )
+
+    with (
+        patch(
+            "homeassistant.components.zha.usb_device_from_path",
+            return_value=mock_usb_device,
+        ),
+        patch(
+            "homeassistant.components.zha.create_zha_config",
+            wraps=create_zha_config,
+        ) as mock_create_config,
+    ):
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    # Verify migration happened
+    assert (
+        f"Migrating ZHA device path from {original_path} to {unique_path}"
+    ) in caplog.text
+    assert config_entry.data[CONF_DEVICE][CONF_DEVICE_PATH] == unique_path
+
+    # And that ZHA was started with the correct path
+    assert mock_create_config.call_count == 1
+    zha_data = mock_create_config.call_args.args[1]
+
+    assert zha_data.config_entry.data[CONF_DEVICE][CONF_DEVICE_PATH] == unique_path

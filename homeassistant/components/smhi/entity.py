@@ -1,19 +1,22 @@
 """Support for the Swedish weather institute weather  base entities."""
 
-from __future__ import annotations
-
 from abc import abstractmethod
+from typing import Any, override
 
 from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+    DataUpdateCoordinator,
+)
 
 from .const import DOMAIN
-from .coordinator import SMHIDataUpdateCoordinator
 
 
-class SmhiWeatherBaseEntity(CoordinatorEntity[SMHIDataUpdateCoordinator]):
-    """Representation of a base weather entity."""
+class SmhiEntity[_DataUpdateCoordinatorT: DataUpdateCoordinator[Any]](
+    CoordinatorEntity[_DataUpdateCoordinatorT]
+):
+    """Representation of a SMHI entity."""
 
     _attr_attribution = "Swedish weather institute (SMHI)"
     _attr_has_entity_name = True
@@ -22,9 +25,9 @@ class SmhiWeatherBaseEntity(CoordinatorEntity[SMHIDataUpdateCoordinator]):
         self,
         latitude: str,
         longitude: str,
-        coordinator: SMHIDataUpdateCoordinator,
+        coordinator: _DataUpdateCoordinatorT,
     ) -> None:
-        """Initialize the SMHI base weather entity."""
+        """Initialize the SMHI entity."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{latitude}, {longitude}"
         self._attr_device_info = DeviceInfo(
@@ -36,12 +39,13 @@ class SmhiWeatherBaseEntity(CoordinatorEntity[SMHIDataUpdateCoordinator]):
         )
         self.update_entity_data()
 
+    @abstractmethod
+    def update_entity_data(self) -> None:
+        """Refresh the entity data."""
+
     @callback
+    @override
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         self.update_entity_data()
         super()._handle_coordinator_update()
-
-    @abstractmethod
-    def update_entity_data(self) -> None:
-        """Refresh the entity data."""

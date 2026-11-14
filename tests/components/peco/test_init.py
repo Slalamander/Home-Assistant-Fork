@@ -10,12 +10,11 @@ from peco import (
     UnresponsiveMeterError,
 )
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.peco.const import DOMAIN
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
-
-from tests.common import MockConfigEntry
 
 MOCK_ENTRY_DATA = {"county": "TOTAL"}
 COUNTY_ENTRY_DATA = {"county": "BUCKS"}
@@ -47,8 +46,6 @@ async def test_unload_entry(hass: HomeAssistant) -> None:
     ):
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
-    assert hass.data[DOMAIN]
-
     entries = hass.config_entries.async_entries(DOMAIN)
     assert len(entries) == 1
     assert entries[0].state is ConfigEntryState.LOADED

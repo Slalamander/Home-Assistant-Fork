@@ -1,28 +1,34 @@
 """Fixtures for System Bridge integration tests."""
 
-from __future__ import annotations
-
 from collections.abc import Generator
 from typing import Final
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 from systembridgeconnector.const import EventKey, EventType
-from systembridgemodels.fixtures.modules.battery import FIXTURE_BATTERY
-from systembridgemodels.fixtures.modules.cpu import FIXTURE_CPU
-from systembridgemodels.fixtures.modules.disks import FIXTURE_DISKS
-from systembridgemodels.fixtures.modules.displays import FIXTURE_DISPLAYS
-from systembridgemodels.fixtures.modules.gpus import FIXTURE_GPUS
-from systembridgemodels.fixtures.modules.media import FIXTURE_MEDIA
-from systembridgemodels.fixtures.modules.memory import FIXTURE_MEMORY
-from systembridgemodels.fixtures.modules.networks import FIXTURE_NETWORKS
-from systembridgemodels.fixtures.modules.processes import FIXTURE_PROCESSES
-from systembridgemodels.fixtures.modules.sensors import FIXTURE_SENSORS
-from systembridgemodels.fixtures.modules.system import FIXTURE_SYSTEM
-from systembridgemodels.media_directories import MediaDirectory
-from systembridgemodels.media_files import MediaFile, MediaFiles
-from systembridgemodels.modules import Module, ModulesData, RegisterDataListener
-from systembridgemodels.response import Response
+from systembridgeconnector.models.command_result import ExecuteResult
+from systembridgeconnector.models.fixtures.modules.audio import FIXTURE_AUDIO
+from systembridgeconnector.models.fixtures.modules.battery import FIXTURE_BATTERY
+from systembridgeconnector.models.fixtures.modules.cpu import FIXTURE_CPU
+from systembridgeconnector.models.fixtures.modules.disks import FIXTURE_DISKS
+from systembridgeconnector.models.fixtures.modules.displays import FIXTURE_DISPLAYS
+from systembridgeconnector.models.fixtures.modules.gpus import FIXTURE_GPUS
+from systembridgeconnector.models.fixtures.modules.media import FIXTURE_MEDIA
+from systembridgeconnector.models.fixtures.modules.memory import FIXTURE_MEMORY
+from systembridgeconnector.models.fixtures.modules.networks import FIXTURE_NETWORKS
+from systembridgeconnector.models.fixtures.modules.processes import FIXTURE_PROCESSES
+from systembridgeconnector.models.fixtures.modules.sensors import FIXTURE_SENSORS
+from systembridgeconnector.models.fixtures.modules.system import FIXTURE_SYSTEM
+from systembridgeconnector.models.media_directories import MediaDirectory
+from systembridgeconnector.models.media_files import MediaFile, MediaFiles
+from systembridgeconnector.models.modules import (
+    Module,
+    ModulesData,
+    RegisterDataListener,
+)
+from systembridgeconnector.models.response import Response
+from systembridgeconnector.models.settings import SettingsCommands
 
 from homeassistant.components.system_bridge.config_flow import SystemBridgeConfigFlow
 from homeassistant.components.system_bridge.const import DOMAIN
@@ -31,6 +37,7 @@ from homeassistant.const import CONF_HOST, CONF_PORT, CONF_TOKEN
 from homeassistant.core import HomeAssistant
 
 from . import (
+    FIXTURE_COMMAND,
     FIXTURE_REQUEST_ID,
     FIXTURE_TITLE,
     FIXTURE_USER_INPUT,
@@ -38,8 +45,6 @@ from . import (
     mock_data_listener,
     setup_integration,
 )
-
-from tests.common import MockConfigEntry
 
 REGISTER_MODULES: Final[list[Module]] = [
     Module.SYSTEM,
@@ -106,6 +111,7 @@ def mock_websocket_client(
         websocket_client = mock_websocket_client.return_value
         websocket_client.connected = False
         websocket_client.get_data.return_value = ModulesData(
+            audio=FIXTURE_AUDIO,
             battery=FIXTURE_BATTERY,
             cpu=FIXTURE_CPU,
             disks=FIXTURE_DISKS,
@@ -124,12 +130,73 @@ def mock_websocket_client(
             message="Data listener registered",
             data={EventKey.MODULES: register_data_listener_model.modules},
         )
+        websocket_client.open_url.return_value = Response(
+            id=FIXTURE_REQUEST_ID,
+            type=EventType.OPENED,
+            message="Opened url",
+            data={"url": "https://example.com"},
+        )
+        websocket_client.open_path.return_value = Response(
+            id=FIXTURE_REQUEST_ID,
+            type=EventType.OPENED,
+            message="Opened file",
+            data={"path": "/home/user/documents"},
+        )
+        websocket_client.power_shutdown.return_value = Response(
+            id=FIXTURE_REQUEST_ID,
+            type=EventType.POWER_SHUTDOWN,
+            message="Shutdown",
+            data={},
+        )
+        websocket_client.keyboard_keypress.return_value = Response(
+            id=FIXTURE_REQUEST_ID,
+            type=EventType.KEYBOARD_KEY_PRESSED,
+            message="Keyboard key pressed",
+            data={"key": "backspace"},
+        )
+        websocket_client.keyboard_text.return_value = Response(
+            id=FIXTURE_REQUEST_ID,
+            type=EventType.KEYBOARD_TEXT_SENT,
+            message="Keyboard text sent",
+            data={"text": "Hello world"},
+        )
+        websocket_client.display_control.return_value = Response(
+            id=FIXTURE_REQUEST_ID,
+            type=EventType.DISPLAY_CONTROLLED,
+            message="Display controlled",
+            data={},
+        )
+        websocket_client.media_control.return_value = Response(
+            id=FIXTURE_REQUEST_ID,
+            type=EventType.MEDIA_CONTROLLED,
+            message="Media controlled",
+            data={},
+        )
+        websocket_client.audio_control.return_value = Response(
+            id=FIXTURE_REQUEST_ID,
+            type=EventType.AUDIO_CONTROLLED,
+            message="Audio controlled",
+            data={},
+        )
+        websocket_client.send_notification.return_value = Response(
+            id=FIXTURE_REQUEST_ID,
+            type=EventType.NOTIFICATION_SENT,
+            message="Notification sent",
+            data={"id": 1},
+        )
+        websocket_client.get_commands.return_value = SettingsCommands(
+            allowlist=[FIXTURE_COMMAND]
+        )
+        websocket_client.execute_command.return_value = ExecuteResult(
+            commandID=FIXTURE_COMMAND.id, exitCode=0, stdout="", stderr=""
+        )
         # Trigger callback when listener is registered
         websocket_client.listen.side_effect = mock_data_listener
 
         websocket_client.get_directories.return_value = [
             MediaDirectory(
                 key="documents",
+                name="Documents",
                 path="/home/user/documents",
             )
         ]
@@ -143,6 +210,8 @@ def mock_websocket_client(
                     last_accessed=1630000000,
                     created=1630000000,
                     modified=1630000000,
+                    mod_time=1630000000,
+                    permissions="rwxr-xr-x",
                     is_directory=True,
                     is_file=False,
                     is_link=False,
@@ -155,6 +224,8 @@ def mock_websocket_client(
                     last_accessed=1630000000,
                     created=1630000000,
                     modified=1630000000,
+                    mod_time=1630000000,
+                    permissions="rw-r--r--",
                     is_directory=False,
                     is_file=True,
                     is_link=False,
@@ -168,6 +239,8 @@ def mock_websocket_client(
                     last_accessed=1630000000,
                     created=1630000000,
                     modified=1630000000,
+                    mod_time=1630000000,
+                    permissions="rw-r--r--",
                     is_directory=False,
                     is_file=True,
                     is_link=False,

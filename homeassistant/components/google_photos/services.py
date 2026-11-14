@@ -1,16 +1,15 @@
 """Google Photos services."""
 
-from __future__ import annotations
-
 import asyncio
+from enum import StrEnum
 import mimetypes
 from pathlib import Path
 
 from google_photos_library_api.exceptions import GooglePhotosApiError
 from google_photos_library_api.model import NewMediaItem, SimpleMediaItem
-import voluptuous as vol
+import probatio
 
-from homeassistant.const import CONF_FILENAME
+from homeassistant.const import CommonServiceArgument
 from homeassistant.core import (
     HomeAssistant,
     ServiceCall,
@@ -18,21 +17,33 @@ from homeassistant.core import (
     SupportsResponse,
     callback,
 )
-from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
-from homeassistant.helpers import config_validation as cv
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import config_validation as cv, service
 
 from .const import DOMAIN, UPLOAD_SCOPE
 from .coordinator import GooglePhotosConfigEntry
 
-CONF_CONFIG_ENTRY_ID = "config_entry_id"
-CONF_ALBUM = "album"
 
-UPLOAD_SERVICE = "upload"
-UPLOAD_SERVICE_SCHEMA = vol.Schema(
+class GooglePhotosService(StrEnum):
+    """Store keys for Google Photos services."""
+
+    UPLOAD = "upload"
+
+
+class GooglePhotosServiceArgument(StrEnum):
+    """Store keys for Google Photos service arguments."""
+
+    FILENAME = "filename"
+    ALBUM = "album"
+
+
+UPLOAD_SERVICE_SCHEMA = probatio.Schema(
     {
-        vol.Required(CONF_CONFIG_ENTRY_ID): cv.string,
-        vol.Required(CONF_FILENAME): vol.All(cv.ensure_list, [cv.string]),
-        vol.Required(CONF_ALBUM): cv.string,
+        probatio.Required(CommonServiceArgument.CONFIG_ENTRY_ID): cv.string,
+        probatio.Required(GooglePhotosServiceArgument.FILENAME): probatio.All(
+            probatio.EnsureList(), [cv.string]
+        ),
+        probatio.Required(GooglePhotosServiceArgument.ALBUM): cv.string,
     }
 )
 CONTENT_SIZE_LIMIT = 20 * 1024 * 1024
@@ -80,30 +91,24 @@ def _read_file_contents(
 
 async def _async_handle_upload(call: ServiceCall) -> ServiceResponse:
     """Generate content from text and optionally images."""
-    config_entry: GooglePhotosConfigEntry | None = (
-        call.hass.config_entries.async_get_entry(call.data[CONF_CONFIG_ENTRY_ID])
+    config_entry: GooglePhotosConfigEntry = service.async_get_config_entry(
+        call.hass, DOMAIN, call.data[CommonServiceArgument.CONFIG_ENTRY_ID]
     )
-    if not config_entry:
-        raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="integration_not_found",
-            translation_placeholders={"target": DOMAIN},
-        )
+
     scopes = config_entry.data["token"]["scope"].split(" ")
     if UPLOAD_SCOPE not in scopes:
         raise HomeAssistantError(
             translation_domain=DOMAIN,
             translation_key="missing_upload_permission",
-            translation_placeholders={"target": DOMAIN},
         )
     coordinator = config_entry.runtime_data
     client_api = coordinator.client
     upload_tasks = []
     file_results = await call.hass.async_add_executor_job(
-        _read_file_contents, call.hass, call.data[CONF_FILENAME]
+        _read_file_contents, call.hass, call.data[GooglePhotosServiceArgument.FILENAME]
     )
 
-    album = call.data[CONF_ALBUM]
+    album = call.data[GooglePhotosServiceArgument.ALBUM]
     try:
         album_id = await coordinator.get_or_create_album(album)
     except GooglePhotosApiError as err:
@@ -155,8 +160,9 @@ def async_setup_services(hass: HomeAssistant) -> None:
 
     hass.services.async_register(
         DOMAIN,
-        UPLOAD_SERVICE,
+        GooglePhotosService.UPLOAD,
         _async_handle_upload,
         schema=UPLOAD_SERVICE_SCHEMA,
         supports_response=SupportsResponse.OPTIONAL,
+        description_placeholders={"example_image_path": "/config/www/image.jpg"},
     )

@@ -1,10 +1,8 @@
 """Config flow for Google Maps Travel Time integration."""
 
-from __future__ import annotations
+from typing import Any, override
 
-from typing import Any
-
-import voluptuous as vol
+import probatio
 
 from homeassistant.config_entries import (
     ConfigEntry,
@@ -12,7 +10,7 @@ from homeassistant.config_entries import (
     ConfigFlowResult,
     OptionsFlow,
 )
-from homeassistant.const import CONF_API_KEY, CONF_LANGUAGE, CONF_MODE, CONF_NAME
+from homeassistant.const import CONF_API_KEY, CONF_LANGUAGE, CONF_MODE
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.selector import (
@@ -24,9 +22,7 @@ from homeassistant.helpers.selector import (
 from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM
 
 from .const import (
-    ALL_LANGUAGES,
     ARRIVAL_TIME,
-    AVOID_OPTIONS,
     CONF_ARRIVAL_TIME,
     CONF_AVOID,
     CONF_DEPARTURE_TIME,
@@ -37,16 +33,12 @@ from .const import (
     CONF_TRAFFIC_MODEL,
     CONF_TRANSIT_MODE,
     CONF_TRANSIT_ROUTING_PREFERENCE,
+    CONF_TRAVEL_ROUTING_PREFERENCE,
     CONF_UNITS,
     DEFAULT_NAME,
     DEPARTURE_TIME,
     DOMAIN,
-    TIME_TYPES,
-    TRAFFIC_MODELS,
-    TRANSIT_PREFS,
-    TRANSPORT_TYPES,
     TRAVEL_MODES,
-    UNITS,
     UNITS_IMPERIAL,
     UNITS_METRIC,
 )
@@ -56,24 +48,38 @@ from .helpers import (
     UnknownException,
     validate_config_entry,
 )
+from .schemas import (
+    AVOID_SELECTOR,
+    LANGUAGE_SELECTOR,
+    TIME_TYPE_SELECTOR,
+    TRAFFIC_MODEL_SELECTOR,
+    TRANSIT_MODE_SELECTOR,
+    TRANSIT_ROUTING_PREFERENCE_SELECTOR,
+    TRAVEL_ROUTING_PREFERENCE_SELECTOR,
+    UNITS_SELECTOR,
+)
 
-RECONFIGURE_SCHEMA = vol.Schema(
+CONFIG_SCHEMA = probatio.Schema(
     {
-        vol.Required(CONF_API_KEY): cv.string,
-        vol.Required(CONF_DESTINATION): cv.string,
-        vol.Required(CONF_ORIGIN): cv.string,
+        probatio.Required(probatio.Secret(CONF_API_KEY)): cv.string,
+        probatio.Required(CONF_DESTINATION): cv.string,
+        probatio.Required(CONF_ORIGIN): cv.string,
     }
 )
 
-CONFIG_SCHEMA = RECONFIGURE_SCHEMA.extend(
+OPTIONS_SCHEMA = probatio.Schema(
     {
-        vol.Required(CONF_NAME, default=DEFAULT_NAME): cv.string,
-    }
-)
-
-OPTIONS_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_MODE): SelectSelector(
+        probatio.Optional(CONF_LANGUAGE): LANGUAGE_SELECTOR,
+        probatio.Optional(CONF_AVOID): AVOID_SELECTOR,
+        probatio.Optional(CONF_TRAFFIC_MODEL): TRAFFIC_MODEL_SELECTOR,
+        probatio.Optional(CONF_TRANSIT_MODE): TRANSIT_MODE_SELECTOR,
+        probatio.Optional(
+            CONF_TRAVEL_ROUTING_PREFERENCE
+        ): TRAVEL_ROUTING_PREFERENCE_SELECTOR,
+        probatio.Optional(
+            CONF_TRANSIT_ROUTING_PREFERENCE
+        ): TRANSIT_ROUTING_PREFERENCE_SELECTOR,
+        probatio.Required(CONF_MODE): SelectSelector(
             SelectSelectorConfig(
                 options=TRAVEL_MODES,
                 sort=True,
@@ -81,62 +87,9 @@ OPTIONS_SCHEMA = vol.Schema(
                 translation_key=CONF_MODE,
             )
         ),
-        vol.Optional(CONF_LANGUAGE): SelectSelector(
-            SelectSelectorConfig(
-                options=sorted(ALL_LANGUAGES),
-                mode=SelectSelectorMode.DROPDOWN,
-                translation_key=CONF_LANGUAGE,
-            )
-        ),
-        vol.Optional(CONF_AVOID): SelectSelector(
-            SelectSelectorConfig(
-                options=AVOID_OPTIONS,
-                sort=True,
-                mode=SelectSelectorMode.DROPDOWN,
-                translation_key=CONF_AVOID,
-            )
-        ),
-        vol.Required(CONF_UNITS): SelectSelector(
-            SelectSelectorConfig(
-                options=UNITS,
-                sort=True,
-                mode=SelectSelectorMode.DROPDOWN,
-                translation_key=CONF_UNITS,
-            )
-        ),
-        vol.Required(CONF_TIME_TYPE): SelectSelector(
-            SelectSelectorConfig(
-                options=TIME_TYPES,
-                sort=True,
-                mode=SelectSelectorMode.DROPDOWN,
-                translation_key=CONF_TIME_TYPE,
-            )
-        ),
-        vol.Optional(CONF_TIME): TimeSelector(),
-        vol.Optional(CONF_TRAFFIC_MODEL): SelectSelector(
-            SelectSelectorConfig(
-                options=TRAFFIC_MODELS,
-                sort=True,
-                mode=SelectSelectorMode.DROPDOWN,
-                translation_key=CONF_TRAFFIC_MODEL,
-            )
-        ),
-        vol.Optional(CONF_TRANSIT_MODE): SelectSelector(
-            SelectSelectorConfig(
-                options=TRANSPORT_TYPES,
-                sort=True,
-                mode=SelectSelectorMode.DROPDOWN,
-                translation_key=CONF_TRANSIT_MODE,
-            )
-        ),
-        vol.Optional(CONF_TRANSIT_ROUTING_PREFERENCE): SelectSelector(
-            SelectSelectorConfig(
-                options=TRANSIT_PREFS,
-                sort=True,
-                mode=SelectSelectorMode.DROPDOWN,
-                translation_key=CONF_TRANSIT_ROUTING_PREFERENCE,
-            )
-        ),
+        probatio.Required(CONF_UNITS): UNITS_SELECTOR,
+        probatio.Required(CONF_TIME_TYPE): TIME_TYPE_SELECTOR,
+        probatio.Optional(CONF_TIME): TimeSelector(),
     }
 )
 
@@ -156,29 +109,44 @@ class GoogleOptionsFlow(OptionsFlow):
 
     async def async_step_init(self, user_input=None) -> ConfigFlowResult:
         """Handle the initial step."""
-        if user_input is not None:
-            time_type = user_input.pop(CONF_TIME_TYPE)
-            if time := user_input.pop(CONF_TIME, None):
-                if time_type == ARRIVAL_TIME:
-                    user_input[CONF_ARRIVAL_TIME] = time
-                else:
-                    user_input[CONF_DEPARTURE_TIME] = time
-            return self.async_create_entry(
-                title="",
-                data=user_input,
-            )
-
-        options = self.config_entry.options.copy()
-        if CONF_ARRIVAL_TIME in self.config_entry.options:
-            options[CONF_TIME_TYPE] = ARRIVAL_TIME
-            options[CONF_TIME] = self.config_entry.options[CONF_ARRIVAL_TIME]
+        errors = {}
+        if user_input is None:
+            user_input = self.config_entry.options.copy()
+            if CONF_ARRIVAL_TIME in self.config_entry.options:
+                user_input[CONF_TIME_TYPE] = ARRIVAL_TIME
+                user_input[CONF_TIME] = self.config_entry.options[CONF_ARRIVAL_TIME]
+            else:
+                user_input[CONF_TIME_TYPE] = DEPARTURE_TIME
+                user_input[CONF_TIME] = self.config_entry.options.get(
+                    CONF_DEPARTURE_TIME, ""
+                )
         else:
-            options[CONF_TIME_TYPE] = DEPARTURE_TIME
-            options[CONF_TIME] = self.config_entry.options.get(CONF_DEPARTURE_TIME, "")
+            routing_preference = user_input.get(
+                CONF_TRAVEL_ROUTING_PREFERENCE, "traffic_aware_optimal"
+            )
+            if (
+                routing_preference != "traffic_aware_optimal"
+                and user_input.get(CONF_TRAFFIC_MODEL) is not None
+            ):
+                errors["base"] = "traffic_model_not_allowed"
+
+            if not errors:
+                time_type = user_input.pop(CONF_TIME_TYPE)
+                if time := user_input.pop(CONF_TIME, None):
+                    if time_type == ARRIVAL_TIME:
+                        user_input[CONF_ARRIVAL_TIME] = time
+                    else:
+                        user_input[CONF_DEPARTURE_TIME] = time
+
+                return self.async_create_entry(
+                    title="",
+                    data=user_input,
+                )
 
         return self.async_show_form(
             step_id="init",
-            data_schema=self.add_suggested_values_to_schema(OPTIONS_SCHEMA, options),
+            data_schema=self.add_suggested_values_to_schema(OPTIONS_SCHEMA, user_input),
+            errors=errors,
         )
 
 
@@ -212,12 +180,14 @@ class GoogleTravelTimeConfigFlow(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
+    @override
     def async_get_options_flow(
         config_entry: ConfigEntry,
     ) -> GoogleOptionsFlow:
         """Get the options flow for this handler."""
         return GoogleOptionsFlow()
 
+    @override
     async def async_step_user(self, user_input=None) -> ConfigFlowResult:
         """Handle the initial step."""
         errors: dict[str, str] | None = None
@@ -226,7 +196,7 @@ class GoogleTravelTimeConfigFlow(ConfigFlow, domain=DOMAIN):
             errors = await validate_input(self.hass, user_input)
             if not errors:
                 return self.async_create_entry(
-                    title=user_input.get(CONF_NAME, DEFAULT_NAME),
+                    title=DEFAULT_NAME,
                     data=user_input,
                     options=default_options(self.hass),
                 )
@@ -252,7 +222,7 @@ class GoogleTravelTimeConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=self.add_suggested_values_to_schema(
-                RECONFIGURE_SCHEMA, self._get_reconfigure_entry().data
+                CONFIG_SCHEMA, self._get_reconfigure_entry().data
             ),
             errors=errors,
         )

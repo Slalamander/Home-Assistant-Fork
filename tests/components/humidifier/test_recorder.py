@@ -1,14 +1,16 @@
 """The tests for humidifier recorder."""
 
-from __future__ import annotations
-
 from datetime import timedelta
+
+from pytest_homeassistant.common import async_fire_time_changed
+from pytest_homeassistant.components.recorder.common import async_wait_recording_done
 
 from homeassistant.components import humidifier
 from homeassistant.components.humidifier import (
     ATTR_AVAILABLE_MODES,
     ATTR_MAX_HUMIDITY,
     ATTR_MIN_HUMIDITY,
+    ATTR_TARGET_HUMIDITY_STEP,
 )
 from homeassistant.components.recorder import Recorder
 from homeassistant.components.recorder.history import get_significant_states
@@ -16,9 +18,6 @@ from homeassistant.const import ATTR_FRIENDLY_NAME
 from homeassistant.core import HomeAssistant, split_entity_id
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
-
-from tests.common import async_fire_time_changed
-from tests.components.recorder.common import async_wait_recording_done
 
 
 async def test_exclude_attributes(recorder_mock: Recorder, hass: HomeAssistant) -> None:
@@ -46,3 +45,4 @@ async def test_exclude_attributes(recorder_mock: Recorder, hass: HomeAssistant) 
         assert ATTR_MAX_HUMIDITY not in state.attributes
         assert ATTR_AVAILABLE_MODES not in state.attributes
         assert ATTR_FRIENDLY_NAME in state.attributes
+        assert ATTR_TARGET_HUMIDITY_STEP not in state.attributes

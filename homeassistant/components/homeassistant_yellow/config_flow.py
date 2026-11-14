@@ -1,19 +1,15 @@
 """Config flow for the Home Assistant Yellow integration."""
 
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Protocol, final
+from typing import TYPE_CHECKING, Any, Protocol, final, override
 
-import aiohttp
-import voluptuous as vol
+import probatio
 
 from homeassistant.components.hassio import (
-    HassioAPIError,
-    async_get_yellow_settings,
-    async_set_yellow_settings,
+    SupervisorError,
+    YellowOptions,
     get_supervisor_client,
 )
 from homeassistant.components.homeassistant_hardware.firmware_config_flow import (
@@ -27,12 +23,12 @@ from homeassistant.components.homeassistant_hardware.silabs_multiprotocol_addon 
 from homeassistant.components.homeassistant_hardware.util import (
     ApplicationType,
     FirmwareInfo,
-    ResetTarget,
+    FlasherType,
+    async_get_flasher_cls,
     probe_silabs_firmware_info,
 )
 from homeassistant.config_entries import (
     SOURCE_HARDWARE,
-    ConfigEntry,
     ConfigEntryBaseFlow,
     ConfigFlowResult,
     OptionsFlow,
@@ -40,6 +36,7 @@ from homeassistant.config_entries import (
 from homeassistant.core import HomeAssistant, async_get_hass, callback
 from homeassistant.helpers import discovery_flow, selector
 
+from . import HomeAssistantYellowConfigEntry
 from .const import (
     DOMAIN,
     FIRMWARE,
@@ -53,11 +50,11 @@ from .hardware import BOARD_NAME
 
 _LOGGER = logging.getLogger(__name__)
 
-STEP_HW_SETTINGS_SCHEMA = vol.Schema(
+STEP_HW_SETTINGS_SCHEMA = probatio.Schema(
     {
-        vol.Required("disk_led"): selector.BooleanSelector(),
-        vol.Required("heartbeat_led"): selector.BooleanSelector(),
-        vol.Required("power_led"): selector.BooleanSelector(),
+        probatio.Required("disk_led"): selector.BooleanSelector(),
+        probatio.Required("heartbeat_led"): selector.BooleanSelector(),
+        probatio.Required("power_led"): selector.BooleanSelector(),
     }
 )
 
@@ -84,7 +81,8 @@ else:
 class YellowFirmwareMixin(ConfigEntryBaseFlow, FirmwareInstallFlowProtocol):
     """Mixin for Home Assistant Yellow firmware methods."""
 
-    BOOTLOADER_RESET_METHODS = [ResetTarget.YELLOW]
+    ZIGBEE_BAUDRATE = 115200
+    _flasher_type = FlasherType.YELLOW
 
     async def async_step_install_zigbee_firmware(
         self, user_input: dict[str, Any] | None = None
@@ -129,8 +127,9 @@ class HomeAssistantYellowConfigFlow(
 
     @staticmethod
     @callback
+    @override
     def async_get_options_flow(
-        config_entry: ConfigEntry,
+        config_entry: HomeAssistantYellowConfigEntry,
     ) -> OptionsFlow:
         """Return the options flow."""
         firmware_type = ApplicationType(config_entry.data[FIRMWARE])
@@ -148,7 +147,10 @@ class HomeAssistantYellowConfigFlow(
         assert self._device is not None
 
         # We do not actually use any portion of `BaseFirmwareConfigFlow` beyond this
-        self._probed_firmware_info = await probe_silabs_firmware_info(self._device)
+        self._probed_firmware_info = await probe_silabs_firmware_info(
+            self._device,
+            flasher_cls=await async_get_flasher_cls(self.hass, self._flasher_type),
+        )
 
         # Kick off ZHA hardware discovery automatically if Zigbee firmware is running
         if (
@@ -164,6 +166,7 @@ class HomeAssistantYellowConfigFlow(
 
         return self._async_flow_finished()
 
+    @override
     def _async_flow_finished(self) -> ConfigFlowResult:
         """Create the config entry."""
         return self.async_create_entry(
@@ -222,21 +225,22 @@ class BaseHomeAssistantYellowOptionsFlow(OptionsFlow, ABC):
                 return self.async_create_entry(data={})
             try:
                 async with asyncio.timeout(10):
-                    await async_set_yellow_settings(self.hass, user_input)
-            except (aiohttp.ClientError, TimeoutError, HassioAPIError) as err:
+                    await self._supervisor_client.os.set_yellow_options(
+                        YellowOptions.from_dict(user_input)
+                    )
+            except (TimeoutError, SupervisorError) as err:
                 _LOGGER.warning("Failed to write hardware settings", exc_info=err)
                 return self.async_abort(reason="write_hw_settings_error")
             return await self.async_step_reboot_menu()
 
         try:
             async with asyncio.timeout(10):
-                self._hw_settings: dict[str, bool] = await async_get_yellow_settings(
-                    self.hass
-                )
-        except (aiohttp.ClientError, TimeoutError, HassioAPIError) as err:
+                yellow_info = await self._supervisor_client.os.yellow_info()
+        except (TimeoutError, SupervisorError) as err:
             _LOGGER.warning("Failed to read hardware settings", exc_info=err)
             return self.async_abort(reason="read_hw_settings_error")
 
+        self._hw_settings: dict[str, bool] = yellow_info.to_dict()
         schema = self.add_suggested_values_to_schema(
             STEP_HW_SETTINGS_SCHEMA, self._hw_settings
         )
@@ -274,6 +278,7 @@ class HomeAssistantYellowMultiPanOptionsFlowHandler(
 ):
     """Handle a multi-PAN options flow for Home Assistant Yellow."""
 
+    @override
     async def async_step_main_menu(self, _: None = None) -> ConfigFlowResult:
         """Show the main menu."""
         return self.async_show_menu(
@@ -292,6 +297,7 @@ class HomeAssistantYellowMultiPanOptionsFlowHandler(
             self, user_input
         )
 
+    @override
     async def _async_serial_port_settings(
         self,
     ) -> MultiprotocolSerialPortSettings:
@@ -302,6 +308,7 @@ class HomeAssistantYellowMultiPanOptionsFlowHandler(
             flow_control=True,
         )
 
+    @override
     async def _async_zha_physical_discovery(self) -> dict[str, Any]:
         """Return ZHA discovery data when multiprotocol FW is not used.
 
@@ -310,14 +317,33 @@ class HomeAssistantYellowMultiPanOptionsFlowHandler(
         """
         return {"hw": ZHA_HW_DISCOVERY_DATA}
 
+    @override
     def _zha_name(self) -> str:
         """Return the ZHA name."""
         return "Yellow Multiprotocol"
 
+    @override
     def _hardware_name(self) -> str:
         """Return the name of the hardware."""
         return BOARD_NAME
 
+    @override
+    def _firmware_update_url(self) -> str:
+        """Return the firmware update manifest URL."""
+        return NABU_CASA_FIRMWARE_RELEASES_URL
+
+    @override
+    def _zigbee_firmware_type(self) -> str:
+        """Return the zigbee firmware type identifier."""
+        return "yellow_zigbee_ncp"
+
+    @property
+    @override
+    def _flasher_type(self) -> FlasherType:
+        """Return the hardware-specific flasher type."""
+        return FlasherType.YELLOW
+
+    @override
     async def async_step_flashing_complete(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -349,7 +375,7 @@ class HomeAssistantYellowOptionsFlowHandler(
 
         self._probed_firmware_info = FirmwareInfo(
             device=self._device,
-            firmware_type=ApplicationType(self.config_entry.data["firmware"]),
+            firmware_type=ApplicationType(self._config_entry.data["firmware"]),
             firmware_version=None,
             source="guess",
             owners=[],
@@ -358,6 +384,7 @@ class HomeAssistantYellowOptionsFlowHandler(
         # Regenerate the translation placeholders
         self._get_translation_placeholders()
 
+    @override
     async def async_step_main_menu(self, _: None = None) -> ConfigFlowResult:
         """Show the main menu."""
         return self.async_show_menu(
@@ -374,6 +401,7 @@ class HomeAssistantYellowOptionsFlowHandler(
         """Handle firmware configuration settings."""
         return await super().async_step_pick_firmware()
 
+    @override
     def _async_flow_finished(self) -> ConfigFlowResult:
         """Create the config entry."""
         assert self._probed_firmware_info is not None

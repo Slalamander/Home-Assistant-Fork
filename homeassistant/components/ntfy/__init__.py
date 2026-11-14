@@ -1,7 +1,5 @@
 """The ntfy integration."""
 
-from __future__ import annotations
-
 import logging
 
 from aiontfy import Ntfy
@@ -11,24 +9,54 @@ from aiontfy.exceptions import (
     NtfyTimeoutError,
     NtfyUnauthorizedAuthenticationError,
 )
+from aiontfy.update import UpdateChecker
 
 from homeassistant.const import CONF_TOKEN, CONF_URL, CONF_VERIFY_SSL, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers import config_validation as cv, device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.typing import ConfigType
+from homeassistant.util.hass_dict import HassKey
 
 from .const import DOMAIN
-from .coordinator import NtfyConfigEntry, NtfyDataUpdateCoordinator
+from .coordinator import (
+    NtfyConfigEntry,
+    NtfyDataUpdateCoordinator,
+    NtfyLatestReleaseUpdateCoordinator,
+    NtfyRuntimeData,
+    NtfyVersionDataUpdateCoordinator,
+)
+from .services import async_setup_services
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS: list[Platform] = [Platform.EVENT, Platform.NOTIFY, Platform.SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.EVENT,
+    Platform.NOTIFY,
+    Platform.SENSOR,
+    Platform.UPDATE,
+]
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+NTFY_KEY: HassKey[NtfyLatestReleaseUpdateCoordinator] = HassKey(DOMAIN)
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: NtfyConfigEntry) -> bool:
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up the ntfy services."""
+
+    async_setup_services(hass)
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: NtfyConfigEntry) -> None:
     """Set up ntfy from a config entry."""
 
     session = async_get_clientsession(hass, entry.data.get(CONF_VERIFY_SSL, True))
     ntfy = Ntfy(entry.data[CONF_URL], session, token=entry.data.get(CONF_TOKEN))
+    if NTFY_KEY not in hass.data:
+        update_checker = UpdateChecker(session)
+        update_coordinator = NtfyLatestReleaseUpdateCoordinator(hass, update_checker)
+        await update_coordinator.async_request_refresh()
+        hass.data[NTFY_KEY] = update_coordinator
 
     try:
         await ntfy.account()
@@ -58,13 +86,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: NtfyConfigEntry) -> bool
 
     coordinator = NtfyDataUpdateCoordinator(hass, entry, ntfy)
     await coordinator.async_config_entry_first_refresh()
-    entry.runtime_data = coordinator
+
+    version = NtfyVersionDataUpdateCoordinator(hass, entry, ntfy)
+    await version.async_config_entry_first_refresh()
+
+    entry.runtime_data = NtfyRuntimeData(coordinator, version)
+
+    dr.async_get(hass).async_get_or_create_from_info(
+        config_entry_id=entry.entry_id, device_info=coordinator.device_info
+    )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
-
-    return True
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: NtfyConfigEntry) -> None:
@@ -72,6 +106,6 @@ async def _async_update_listener(hass: HomeAssistant, entry: NtfyConfigEntry) ->
     await hass.config_entries.async_reload(entry.entry_id)
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: NtfyConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: NtfyConfigEntry) -> None:
     """Unload a config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    await hass.config_entries.async_unload_platforms_or_raise(entry, PLATFORMS)

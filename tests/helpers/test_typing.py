@@ -1,37 +1,45 @@
-"""Test typing helper module."""
-
-from __future__ import annotations
+"""Test typing helpers."""
 
 from typing import Any
 
 import pytest
+from pytest_homeassistant.common import help_test_all, import_and_test_deprecated_alias
 
-from homeassistant.core import Context, Event, HomeAssistant, ServiceCall
 from homeassistant.helpers import typing as ha_typing
 
-from tests.common import import_and_test_deprecated_alias
+
+def test_all() -> None:
+    """Test module.__all__ is correctly set."""
+    help_test_all(ha_typing)
 
 
 @pytest.mark.parametrize(
-    ("alias_name", "replacement", "breaks_in_ha_version"),
+    ("alias_name", "replacement", "replacement_name"),
     [
-        ("ContextType", Context, "2025.5"),
-        ("EventType", Event, "2025.5"),
-        ("HomeAssistantType", HomeAssistant, "2025.5"),
-        ("ServiceCallType", ServiceCall, "2025.5"),
+        (
+            "UNDEFINED",
+            ha_typing.Undefined,
+            "homeassistant.helpers.typing.Undefined",
+        ),
+        (
+            "UndefinedType",
+            ha_typing.Undefined,
+            "homeassistant.helpers.typing.Undefined",
+        ),
     ],
 )
-def test_deprecated_aliases(
+def test_deprecated_undefined_aliases(
     caplog: pytest.LogCaptureFixture,
     alias_name: str,
     replacement: Any,
-    breaks_in_ha_version: str,
+    replacement_name: str,
 ) -> None:
-    """Test deprecated aliases."""
+    """Test deprecated Undefined aliases."""
     import_and_test_deprecated_alias(
         caplog,
         ha_typing,
         alias_name,
         replacement,
-        breaks_in_ha_version,
+        "2027.12",
+        replacement_name=replacement_name,
     )

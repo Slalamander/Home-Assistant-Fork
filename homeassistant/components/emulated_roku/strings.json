@@ -1,5 +1,4 @@
 {
-  "title": "Emulated Roku",
   "config": {
     "abort": {
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
@@ -17,5 +16,11 @@
         "title": "Define server configuration"
       }
     }
-  }
+  },
+  "exceptions": {
+    "setup_failed": {
+      "message": "Failed to set up Emulated Roku {name}"
+    }
+  },
+  "title": "Emulated Roku"
 }

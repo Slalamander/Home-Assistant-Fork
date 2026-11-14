@@ -1,8 +1,5 @@
 """Models for AVM FRITZ!Box."""
 
-from __future__ import annotations
-
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import NotRequired, TypedDict
@@ -77,17 +74,21 @@ class HostInfo(TypedDict):
 class FritzDevice:
     """Representation of a device connected to the FRITZ!Box."""
 
-    def __init__(self, mac: str, name: str) -> None:
+    _connected: bool
+    _connected_to: str
+    _connection_type: str
+    _ip_address: str
+    _last_activity: datetime | None
+    _mac: str
+    _name: str
+    _ssid: str | None
+    _wan_access: bool | None
+
+    def __init__(self, mac: str, dev_info: Device, consider_home: float) -> None:
         """Initialize device info."""
-        self._connected = False
-        self._connected_to: str | None = None
-        self._connection_type: str | None = None
-        self._ip_address: str | None = None
-        self._last_activity: datetime | None = None
         self._mac = mac
-        self._name = name
-        self._ssid: str | None = None
-        self._wan_access: bool | None = False
+        self._last_activity = None
+        self.update(dev_info, consider_home)
 
     def update(self, dev_info: Device, consider_home: float) -> None:
         """Update device info."""
@@ -100,8 +101,7 @@ class FritzDevice:
         else:
             consider_home_evaluated = dev_info.connected
 
-        if not self._name:
-            self._name = dev_info.name or self._mac.replace(":", "_")
+        self._name = dev_info.name or self._mac.replace(":", "_")
 
         self._connected = dev_info.connected or consider_home_evaluated
 
@@ -115,12 +115,12 @@ class FritzDevice:
         self._wan_access = dev_info.wan_access
 
     @property
-    def connected_to(self) -> str | None:
+    def connected_to(self) -> str:
         """Return connected status."""
         return self._connected_to
 
     @property
-    def connection_type(self) -> str | None:
+    def connection_type(self) -> str:
         """Return connected status."""
         return self._connection_type
 
@@ -140,7 +140,7 @@ class FritzDevice:
         return self._name
 
     @property
-    def ip_address(self) -> str | None:
+    def ip_address(self) -> str:
         """Get IP address."""
         return self._ip_address
 
@@ -159,17 +159,10 @@ class FritzDevice:
         """Return device wan access."""
         return self._wan_access
 
-
-class SwitchInfo(TypedDict):
-    """FRITZ!Box switch info class."""
-
-    description: str
-    friendly_name: str
-    icon: str
-    type: str
-    callback_update: Callable
-    callback_switch: Callable
-    init_state: bool
+    @wan_access.setter
+    def wan_access(self, allowed: bool) -> None:
+        """Set device wan access."""
+        self._wan_access = allowed
 
 
 @dataclass
@@ -180,3 +173,4 @@ class ConnectionInfo:
     mesh_role: MeshRoles
     wan_enabled: bool
     ipv6_active: bool
+    addon_infos_supported: bool

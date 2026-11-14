@@ -1,8 +1,6 @@
 """Support for lights."""
 
-from __future__ import annotations
-
-from typing import Any, cast
+from typing import Any, cast, override
 
 from aiocomelit.const import LIGHT, STATE_OFF, STATE_ON
 
@@ -10,9 +8,10 @@ from homeassistant.components.light import ColorMode, LightEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
+from .const import ObjectClassType
 from .coordinator import ComelitConfigEntry, ComelitSerialBridge
 from .entity import ComelitBridgeBaseEntity
-from .utils import DeviceType, bridge_api_call, new_device_listener
+from .utils import bridge_api_call, new_device_listener
 
 # Coordinator is used to centralize the data updates
 PARALLEL_UPDATES = 0
@@ -27,7 +26,7 @@ async def async_setup_entry(
 
     coordinator = cast(ComelitSerialBridge, config_entry.runtime_data)
 
-    def _add_new_entities(new_devices: list[DeviceType], dev_type: str) -> None:
+    def _add_new_entities(new_devices: list[ObjectClassType], dev_type: str) -> None:
         """Add entities for new monitors."""
         entities = [
             ComelitLightEntity(coordinator, device, config_entry.entry_id)
@@ -56,15 +55,18 @@ class ComelitLightEntity(ComelitBridgeBaseEntity, LightEntity):
         self.coordinator.data[LIGHT][self._device.index].status = state
         self.async_write_ha_state()
 
+    @override
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the light on."""
         await self._light_set_state(STATE_ON)
 
+    @override
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the light off."""
         await self._light_set_state(STATE_OFF)
 
     @property
+    @override
     def is_on(self) -> bool:
         """Return True if light is on."""
-        return self.coordinator.data[LIGHT][self._device.index].status == STATE_ON
+        return bool(self.coordinator.data[LIGHT][self._device.index].status == STATE_ON)

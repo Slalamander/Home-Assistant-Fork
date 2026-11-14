@@ -1,12 +1,8 @@
 """Support for Huum wifi-enabled sauna."""
 
-from __future__ import annotations
-
-import logging
-from typing import Any
+from typing import Any, override
 
 from huum.const import SaunaStatus
-from huum.exceptions import SafetyException
 
 from homeassistant.components.climate import (
     ClimateEntity,
@@ -18,10 +14,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
+from .const import CONFIG_DEFAULT_MAX_TEMP, CONFIG_DEFAULT_MIN_TEMP, DOMAIN
 from .coordinator import HuumConfigEntry, HuumDataUpdateCoordinator
-from .entity import HuumBaseEntity
+from .entity import HuumBaseEntity, huum_exception_handler
 
-_LOGGER = logging.getLogger(__name__)
+PARALLEL_UPDATES = 1
 
 
 async def async_setup_entry(
@@ -43,7 +40,7 @@ class HuumDevice(HuumBaseEntity, ClimateEntity):
         | ClimateEntityFeature.TURN_ON
     )
     _attr_target_temperature_step = PRECISION_WHOLE
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_name = None
 
     def __init__(self, coordinator: HuumDataUpdateCoordinator) -> None:
@@ -53,16 +50,25 @@ class HuumDevice(HuumBaseEntity, ClimateEntity):
         self._attr_unique_id = coordinator.config_entry.entry_id
 
     @property
+    @override
     def min_temp(self) -> int:
         """Return configured minimal temperature."""
-        return self.coordinator.data.sauna_config.min_temp
+        sauna_config = self.coordinator.data.sauna_config
+        if sauna_config is None:
+            return CONFIG_DEFAULT_MIN_TEMP
+        return sauna_config.min_temp or CONFIG_DEFAULT_MIN_TEMP
 
     @property
+    @override
     def max_temp(self) -> int:
         """Return configured maximum temperature."""
-        return self.coordinator.data.sauna_config.max_temp
+        sauna_config = self.coordinator.data.sauna_config
+        if sauna_config is None:
+            return CONFIG_DEFAULT_MAX_TEMP
+        return sauna_config.max_temp or CONFIG_DEFAULT_MAX_TEMP
 
     @property
+    @override
     def hvac_mode(self) -> HVACMode:
         """Return hvac operation ie. heat, cool mode."""
         if self.coordinator.data.status == SaunaStatus.ONLINE_HEATING:
@@ -70,33 +76,32 @@ class HuumDevice(HuumBaseEntity, ClimateEntity):
         return HVACMode.OFF
 
     @property
-    def icon(self) -> str:
-        """Return nice icon for heater."""
-        if self.hvac_mode == HVACMode.HEAT:
-            return "mdi:radiator"
-        return "mdi:radiator-off"
-
-    @property
-    def current_temperature(self) -> int | None:
+    @override
+    def native_current_temperature(self) -> int | None:
         """Return the current temperature."""
         return self.coordinator.data.temperature
 
     @property
-    def target_temperature(self) -> int:
+    @override
+    def native_target_temperature(self) -> int:
         """Return the temperature we try to reach."""
         return self.coordinator.data.target_temperature or int(self.min_temp)
 
+    @override
+    @huum_exception_handler
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set hvac mode."""
         if hvac_mode == HVACMode.HEAT:
             # Make sure to send integers
             # The temperature is not always an integer if the user uses Fahrenheit
-            temperature = int(self.target_temperature)
+            temperature = int(self.native_target_temperature)
             await self._turn_on(temperature)
         elif hvac_mode == HVACMode.OFF:
             await self.coordinator.huum.turn_off()
         await self.coordinator.async_refresh()
 
+    @override
+    @huum_exception_handler
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Set new target temperature."""
         temperature = kwargs.get(ATTR_TEMPERATURE)
@@ -110,6 +115,8 @@ class HuumDevice(HuumBaseEntity, ClimateEntity):
     async def _turn_on(self, temperature: int) -> None:
         try:
             await self.coordinator.huum.turn_on(temperature)
-        except (ValueError, SafetyException) as err:
-            _LOGGER.error(str(err))
-            raise HomeAssistantError(f"Unable to turn on sauna: {err}") from err
+        except ValueError as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="unable_to_turn_on",
+            ) from err

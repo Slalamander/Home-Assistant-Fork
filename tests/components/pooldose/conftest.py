@@ -6,23 +6,22 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from pooldose.request_status import RequestStatus
 import pytest
-
-from homeassistant.components.pooldose.const import DOMAIN
-from homeassistant.const import CONF_HOST
-from homeassistant.core import HomeAssistant
-
-from tests.common import (
+from pytest_homeassistant.common import (
     MockConfigEntry,
     async_load_json_object_fixture,
     load_json_object_fixture,
 )
+
+from homeassistant.components.pooldose.const import DOMAIN
+from homeassistant.const import CONF_HOST, Platform
+from homeassistant.core import HomeAssistant
 
 
 @pytest.fixture
 def mock_setup_entry() -> Generator[AsyncMock]:
     """Override async_setup_entry."""
     with patch(
-        "homeassistant.components.pooldose.async_setup_entry", return_value=True
+        "homeassistant.components.pooldose.async_setup_entry", return_value=None
     ) as mock_setup_entry:
         yield mock_setup_entry
 
@@ -59,6 +58,8 @@ def mock_pooldose_client(device_info: dict[str, Any]) -> Generator[MagicMock]:
             instant_values_data,
         )
 
+        client.set_switch = AsyncMock(return_value=RequestStatus.SUCCESS)
+        client.set_select = AsyncMock(return_value=RequestStatus.SUCCESS)
         client.is_connected = True
         yield client
 
@@ -75,11 +76,36 @@ def mock_config_entry(device_info: dict[str, Any]) -> MockConfigEntry:
     )
 
 
+@pytest.fixture
+def mock_config_entry_v1_1(device_info: dict[str, Any]) -> MockConfigEntry:
+    """Return a mocked config entry for migration testing with version 1.1."""
+    return MockConfigEntry(
+        title="Pool Device",
+        domain=DOMAIN,
+        data={CONF_HOST: "192.168.1.100"},
+        unique_id=device_info["SERIAL_NUMBER"],
+        version=1,
+        minor_version=1,
+    )
+
+
+@pytest.fixture
+def platforms() -> list[Platform]:
+    """Fixture to specify platforms to test."""
+    return []
+
+
+@pytest.fixture
 async def init_integration(
-    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    platforms: list[Platform],
 ) -> MockConfigEntry:
     """Set up the integration for testing."""
     mock_config_entry.add_to_hass(hass)
-    await hass.config_entries.async_setup(mock_config_entry.entry_id)
-    await hass.async_block_till_done()
+
+    with patch("homeassistant.components.pooldose.PLATFORMS", platforms):
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
     return mock_config_entry

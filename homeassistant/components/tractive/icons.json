@@ -1,19 +1,21 @@
 {
   "entity": {
+    "binary_sensor": {
+      "tracker_power_saving": {
+        "default": "mdi:leaf",
+        "state": {
+          "off": "mdi:leaf-off"
+        }
+      }
+    },
     "device_tracker": {
       "tracker": {
         "default": "mdi:paw"
       }
     },
     "sensor": {
-      "activity": {
-        "default": "mdi:run"
-      },
       "activity_time": {
         "default": "mdi:clock-time-eight-outline"
-      },
-      "calories": {
-        "default": "mdi:fire"
       },
       "daily_goal": {
         "default": "mdi:flag-checkered"
@@ -27,14 +29,17 @@
       "rest_time": {
         "default": "mdi:clock-time-eight-outline"
       },
-      "sleep": {
-        "default": "mdi:sleep"
-      },
       "tracker_state": {
         "default": "mdi:radar"
       }
     },
     "switch": {
+      "live_tracking": {
+        "default": "mdi:map-marker-path",
+        "state": {
+          "off": "mdi:map-marker-off"
+        }
+      },
       "tracker_buzzer": {
         "default": "mdi:volume-high",
         "state": {
@@ -45,12 +50,6 @@
         "default": "mdi:led-on",
         "state": {
           "off": "mdi:led-off"
-        }
-      },
-      "live_tracking": {
-        "default": "mdi:map-marker-path",
-        "state": {
-          "off": "mdi:map-marker-off"
         }
       }
     }

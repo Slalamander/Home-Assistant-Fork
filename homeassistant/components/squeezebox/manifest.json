@@ -1,8 +1,13 @@
 {
   "domain": "squeezebox",
   "name": "Squeezebox (Lyrion Music Server)",
+  "categories": [
+    "media_entertainment.speakers_audio",
+    "media_entertainment.music_radio_services"
+  ],
   "codeowners": ["@rajlaud", "@pssc", "@peteS-UK"],
   "config_flow": true,
+  "connectivity": ["network"],
   "dhcp": [
     {
       "hostname": "squeezebox*",
@@ -13,5 +18,6 @@
   "integration_type": "hub",
   "iot_class": "local_polling",
   "loggers": ["pysqueezebox"],
-  "requirements": ["pysqueezebox==0.13.0"]
+  "quality_scale": "silver",
+  "requirements": ["pysqueezebox==0.14.0"]
 }

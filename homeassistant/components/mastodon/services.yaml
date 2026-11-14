@@ -1,14 +1,46 @@
-post:
+get_account:
   fields:
-    config_entry_id:
+    config_entry_id: &config_entry_id
       required: true
       selector:
         config_entry:
           integration: mastodon
+    account_name:
+      required: true
+      selector:
+        text:
+mute_account:
+  fields:
+    config_entry_id: *config_entry_id
+    account_name:
+      required: true
+      selector:
+        text:
+    duration:
+      required: false
+      selector:
+        duration:
+          enable_day: true
+    hide_notifications:
+      default: true
+      required: false
+      selector:
+        boolean:
+unmute_account:
+  fields:
+    config_entry_id: *config_entry_id
+    account_name:
+      required: true
+      selector:
+        text:
+post:
+  fields:
+    config_entry_id: *config_entry_id
     status:
       required: true
       selector:
         text:
+          multiline: true
     visibility:
       selector:
         select:
@@ -18,6 +50,17 @@ post:
             - private
             - direct
           translation_key: post_visibility
+    quote_approval_policy:
+      selector:
+        select:
+          options:
+            - public
+            - followers
+            - nobody
+          translation_key: quote_approval_policy
+    idempotency_key:
+      selector:
+        text:
     content_warning:
       selector:
         text:
@@ -226,12 +269,128 @@ post:
             - "zu"
     media:
       selector:
-        text:
+        object:
+          label_field: "media_source"
+          description_field: "media_description"
+          multiple: true
+          translation_key: media
+          fields:
+            media_source:
+              selector:
+                media:
+                  accept:
+                    - "*"
+              required: true
+            media_description:
+              selector:
+                text:
+                  multiline: true
+            focus_x:
+              default: 0
+              selector:
+                number:
+                  min: -1
+                  max: 1
+                  step: 0.01
+                  mode: slider
+            focus_y:
+              default: 0
+              selector:
+                number:
+                  min: -1
+                  max: 1
+                  step: 0.01
+                  mode: slider
+            thumbnail:
+              selector:
+                media:
+                  accept:
+                    - "*"
     media_description:
       required: false
-      selector:
-        text:
     media_warning:
       required: true
       selector:
         boolean:
+    in_reply_to:
+      required: false
+      selector:
+        text:
+    quoted_status:
+      required: false
+      selector:
+        text:
+update_profile:
+  fields:
+    config_entry_id: *config_entry_id
+    display_name:
+      selector:
+        text:
+    note:
+      selector:
+        text:
+          multiline: true
+    avatar:
+      required: false
+      selector:
+        media:
+          accept:
+            - "image/*"
+    avatar_description:
+      required: false
+      selector:
+        text:
+          multiline: true
+    delete_avatar:
+      required: false
+      selector:
+        constant:
+          value: true
+          label: ""
+    header:
+      required: false
+      selector:
+        media:
+          accept:
+            - "image/*"
+    header_description:
+      required: false
+      selector:
+        text:
+          multiline: true
+    delete_header:
+      required: false
+      selector:
+        constant:
+          value: true
+          label: ""
+    locked:
+      selector:
+        boolean:
+    bot:
+      selector:
+        boolean:
+    discoverable:
+      selector:
+        boolean:
+    fields:
+      selector:
+        object:
+          label_field: "value"
+          description_field: "name"
+          multiple: true
+          translation_key: fields
+          fields:
+            name:
+              required: true
+              selector:
+                text:
+            value:
+              required: true
+              selector:
+                text:
+    attribution_domains:
+      selector:
+        text:
+          multiple: true
+          type: url

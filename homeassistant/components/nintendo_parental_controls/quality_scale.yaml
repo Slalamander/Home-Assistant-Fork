@@ -1,22 +1,22 @@
 rules:
   # Bronze
-  action-setup:
-    status: exempt
-    comment: |
-      No custom actions are defined.
+  action-setup: done
   appropriate-polling: done
   brands: done
   common-modules: done
   config-flow-test-coverage: done
   config-flow: done
   dependency-transparency: done
-  docs-actions:
+  docs-actions: done
+  docs-conditions:
     status: exempt
-    comment: |
-      No custom actions are defined.
+    comment: This integration does not have any conditions.
   docs-high-level-description: done
   docs-installation-instructions: done
   docs-removal-instructions: done
+  docs-triggers:
+    status: exempt
+    comment: This integration does not have any triggers.
   entity-event-setup: done
   entity-unique-id: done
   has-entity-name: done
@@ -27,18 +27,17 @@ rules:
 
   # Silver
   action-exceptions:
-    status: exempt
-    comment: |
-      No custom actions are defined.
+    status: todo
+    comment: Library errors are not handled in custom actions and in switch, number and select actions
   config-entry-unloading: done
   docs-configuration-parameters: done
   docs-installation-parameters: done
   entity-unavailable: todo
   integration-owner: done
   log-when-unavailable: done
-  parallel-updates: todo
-  reauthentication-flow: todo
-  test-coverage: todo
+  parallel-updates: done
+  reauthentication-flow: done
+  test-coverage: done
 
   # Gold
   devices: done
@@ -63,7 +62,7 @@ rules:
   entity-device-class: done
   entity-disabled-by-default: done
   entity-translations: done
-  exception-translations: done
+  exception-translations: todo
   icon-translations:
     status: exempt
     comment: |

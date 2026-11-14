@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
+from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
 from volvocarsapi.api import VolvoCarsApi
 from volvocarsapi.auth import TOKEN_URL
 from volvocarsapi.models import (
@@ -17,6 +19,7 @@ from volvocarsapi.models import (
 )
 
 from homeassistant.components.application_credentials import (
+    DOMAIN as APPLICATION_CREDENTIALS_DOMAIN,
     ClientCredential,
     async_import_client_credential,
 )
@@ -41,9 +44,6 @@ from .const import (
     MOCK_ACCESS_TOKEN,
     SERVER_TOKEN_RESPONSE,
 )
-
-from tests.common import MockConfigEntry
-from tests.test_util.aiohttp import AiohttpClientMocker
 
 
 @dataclass
@@ -163,7 +163,7 @@ async def mock_api(
 @pytest.fixture(autouse=True)
 async def setup_credentials(hass: HomeAssistant) -> None:
     """Fixture to setup credentials."""
-    assert await async_setup_component(hass, "application_credentials", {})
+    assert await async_setup_component(hass, APPLICATION_CREDENTIALS_DOMAIN, {})
     await async_import_client_credential(
         hass,
         DOMAIN,
@@ -196,7 +196,7 @@ async def setup_integration(
 def mock_setup_entry() -> Generator[AsyncMock]:
     """Mock setting up a config entry."""
     with patch(
-        "homeassistant.components.volvo.async_setup_entry", return_value=True
+        "homeassistant.components.volvo.async_setup_entry", return_value=None
     ) as mock_setup:
         yield mock_setup
 

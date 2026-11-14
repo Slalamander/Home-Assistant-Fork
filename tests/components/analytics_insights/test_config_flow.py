@@ -4,10 +4,11 @@ from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 from python_homeassistant_analytics import HomeassistantAnalyticsConnectionError
 
 from homeassistant.components.analytics_insights.const import (
-    CONF_TRACKED_ADDONS,
+    CONF_TRACKED_APPS,
     CONF_TRACKED_CUSTOM_INTEGRATIONS,
     CONF_TRACKED_INTEGRATIONS,
     DOMAIN,
@@ -18,20 +19,18 @@ from homeassistant.data_entry_flow import FlowResultType
 
 from . import setup_integration
 
-from tests.common import MockConfigEntry
-
 
 @pytest.mark.parametrize(
     ("user_input", "expected_options"),
     [
         (
             {
-                CONF_TRACKED_ADDONS: ["core_samba"],
+                CONF_TRACKED_APPS: ["core_samba"],
                 CONF_TRACKED_INTEGRATIONS: ["youtube"],
                 CONF_TRACKED_CUSTOM_INTEGRATIONS: ["hacs"],
             },
             {
-                CONF_TRACKED_ADDONS: ["core_samba"],
+                CONF_TRACKED_APPS: ["core_samba"],
                 CONF_TRACKED_INTEGRATIONS: ["youtube"],
                 CONF_TRACKED_CUSTOM_INTEGRATIONS: ["hacs"],
             },
@@ -41,7 +40,7 @@ from tests.common import MockConfigEntry
                 CONF_TRACKED_INTEGRATIONS: ["youtube"],
             },
             {
-                CONF_TRACKED_ADDONS: [],
+                CONF_TRACKED_APPS: [],
                 CONF_TRACKED_INTEGRATIONS: ["youtube"],
                 CONF_TRACKED_CUSTOM_INTEGRATIONS: [],
             },
@@ -51,7 +50,7 @@ from tests.common import MockConfigEntry
                 CONF_TRACKED_CUSTOM_INTEGRATIONS: ["hacs"],
             },
             {
-                CONF_TRACKED_ADDONS: [],
+                CONF_TRACKED_APPS: [],
                 CONF_TRACKED_INTEGRATIONS: [],
                 CONF_TRACKED_CUSTOM_INTEGRATIONS: ["hacs"],
             },
@@ -88,7 +87,7 @@ async def test_form(
     "user_input",
     [
         {
-            CONF_TRACKED_ADDONS: [],
+            CONF_TRACKED_APPS: [],
             CONF_TRACKED_INTEGRATIONS: [],
             CONF_TRACKED_CUSTOM_INTEGRATIONS: [],
         },
@@ -119,7 +118,7 @@ async def test_submitting_empty_form(
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
-            CONF_TRACKED_ADDONS: ["core_samba"],
+            CONF_TRACKED_APPS: ["core_samba"],
             CONF_TRACKED_INTEGRATIONS: ["youtube"],
             CONF_TRACKED_CUSTOM_INTEGRATIONS: ["hacs"],
         },
@@ -130,7 +129,7 @@ async def test_submitting_empty_form(
     assert result["title"] == "Home Assistant Analytics Insights"
     assert result["data"] == {}
     assert result["options"] == {
-        CONF_TRACKED_ADDONS: ["core_samba"],
+        CONF_TRACKED_APPS: ["core_samba"],
         CONF_TRACKED_INTEGRATIONS: ["youtube"],
         CONF_TRACKED_CUSTOM_INTEGRATIONS: ["hacs"],
     }
@@ -161,15 +160,14 @@ async def test_form_cannot_connect(
     assert result["reason"] == reason
 
 
-async def test_form_already_configured(
-    hass: HomeAssistant, mock_setup_entry: AsyncMock
-) -> None:
+@pytest.mark.usefixtures("mock_setup_entry")
+async def test_form_already_configured(hass: HomeAssistant) -> None:
     """Test we handle cannot connect error."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={},
         options={
-            CONF_TRACKED_ADDONS: [],
+            CONF_TRACKED_APPS: [],
             CONF_TRACKED_INTEGRATIONS: ["youtube", "spotify"],
             CONF_TRACKED_CUSTOM_INTEGRATIONS: [],
         },
@@ -188,22 +186,22 @@ async def test_form_already_configured(
     [
         (
             {
-                CONF_TRACKED_ADDONS: ["core_samba"],
+                CONF_TRACKED_APPS: ["core_samba"],
                 CONF_TRACKED_INTEGRATIONS: ["youtube"],
                 CONF_TRACKED_CUSTOM_INTEGRATIONS: ["hacs"],
             },
             {
-                CONF_TRACKED_ADDONS: ["core_samba"],
+                CONF_TRACKED_APPS: ["core_samba"],
                 CONF_TRACKED_INTEGRATIONS: ["youtube"],
                 CONF_TRACKED_CUSTOM_INTEGRATIONS: ["hacs"],
             },
         ),
         (
             {
-                CONF_TRACKED_ADDONS: ["core_samba"],
+                CONF_TRACKED_APPS: ["core_samba"],
             },
             {
-                CONF_TRACKED_ADDONS: ["core_samba"],
+                CONF_TRACKED_APPS: ["core_samba"],
                 CONF_TRACKED_INTEGRATIONS: [],
                 CONF_TRACKED_CUSTOM_INTEGRATIONS: [],
             },
@@ -213,7 +211,7 @@ async def test_form_already_configured(
                 CONF_TRACKED_INTEGRATIONS: ["youtube"],
             },
             {
-                CONF_TRACKED_ADDONS: [],
+                CONF_TRACKED_APPS: [],
                 CONF_TRACKED_INTEGRATIONS: ["youtube"],
                 CONF_TRACKED_CUSTOM_INTEGRATIONS: [],
             },
@@ -223,7 +221,7 @@ async def test_form_already_configured(
                 CONF_TRACKED_CUSTOM_INTEGRATIONS: ["hacs"],
             },
             {
-                CONF_TRACKED_ADDONS: [],
+                CONF_TRACKED_APPS: [],
                 CONF_TRACKED_INTEGRATIONS: [],
                 CONF_TRACKED_CUSTOM_INTEGRATIONS: ["hacs"],
             },
@@ -260,7 +258,7 @@ async def test_options_flow(
     "user_input",
     [
         {
-            CONF_TRACKED_ADDONS: [],
+            CONF_TRACKED_APPS: [],
             CONF_TRACKED_INTEGRATIONS: [],
             CONF_TRACKED_CUSTOM_INTEGRATIONS: [],
         },
@@ -291,7 +289,7 @@ async def test_submitting_empty_options_flow(
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         {
-            CONF_TRACKED_ADDONS: ["core_samba"],
+            CONF_TRACKED_APPS: ["core_samba"],
             CONF_TRACKED_INTEGRATIONS: ["youtube", "hue"],
             CONF_TRACKED_CUSTOM_INTEGRATIONS: ["hacs"],
         },
@@ -300,7 +298,7 @@ async def test_submitting_empty_options_flow(
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"] == {
-        CONF_TRACKED_ADDONS: ["core_samba"],
+        CONF_TRACKED_APPS: ["core_samba"],
         CONF_TRACKED_INTEGRATIONS: ["youtube", "hue"],
         CONF_TRACKED_CUSTOM_INTEGRATIONS: ["hacs"],
     }

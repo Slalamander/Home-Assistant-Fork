@@ -1,215 +1,44 @@
 """The tests for the hassio component."""
 
-from __future__ import annotations
-
+from collections.abc import Awaitable, Callable
+import os
+from pathlib import Path
 from typing import Any, Literal
+from unittest.mock import patch
 
-from aiohttp import hdrs, web
+from aiohasupervisor import SupervisorClient
+from aiohasupervisor.models import SupervisorOptions
+from aiohttp import DummyCookieJar, UnixConnector, hdrs, web
 import pytest
+from yarl import URL
 
-from homeassistant.components.hassio import handler
-from homeassistant.components.hassio.handler import HassIO, HassioAPIError
+from homeassistant.components.hassio.const import ENV_SUPERVISOR_SOCKET
+from homeassistant.components.hassio.handler import (
+    KEY_SUPERVISOR_CONNECTION,
+    HassIO,
+    HassioAPIError,
+    SupervisorConnection,
+    get_supervisor_client,
+    get_supervisor_connection,
+    get_supervisor_passthrough_client,
+)
+from homeassistant.const import EVENT_HOMEASSISTANT_CLOSE
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.aiohttp_client import (
+    SERVER_SOFTWARE,
+    HassClientResponse,
+    async_get_clientsession,
+)
 
-from tests.test_util.aiohttp import AiohttpClientMocker
-
-
-async def test_api_info(
-    hassio_handler: HassIO, aioclient_mock: AiohttpClientMocker
-) -> None:
-    """Test setup with API generic info."""
-    aioclient_mock.get(
-        "http://127.0.0.1/info",
-        json={
-            "result": "ok",
-            "data": {"supervisor": "222", "homeassistant": "0.110.0", "hassos": None},
-        },
-    )
-
-    data = await hassio_handler.get_info()
-    assert aioclient_mock.call_count == 1
-    assert data["hassos"] is None
-    assert data["homeassistant"] == "0.110.0"
-    assert data["supervisor"] == "222"
-
-
-async def test_api_info_error(
-    hassio_handler: HassIO, aioclient_mock: AiohttpClientMocker
-) -> None:
-    """Test setup with API Home Assistant info error."""
-    aioclient_mock.get(
-        "http://127.0.0.1/info", json={"result": "error", "message": None}
-    )
-
-    with pytest.raises(HassioAPIError):
-        await hassio_handler.get_info()
-
-    assert aioclient_mock.call_count == 1
-
-
-async def test_api_host_info(
-    hassio_handler: HassIO, aioclient_mock: AiohttpClientMocker
-) -> None:
-    """Test setup with API Host info."""
-    aioclient_mock.get(
-        "http://127.0.0.1/host/info",
-        json={
-            "result": "ok",
-            "data": {
-                "chassis": "vm",
-                "operating_system": "Debian GNU/Linux 10 (buster)",
-                "kernel": "4.19.0-6-amd64",
-            },
-        },
-    )
-
-    data = await hassio_handler.get_host_info()
-    assert aioclient_mock.call_count == 1
-    assert data["chassis"] == "vm"
-    assert data["kernel"] == "4.19.0-6-amd64"
-    assert data["operating_system"] == "Debian GNU/Linux 10 (buster)"
-
-
-async def test_api_supervisor_info(
-    hassio_handler: HassIO, aioclient_mock: AiohttpClientMocker
-) -> None:
-    """Test setup with API Supervisor info."""
-    aioclient_mock.get(
-        "http://127.0.0.1/supervisor/info",
-        json={
-            "result": "ok",
-            "data": {"supported": True, "version": "2020.11.1", "channel": "stable"},
-        },
-    )
-
-    data = await hassio_handler.get_supervisor_info()
-    assert aioclient_mock.call_count == 1
-    assert data["supported"]
-    assert data["version"] == "2020.11.1"
-    assert data["channel"] == "stable"
-
-
-async def test_api_os_info(
-    hassio_handler: HassIO, aioclient_mock: AiohttpClientMocker
-) -> None:
-    """Test setup with API OS info."""
-    aioclient_mock.get(
-        "http://127.0.0.1/os/info",
-        json={
-            "result": "ok",
-            "data": {"board": "odroid-n2", "version": "2020.11.1"},
-        },
-    )
-
-    data = await hassio_handler.get_os_info()
-    assert aioclient_mock.call_count == 1
-    assert data["board"] == "odroid-n2"
-    assert data["version"] == "2020.11.1"
-
-
-async def test_api_host_info_error(
-    hassio_handler: HassIO, aioclient_mock: AiohttpClientMocker
-) -> None:
-    """Test setup with API Home Assistant info error."""
-    aioclient_mock.get(
-        "http://127.0.0.1/host/info", json={"result": "error", "message": None}
-    )
-
-    with pytest.raises(HassioAPIError):
-        await hassio_handler.get_host_info()
-
-    assert aioclient_mock.call_count == 1
-
-
-async def test_api_core_info(
-    hassio_handler: HassIO, aioclient_mock: AiohttpClientMocker
-) -> None:
-    """Test setup with API Home Assistant Core info."""
-    aioclient_mock.get(
-        "http://127.0.0.1/core/info",
-        json={"result": "ok", "data": {"version_latest": "1.0.0"}},
-    )
-
-    data = await hassio_handler.get_core_info()
-    assert aioclient_mock.call_count == 1
-    assert data["version_latest"] == "1.0.0"
-
-
-async def test_api_core_info_error(
-    hassio_handler: HassIO, aioclient_mock: AiohttpClientMocker
-) -> None:
-    """Test setup with API Home Assistant Core info error."""
-    aioclient_mock.get(
-        "http://127.0.0.1/core/info", json={"result": "error", "message": None}
-    )
-
-    with pytest.raises(HassioAPIError):
-        await hassio_handler.get_core_info()
-
-    assert aioclient_mock.call_count == 1
-
-
-async def test_api_core_stats(
-    hassio_handler: HassIO, aioclient_mock: AiohttpClientMocker
-) -> None:
-    """Test setup with API Add-on stats."""
-    aioclient_mock.get(
-        "http://127.0.0.1/core/stats",
-        json={"result": "ok", "data": {"memory_percent": 0.01}},
-    )
-
-    data = await hassio_handler.get_core_stats()
-    assert data["memory_percent"] == 0.01
-    assert aioclient_mock.call_count == 1
-
-
-async def test_api_supervisor_stats(
-    hassio_handler: HassIO, aioclient_mock: AiohttpClientMocker
-) -> None:
-    """Test setup with API Add-on stats."""
-    aioclient_mock.get(
-        "http://127.0.0.1/supervisor/stats",
-        json={"result": "ok", "data": {"memory_percent": 0.01}},
-    )
-
-    data = await hassio_handler.get_supervisor_stats()
-    assert data["memory_percent"] == 0.01
-    assert aioclient_mock.call_count == 1
-
-
-async def test_api_ingress_panels(
-    hassio_handler: HassIO, aioclient_mock: AiohttpClientMocker
-) -> None:
-    """Test setup with API Ingress panels."""
-    aioclient_mock.get(
-        "http://127.0.0.1/ingress/panels",
-        json={
-            "result": "ok",
-            "data": {
-                "panels": {
-                    "slug": {
-                        "enable": True,
-                        "title": "Test",
-                        "icon": "mdi:test",
-                        "admin": False,
-                    }
-                }
-            },
-        },
-    )
-
-    data = await hassio_handler.get_ingress_panels()
-    assert aioclient_mock.call_count == 1
-    assert data["panels"]
-    assert "slug" in data["panels"]
+from . import SUPERVISOR_TOKEN
 
 
 @pytest.mark.parametrize(
     ("api_call", "method", "payload"),
     [
-        ("get_network_info", "GET", None),
-        ("update_diagnostics", "POST", True),
+        ("/ingress/panels", "GET", None),
+        ("/supervisor/options", "POST", {"diagnostics": True}),
+        ("/supervisor/update", "POST", None),
     ],
 )
 @pytest.mark.usefixtures("socket_enabled")
@@ -231,16 +60,12 @@ async def test_api_headers(
 
     server = await aiohttp_raw_server(mock_handler)
     hassio_handler = HassIO(
-        hass.loop,
-        async_get_clientsession(hass),
-        f"{server.host}:{server.port}",
+        SupervisorConnection(
+            async_get_clientsession(hass), URL(f"http://{server.host}:{server.port}")
+        )
     )
 
-    api_func = getattr(hassio_handler, api_call)
-    if payload:
-        await api_func(payload)
-    else:
-        await api_func()
+    await hassio_handler.send_command(api_call, method, payload)
     assert received_request is not None
 
     assert received_request.method == method
@@ -257,94 +82,181 @@ async def test_api_headers(
         assert received_request.headers[hdrs.CONTENT_TYPE] == "application/octet-stream"
 
 
-@pytest.mark.usefixtures("hassio_stubs")
-async def test_api_get_green_settings(
-    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+@pytest.mark.parametrize(
+    ("client_call", "method", "path"),
+    [
+        pytest.param(
+            lambda client: client.supervisor.ping(),
+            "GET",
+            "/supervisor/ping",
+            id="supervisor_ping",
+        ),
+        pytest.param(
+            lambda client: client.supervisor.set_options(
+                SupervisorOptions(diagnostics=True)
+            ),
+            "POST",
+            "/supervisor/options",
+            id="supervisor_options",
+        ),
+        pytest.param(
+            lambda client: client.store.reload(),
+            "POST",
+            "/store/reload",
+            id="store_reload",
+        ),
+    ],
+)
+@pytest.mark.usefixtures("socket_enabled")
+async def test_supervisor_client_source_header(
+    aiohttp_raw_server,  # 'aiohttp_raw_server' must be before 'hass'!
+    hass: HomeAssistant,
+    client_call: Callable[[SupervisorClient], Awaitable[None]],
+    method: Literal["GET", "POST"],
+    path: str,
 ) -> None:
-    """Test setup with API ping."""
-    aioclient_mock.get(
-        "http://127.0.0.1/os/boards/green",
-        json={
-            "result": "ok",
-            "data": {
-                "activity_led": True,
-                "power_led": True,
-                "system_health_led": True,
-            },
-        },
+    """Test the supervisor client identifies itself with X-Hass-Source."""
+    received_request = None
+
+    async def mock_handler(request):
+        """Return OK."""
+        nonlocal received_request
+        received_request = request
+        return web.json_response({"result": "ok", "data": {}})
+
+    server = await aiohttp_raw_server(mock_handler)
+    hass.data[KEY_SUPERVISOR_CONNECTION] = SupervisorConnection(
+        async_get_clientsession(hass), URL(f"http://{server.host}:{server.port}")
     )
 
-    assert await handler.async_get_green_settings(hass) == {
-        "activity_led": True,
-        "power_led": True,
-        "system_health_led": True,
-    }
-    assert aioclient_mock.call_count == 1
+    await client_call(get_supervisor_client(hass))
+    assert received_request is not None
+
+    assert received_request.method == method
+    assert received_request.path == path
+    assert received_request.headers.get("X-Hass-Source") == "core/aiohasupervisor"
 
 
-@pytest.mark.usefixtures("hassio_stubs")
-async def test_api_set_green_settings(
-    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+@pytest.mark.parametrize(
+    ("client_call", "source"),
+    [
+        pytest.param(
+            lambda hass: get_supervisor_passthrough_client(hass).send_command(
+                "/supervisor/ping", "get"
+            ),
+            "core.handler",
+            id="handler",
+        ),
+        pytest.param(
+            lambda hass: get_supervisor_client(hass).supervisor.ping(),
+            "core/aiohasupervisor",
+            id="supervisor_client",
+        ),
+    ],
+)
+@pytest.mark.usefixtures("hassio_unix_socket_env")
+async def test_unix_socket(
+    hass: HomeAssistant,
+    supervisor_unix_socket: tuple[Path, list[web.Request]],
+    client_call: Callable[[HomeAssistant], Awaitable[Any]],
+    source: str,
 ) -> None:
-    """Test setup with API ping."""
-    aioclient_mock.post(
-        "http://127.0.0.1/os/boards/green",
-        json={"result": "ok", "data": {}},
-    )
+    """Test requests over the Supervisor Unix socket carry no token."""
+    path, requests = supervisor_unix_socket
+    session = get_supervisor_connection(hass).session
 
-    assert (
-        await handler.async_set_green_settings(
-            hass, {"activity_led": True, "power_led": True, "system_health_led": True}
+    # Supervisor still issues a token to Core, it must not be sent on the socket
+    with patch.dict(os.environ, {"SUPERVISOR_TOKEN": SUPERVISOR_TOKEN}):
+        await client_call(hass)
+
+    assert isinstance(session.connector, UnixConnector)
+    assert session.connector.path == str(path)
+    # Every app is "localhost" over the socket, cookies must not be shared
+    assert isinstance(session.cookie_jar, DummyCookieJar)
+    # Same JSON parsing as the shared Home Assistant session
+    assert session._response_class is HassClientResponse
+    assert session.headers[hdrs.USER_AGENT] == SERVER_SOFTWARE
+    assert len(requests) == 1
+    assert requests[0].path == "/supervisor/ping"
+    assert requests[0].host == "localhost"
+    assert hdrs.AUTHORIZATION not in requests[0].headers
+    assert requests[0].headers["X-Hass-Source"] == source
+
+
+async def test_unix_socket_session_closed(hass: HomeAssistant) -> None:
+    """Test the Supervisor Unix socket session is closed with Home Assistant."""
+    with patch.dict(
+        os.environ, {ENV_SUPERVISOR_SOCKET: "/run/supervisor/api/supervisor.sock"}
+    ):
+        session = get_supervisor_connection(hass).session
+    assert not session.closed
+
+    hass.bus.async_fire(EVENT_HOMEASSISTANT_CLOSE)
+    await hass.async_block_till_done()
+
+    assert session.closed
+
+
+@pytest.mark.usefixtures("socket_enabled")
+async def test_api_range_header(
+    aiohttp_raw_server,  # 'aiohttp_raw_server' must be before 'hass'!
+    hass: HomeAssistant,
+) -> None:
+    """Test the range header is sent."""
+    received_request = None
+
+    async def mock_handler(request):
+        """Return OK."""
+        nonlocal received_request
+        received_request = request
+        return web.json_response({"result": "ok", "data": None})
+
+    server = await aiohttp_raw_server(mock_handler)
+    hassio_handler = HassIO(
+        SupervisorConnection(
+            async_get_clientsession(hass), URL(f"http://{server.host}:{server.port}")
         )
-        == {}
     )
-    assert aioclient_mock.call_count == 1
+
+    await hassio_handler.send_command(
+        "/core/logs",
+        "GET",
+        range_header="entries=:-1:2",
+    )
+
+    assert received_request is not None
+    assert received_request.headers[hdrs.RANGE] == "entries=:-1:2"
 
 
-@pytest.mark.usefixtures("hassio_stubs")
-async def test_api_get_yellow_settings(
-    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+@pytest.mark.usefixtures("socket_enabled")
+async def test_send_command_text_error(
+    aiohttp_raw_server,  # 'aiohttp_raw_server' must be before 'hass'!
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test setup with API ping."""
-    aioclient_mock.get(
-        "http://127.0.0.1/os/boards/yellow",
-        json={
-            "result": "ok",
-            "data": {"disk_led": True, "heartbeat_led": True, "power_led": True},
-        },
-    )
+    """Test a plain text error response raises with the response text."""
 
-    assert await handler.async_get_yellow_settings(hass) == {
-        "disk_led": True,
-        "heartbeat_led": True,
-        "power_led": True,
-    }
-    assert aioclient_mock.call_count == 1
+    async def mock_handler(request: web.BaseRequest) -> web.Response:
+        """Return a plain text error like aiohttp's HTTP exceptions."""
+        return web.Response(status=401, text="401: Unauthorized")
 
-
-@pytest.mark.usefixtures("hassio_stubs")
-async def test_api_set_yellow_settings(
-    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
-) -> None:
-    """Test setup with API ping."""
-    aioclient_mock.post(
-        "http://127.0.0.1/os/boards/yellow",
-        json={"result": "ok", "data": {}},
-    )
-
-    assert (
-        await handler.async_set_yellow_settings(
-            hass, {"disk_led": True, "heartbeat_led": True, "power_led": True}
+    server = await aiohttp_raw_server(mock_handler)
+    hassio_handler = HassIO(
+        SupervisorConnection(
+            async_get_clientsession(hass), URL(f"http://{server.host}:{server.port}")
         )
-        == {}
     )
-    assert aioclient_mock.call_count == 1
+
+    with pytest.raises(HassioAPIError, match="^401: Unauthorized$"):
+        await hassio_handler.send_command("/ingress/validate_session")
+
+    assert "Client error" not in caplog.text
 
 
 @pytest.mark.usefixtures("hassio_stubs")
 async def test_send_command_invalid_command(hass: HomeAssistant) -> None:
     """Test send command fails when command is invalid."""
-    hassio: HassIO = hass.data["hassio"]
+    hassio = get_supervisor_passthrough_client(hass)
     with pytest.raises(HassioAPIError):
         # absolute path
         await hassio.send_command("/test/../bad")

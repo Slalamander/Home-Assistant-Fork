@@ -1,37 +1,30 @@
 """The Apple TV integration."""
 
-from __future__ import annotations
-
 import asyncio
 import logging
 from random import randrange
-import sys
-from typing import Any, cast
+from typing import Any, cast, override
+
+from pyatv import connect, exceptions, scan
+from pyatv.conf import AppleTV
+from pyatv.const import DeviceModel, Protocol
+from pyatv.convert import model_str
+from pyatv.interface import AppleTV as AppleTVInterface, DeviceListener
 
 from homeassistant.components import zeroconf
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
-    ATTR_CONNECTIONS,
-    ATTR_IDENTIFIERS,
-    ATTR_MANUFACTURER,
-    ATTR_MODEL,
-    ATTR_NAME,
-    ATTR_SUGGESTED_AREA,
-    ATTR_SW_VERSION,
     CONF_ADDRESS,
     CONF_NAME,
     EVENT_HOMEASSISTANT_STOP,
     Platform,
 )
 from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.exceptions import (
-    ConfigEntryAuthFailed,
-    ConfigEntryNotReady,
-    HomeAssistantError,
-)
-from homeassistant.helpers import device_registry as dr
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers import config_validation as cv, device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.typing import ConfigType
 
 from .const import (
     CONF_CREDENTIALS,
@@ -41,20 +34,11 @@ from .const import (
     SIGNAL_CONNECTED,
     SIGNAL_DISCONNECTED,
 )
-
-if sys.version_info < (3, 14):
-    from pyatv import connect, exceptions, scan
-    from pyatv.conf import AppleTV
-    from pyatv.const import DeviceModel, Protocol
-    from pyatv.convert import model_str
-    from pyatv.interface import AppleTV as AppleTVInterface, DeviceListener
-else:
-
-    class DeviceListener:
-        """Dummy class."""
-
+from .services import async_setup_services
 
 _LOGGER = logging.getLogger(__name__)
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 DEFAULT_NAME_TV = "Apple TV"
 DEFAULT_NAME_HP = "HomePod"
@@ -62,43 +46,40 @@ DEFAULT_NAME_HP = "HomePod"
 BACKOFF_TIME_LOWER_LIMIT = 15  # seconds
 BACKOFF_TIME_UPPER_LIMIT = 300  # Five minutes
 
-PLATFORMS = [Platform.MEDIA_PLAYER, Platform.REMOTE]
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.MEDIA_PLAYER, Platform.REMOTE]
 
-if sys.version_info < (3, 14):
-    AUTH_EXCEPTIONS = (
-        exceptions.AuthenticationError,
-        exceptions.InvalidCredentialsError,
-        exceptions.NoCredentialsError,
-    )
-    CONNECTION_TIMEOUT_EXCEPTIONS = (
-        OSError,
-        asyncio.CancelledError,
-        TimeoutError,
-        exceptions.ConnectionLostError,
-        exceptions.ConnectionFailedError,
-    )
-    DEVICE_EXCEPTIONS = (
-        exceptions.ProtocolError,
-        exceptions.NoServiceError,
-        exceptions.PairingError,
-        exceptions.BackOffError,
-        exceptions.DeviceIdMissingError,
-    )
-else:
-    AUTH_EXCEPTIONS = ()
-    CONNECTION_TIMEOUT_EXCEPTIONS = ()
-    DEVICE_EXCEPTIONS = ()
+AUTH_EXCEPTIONS = (
+    exceptions.AuthenticationError,
+    exceptions.InvalidCredentialsError,
+    exceptions.NoCredentialsError,
+)
+CONNECTION_TIMEOUT_EXCEPTIONS = (
+    OSError,
+    asyncio.CancelledError,
+    TimeoutError,
+    exceptions.ConnectionLostError,
+    exceptions.ConnectionFailedError,
+)
+DEVICE_EXCEPTIONS = (
+    exceptions.ProtocolError,
+    exceptions.NoServiceError,
+    exceptions.PairingError,
+    exceptions.BackOffError,
+    exceptions.DeviceIdMissingError,
+)
 
 
 type AppleTvConfigEntry = ConfigEntry[AppleTVManager]
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: AppleTvConfigEntry) -> bool:
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up the Apple TV component."""
+    async_setup_services(hass)
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: AppleTvConfigEntry) -> None:
     """Set up a config entry for Apple TV."""
-    if sys.version_info >= (3, 14):
-        raise HomeAssistantError(
-            "Apple TV is not supported on Python 3.14. Please use Python 3.13."
-        )
     manager = AppleTVManager(hass, entry)
 
     if manager.is_on:
@@ -132,12 +113,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppleTvConfigEntry) -> b
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await manager.init()
 
-    return True
 
-
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: AppleTvConfigEntry) -> None:
     """Unload an Apple TV config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    await hass.config_entries.async_unload_platforms_or_raise(entry, PLATFORMS)
 
 
 class AppleTVManager(DeviceListener):
@@ -153,7 +132,7 @@ class AppleTVManager(DeviceListener):
     _connection_was_lost = False
     _task: asyncio.Task[None] | None = None
 
-    def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
+    def __init__(self, hass: HomeAssistant, config_entry: AppleTvConfigEntry) -> None:
         """Initialize power manager."""
         self.config_entry = config_entry
         self.hass = hass
@@ -164,6 +143,7 @@ class AppleTVManager(DeviceListener):
         if self.is_on:
             await self.connect()
 
+    @override
     def connection_lost(self, exception: Exception) -> None:
         """Device was unexpectedly disconnected.
 
@@ -175,6 +155,7 @@ class AppleTVManager(DeviceListener):
         self._connection_was_lost = True
         self._handle_disconnect()
 
+    @override
     def connection_closed(self) -> None:
         """Device connection was (intentionally) closed.
 
@@ -187,8 +168,9 @@ class AppleTVManager(DeviceListener):
         if self.atv:
             self.atv.close()
             self.atv = None
-        self._dispatch_send(SIGNAL_DISCONNECTED)
         self._start_connect_loop()
+        # Entities must see reconnection before handling the lost transport.
+        self._dispatch_send(SIGNAL_DISCONNECTED)
 
     async def connect(self) -> None:
         """Connect to device."""
@@ -312,8 +294,10 @@ class AppleTVManager(DeviceListener):
             config_entry.title,
             address,
         )
-        # We no longer multicast scan for the device since as soon as async_step_zeroconf runs,
-        # it will update the address and reload the config entry when the device is found.
+        # We no longer multicast scan for the device since as
+        # soon as async_step_zeroconf runs, it will update the
+        # address and reload the config entry when the device
+        # is found.
         return None
 
     async def _connect(self, conf: AppleTV, raise_missing_credentials: bool) -> None:
@@ -363,33 +347,33 @@ class AppleTVManager(DeviceListener):
 
     @callback
     def _async_setup_device_registry(self) -> None:
-        attrs = {
-            ATTR_IDENTIFIERS: {(DOMAIN, self.config_entry.unique_id)},
-            ATTR_MANUFACTURER: "Apple",
-            ATTR_NAME: self.config_entry.data[CONF_NAME],
-        }
-        attrs[ATTR_SUGGESTED_AREA] = (
-            attrs[ATTR_NAME]
-            .removesuffix(f" {DEFAULT_NAME_TV}")
-            .removesuffix(f" {DEFAULT_NAME_HP}")
+        assert self.config_entry.unique_id is not None
+        name: str = self.config_entry.data[CONF_NAME]
+        device_info = dr.DeviceInfo(
+            identifiers={(DOMAIN, self.config_entry.unique_id)},
+            manufacturer="Apple",
+            name=name,
+            suggested_area=name.removesuffix(f" {DEFAULT_NAME_TV}").removesuffix(
+                f" {DEFAULT_NAME_HP}"
+            ),
         )
 
         if self.atv:
             dev_info = self.atv.device_info
 
-            attrs[ATTR_MODEL] = (
+            device_info.model = (
                 dev_info.raw_model
-                if dev_info.model == DeviceModel.Unknown and dev_info.raw_model
+                if dev_info.model is DeviceModel.Unknown and dev_info.raw_model
                 else model_str(dev_info.model)
             )
-            attrs[ATTR_SW_VERSION] = dev_info.version
+            device_info.sw_version = dev_info.version
 
             if dev_info.mac:
-                attrs[ATTR_CONNECTIONS] = {(dr.CONNECTION_NETWORK_MAC, dev_info.mac)}
+                device_info.connections = {(dr.CONNECTION_NETWORK_MAC, dev_info.mac)}
 
         device_registry = dr.async_get(self.hass)
-        device_registry.async_get_or_create(
-            config_entry_id=self.config_entry.entry_id, **attrs
+        device_registry.async_get_or_create_from_info(
+            config_entry_id=self.config_entry.entry_id, device_info=device_info
         )
 
     @property

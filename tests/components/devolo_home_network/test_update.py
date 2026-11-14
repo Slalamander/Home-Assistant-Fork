@@ -4,15 +4,16 @@ from devolo_plc_api.device_api import UPDATE_NOT_AVAILABLE, UpdateFirmwareCheck
 from devolo_plc_api.exceptions.device import DevicePasswordProtected, DeviceUnavailable
 from freezegun.api import FrozenDateTimeFactory
 import pytest
+from pytest_homeassistant.common import async_fire_time_changed
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components.devolo_home_network.const import (
     DOMAIN,
     FIRMWARE_UPDATE_INTERVAL,
 )
-from homeassistant.components.update import DOMAIN as PLATFORM, SERVICE_INSTALL
+from homeassistant.components.update import DOMAIN as UPDATE_DOMAIN, UpdateService
 from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
-from homeassistant.const import ATTR_ENTITY_ID, STATE_OFF, STATE_UNAVAILABLE
+from homeassistant.const import STATE_OFF, STATE_UNAVAILABLE, CommonServiceArgument
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr, entity_registry as er
@@ -20,8 +21,6 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er
 from . import configure_integration
 from .const import FIRMWARE_UPDATE_AVAILABLE
 from .mock import MockDevice
-
-from tests.common import async_fire_time_changed
 
 
 @pytest.mark.usefixtures("mock_device")
@@ -36,7 +35,9 @@ async def test_update_setup(
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.LOADED
 
-    assert not entity_registry.async_get(f"{PLATFORM}.{device_name}_firmware").disabled
+    assert not entity_registry.async_get(
+        f"{UPDATE_DOMAIN}.{device_name}_firmware"
+    ).disabled
 
 
 async def test_update_firmware(
@@ -50,18 +51,18 @@ async def test_update_firmware(
     """Test updating a device."""
     entry = configure_integration(hass)
     device_name = entry.title.replace(" ", "_").lower()
-    state_key = f"{PLATFORM}.{device_name}_firmware"
+    entity_id = f"{UPDATE_DOMAIN}.{device_name}_firmware"
 
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert hass.states.get(state_key) == snapshot
-    assert entity_registry.async_get(state_key) == snapshot
+    assert hass.states.get(entity_id) == snapshot
+    assert entity_registry.async_get(entity_id) == snapshot
 
     await hass.services.async_call(
-        PLATFORM,
-        SERVICE_INSTALL,
-        {ATTR_ENTITY_ID: state_key},
+        UPDATE_DOMAIN,
+        UpdateService.INSTALL,
+        {CommonServiceArgument.ENTITY_ID: entity_id},
         blocking=True,
     )
     assert mock_device.device.async_start_firmware_update.call_count == 1
@@ -77,12 +78,12 @@ async def test_update_firmware(
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
 
-    state = hass.states.get(state_key)
+    state = hass.states.get(entity_id)
     assert state is not None
     assert state.state == STATE_OFF
 
-    device_info = device_registry.async_get_device(
-        {(DOMAIN, mock_device.serial_number)}
+    device_info = device_registry.async_get_device_by_identifier(
+        (DOMAIN, mock_device.serial_number), entry.entry_id
     )
     assert device_info is not None
     assert device_info.sw_version == mock_device.firmware_version
@@ -96,12 +97,12 @@ async def test_device_failure_check(
     """Test device failure during check."""
     entry = configure_integration(hass)
     device_name = entry.title.replace(" ", "_").lower()
-    state_key = f"{PLATFORM}.{device_name}_firmware"
+    entity_id = f"{UPDATE_DOMAIN}.{device_name}_firmware"
 
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    state = hass.states.get(state_key)
+    state = hass.states.get(entity_id)
     assert state is not None
 
     mock_device.device.async_check_firmware_available.side_effect = DeviceUnavailable
@@ -109,7 +110,7 @@ async def test_device_failure_check(
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
 
-    state = hass.states.get(state_key)
+    state = hass.states.get(entity_id)
     assert state is not None
     assert state.state == STATE_UNAVAILABLE
 
@@ -121,7 +122,7 @@ async def test_device_failure_update(
     """Test device failure when starting update."""
     entry = configure_integration(hass)
     device_name = entry.title.replace(" ", "_").lower()
-    state_key = f"{PLATFORM}.{device_name}_firmware"
+    entity_id = f"{UPDATE_DOMAIN}.{device_name}_firmware"
 
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
@@ -131,9 +132,9 @@ async def test_device_failure_update(
     # Emulate update start
     with pytest.raises(HomeAssistantError):
         await hass.services.async_call(
-            PLATFORM,
-            SERVICE_INSTALL,
-            {ATTR_ENTITY_ID: state_key},
+            UPDATE_DOMAIN,
+            UpdateService.INSTALL,
+            {CommonServiceArgument.ENTITY_ID: entity_id},
             blocking=True,
         )
 
@@ -142,7 +143,7 @@ async def test_auth_failed(hass: HomeAssistant, mock_device: MockDevice) -> None
     """Test updating unauthorized triggers the reauth flow."""
     entry = configure_integration(hass)
     device_name = entry.title.replace(" ", "_").lower()
-    state_key = f"{PLATFORM}.{device_name}_firmware"
+    entity_id = f"{UPDATE_DOMAIN}.{device_name}_firmware"
 
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
@@ -151,9 +152,9 @@ async def test_auth_failed(hass: HomeAssistant, mock_device: MockDevice) -> None
 
     with pytest.raises(HomeAssistantError):
         assert await hass.services.async_call(
-            PLATFORM,
-            SERVICE_INSTALL,
-            {ATTR_ENTITY_ID: state_key},
+            UPDATE_DOMAIN,
+            UpdateService.INSTALL,
+            {CommonServiceArgument.ENTITY_ID: entity_id},
             blocking=True,
         )
     await hass.async_block_till_done()

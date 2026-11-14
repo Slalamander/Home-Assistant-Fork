@@ -1,11 +1,12 @@
 """Constants used by multiple MQTT modules."""
 
+from enum import StrEnum
 import logging
 
 import jinja2
 
 from homeassistant.components.alarm_control_panel import AlarmControlPanelEntityFeature
-from homeassistant.const import CONF_DISCOVERY, CONF_PAYLOAD, Platform
+from homeassistant.const import CONF_PAYLOAD, Platform
 from homeassistant.exceptions import TemplateError
 
 ATTR_DISCOVERY_HASH = "discovery_hash"
@@ -14,7 +15,6 @@ ATTR_DISCOVERY_TOPIC = "discovery_topic"
 ATTR_PAYLOAD = "payload"
 ATTR_QOS = "qos"
 ATTR_RETAIN = "retain"
-ATTR_SERIAL_NUMBER = "serial_number"
 ATTR_TOPIC = "topic"
 
 AVAILABILITY_ALL = "all"
@@ -42,19 +42,21 @@ CONF_COMMAND_TOPIC = "command_topic"
 CONF_CONTENT_TYPE = "content_type"
 CONF_DEFAULT_ENTITY_ID = "default_entity_id"
 CONF_DISCOVERY_PREFIX = "discovery_prefix"
+CONF_DISCOVERY_QOS = "discovery_qos"
 CONF_ENCODING = "encoding"
 CONF_IMAGE_ENCODING = "image_encoding"
 CONF_IMAGE_TOPIC = "image_topic"
 CONF_JSON_ATTRS_TOPIC = "json_attributes_topic"
 CONF_JSON_ATTRS_TEMPLATE = "json_attributes_template"
 CONF_KEEPALIVE = "keepalive"
-CONF_OPTIONS = "options"
+CONF_MESSAGE_EXPIRY_INTERVAL = "message_expiry_interval"
 CONF_ORIGIN = "origin"
 CONF_QOS = ATTR_QOS
 CONF_RETAIN = ATTR_RETAIN
 CONF_SCHEMA = "schema"
 CONF_STATE_TOPIC = "state_topic"
 CONF_STATE_VALUE_TEMPLATE = "state_value_template"
+CONF_TIMEZONE = "timezone"
 CONF_TOPIC = "topic"
 CONF_TRANSPORT = "transport"
 CONF_WS_PATH = "ws_path"
@@ -71,7 +73,6 @@ CONF_BRIGHTNESS_SCALE = "brightness_scale"
 CONF_BRIGHTNESS_STATE_TOPIC = "brightness_state_topic"
 CONF_BRIGHTNESS_TEMPLATE = "brightness_template"
 CONF_BRIGHTNESS_VALUE_TEMPLATE = "brightness_value_template"
-CONF_COLOR_MODE = "color_mode"
 CONF_COLOR_MODE_STATE_TOPIC = "color_mode_state_topic"
 CONF_COLOR_MODE_VALUE_TEMPLATE = "color_mode_value_template"
 CONF_COLOR_TEMP_COMMAND_TEMPLATE = "color_temp_command_template"
@@ -110,6 +111,7 @@ CONF_FLASH_TIME_SHORT = "flash_time_short"
 CONF_GET_POSITION_TEMPLATE = "position_template"
 CONF_GET_POSITION_TOPIC = "position_topic"
 CONF_GREEN_TEMPLATE = "green_template"
+CONF_GROUP = "group"
 CONF_HS_COMMAND_TEMPLATE = "hs_command_template"
 CONF_HS_COMMAND_TOPIC = "hs_command_topic"
 CONF_HS_STATE_TOPIC = "hs_state_topic"
@@ -138,6 +140,7 @@ CONF_OSCILLATION_COMMAND_TOPIC = "oscillation_command_topic"
 CONF_OSCILLATION_COMMAND_TEMPLATE = "oscillation_command_template"
 CONF_OSCILLATION_STATE_TOPIC = "oscillation_state_topic"
 CONF_OSCILLATION_VALUE_TEMPLATE = "oscillation_value_template"
+CONF_PATTERN = "pattern"
 CONF_PAYLOAD_ARM_AWAY = "payload_arm_away"
 CONF_PAYLOAD_ARM_CUSTOM_BYPASS = "payload_arm_custom_bypass"
 CONF_PAYLOAD_ARM_HOME = "payload_arm_home"
@@ -171,6 +174,7 @@ CONF_PRESET_MODES_LIST = "preset_modes"
 CONF_PRESET_MODE_STATE_TOPIC = "preset_mode_state_topic"
 CONF_PRESET_MODE_VALUE_TEMPLATE = "preset_mode_value_template"
 CONF_RED_TEMPLATE = "red_template"
+CONF_REPORTS_POSITION = "reports_position"
 CONF_RGB_COMMAND_TEMPLATE = "rgb_command_template"
 CONF_RGB_COMMAND_TOPIC = "rgb_command_topic"
 CONF_RGB_STATE_TOPIC = "rgb_state_topic"
@@ -242,6 +246,7 @@ CONF_TILT_STATE_OPTIMISTIC = "tilt_optimistic"
 CONF_TRANSITION = "transition"
 CONF_URL_TEMPLATE = "url_template"
 CONF_URL_TOPIC = "url_topic"
+CONF_VISIBLE_BY_DEFAULT = "visible_by_default"
 CONF_XY_COMMAND_TEMPLATE = "xy_command_template"
 CONF_XY_COMMAND_TOPIC = "xy_command_topic"
 CONF_XY_STATE_TOPIC = "xy_state_topic"
@@ -263,11 +268,12 @@ CONF_MANUFACTURER = "manufacturer"
 CONF_HW_VERSION = "hw_version"
 CONF_SW_VERSION = "sw_version"
 CONF_SERIAL_NUMBER = "serial_number"
+CONF_CHILD_DEVICE = "child_device"
+CONF_CHILD_DEVICES = "child_devices"
 CONF_VIA_DEVICE = "via_device"
 CONF_DEPRECATED_VIA_HUB = "via_hub"
 CONF_SUGGESTED_AREA = "suggested_area"
 CONF_CONFIGURATION_URL = "configuration_url"
-CONF_OBJECT_ID = "object_id"
 CONF_SUPPORT_URL = "support_url"
 
 DEFAULT_ALARM_CONTROL_PANEL_COMMAND_TEMPLATE = "{{action}}"
@@ -311,7 +317,6 @@ DEFAULT_TILT_MAX = 100
 DEFAULT_TILT_MIN = 0
 DEFAULT_TILT_OPEN_POSITION = 100
 DEFAULT_TILT_OPTIMISTIC = False
-DEFAULT_WS_HEADERS: dict[str, str] = {}
 DEFAULT_WS_PATH = "/"
 DEFAULT_POSITION_CLOSED = 0
 DEFAULT_POSITION_OPEN = 100
@@ -346,14 +351,14 @@ REMOTE_CODE_TEXT = "REMOTE_CODE_TEXT"
 PROTOCOL_31 = "3.1"
 PROTOCOL_311 = "3.1.1"
 PROTOCOL_5 = "5"
-SUPPORTED_PROTOCOLS = [PROTOCOL_31, PROTOCOL_311, PROTOCOL_5]
+SUPPORTED_PROTOCOLS = [PROTOCOL_5, PROTOCOL_311, PROTOCOL_31]
 
 TRANSPORT_TCP = "tcp"
 TRANSPORT_WEBSOCKETS = "websockets"
 
 DEFAULT_PORT = 1883
 DEFAULT_KEEPALIVE = 60
-DEFAULT_PROTOCOL = PROTOCOL_311
+DEFAULT_PROTOCOL = PROTOCOL_5
 DEFAULT_TRANSPORT = TRANSPORT_TCP
 
 DEFAULT_BIRTH = {
@@ -371,26 +376,40 @@ DEFAULT_WILL = {
 }
 
 DOMAIN = "mqtt"
+INVALID_PLATFORM_CONFIG_ISSUE_PREFIX = "invalid_platform_config_"
 LOGGER = logging.getLogger(__package__)
 
 MQTT_CONNECTION_STATE = "mqtt_connection_state"
+MQTT_PROCESSED_SUBSCRIPTIONS = "mqtt_processed_subscriptions"
 
 PAYLOAD_EMPTY_JSON = "{}"
 PAYLOAD_NONE = "None"
 
-CONFIG_ENTRY_VERSION = 1
-CONFIG_ENTRY_MINOR_VERSION = 2
+SERVICE_PUBLISH = "publish"
 
-# Split mqtt entry data and options
-# Can be removed when config entry is bumped to version 2.1
-# with HA Core 2026.1.0. Read support for version 2.1 is expected before 2026.1
-# From 2026.1 we will write version 2.1
-ENTRY_OPTION_FIELDS = (
-    CONF_DISCOVERY,
-    CONF_DISCOVERY_PREFIX,
-    "birth_message",
-    "will_message",
-)
+
+class MqttService(StrEnum):
+    """Store keys for MQTT services."""
+
+    DUMP = "dump"
+    PUBLISH = "publish"
+    RELOAD = "reload"
+
+
+class MqttServiceArgument(StrEnum):
+    """Store keys for MQTT service arguments."""
+
+    DURATION = "duration"
+    EVALUATE_PAYLOAD = "evaluate_payload"
+    MESSAGE_EXPIRY_INTERVAL = "message_expiry_interval"
+    PAYLOAD = "payload"
+    QOS = "qos"
+    RETAIN = "retain"
+    TOPIC = "topic"
+
+
+CONFIG_ENTRY_VERSION = 2
+CONFIG_ENTRY_MINOR_VERSION = 1
 
 ENTITY_PLATFORMS = [
     Platform.ALARM_CONTROL_PANEL,
@@ -399,11 +418,14 @@ ENTITY_PLATFORMS = [
     Platform.CAMERA,
     Platform.CLIMATE,
     Platform.COVER,
+    Platform.DATE,
+    Platform.DATETIME,
     Platform.DEVICE_TRACKER,
     Platform.EVENT,
     Platform.FAN,
     Platform.HUMIDIFIER,
     Platform.IMAGE,
+    Platform.INFRARED,
     Platform.LIGHT,
     Platform.LAWN_MOWER,
     Platform.LOCK,
@@ -415,6 +437,7 @@ ENTITY_PLATFORMS = [
     Platform.SIREN,
     Platform.SWITCH,
     Platform.TEXT,
+    Platform.TIME,
     Platform.UPDATE,
     Platform.VACUUM,
     Platform.VALVE,
@@ -430,12 +453,15 @@ SUPPORTED_COMPONENTS = (
     "camera",
     "climate",
     "cover",
+    "date",
+    "datetime",
     "device_automation",
     "device_tracker",
     "event",
     "fan",
     "humidifier",
     "image",
+    "infrared",
     "lawn_mower",
     "light",
     "lock",
@@ -448,6 +474,7 @@ SUPPORTED_COMPONENTS = (
     "switch",
     "tag",
     "text",
+    "time",
     "update",
     "vacuum",
     "valve",

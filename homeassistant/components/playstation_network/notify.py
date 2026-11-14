@@ -1,9 +1,7 @@
 """Notify platform for PlayStation Network."""
 
-from __future__ import annotations
-
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, override
 
 from psnawp_api.core.psnawp_exceptions import (
     PSNAWPClientError,
@@ -18,7 +16,6 @@ from homeassistant.components.notify import (
     NotifyEntity,
     NotifyEntityDescription,
 )
-from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
@@ -111,14 +108,15 @@ async def async_setup_entry(
 class PlaystationNetworkNotifyBaseEntity(PlaystationNetworkServiceEntity, NotifyEntity):
     """Base class of PlayStation Network notify entity."""
 
-    group: Group | None = None
+    psn_group: Group | None = None
 
     def _send_message(self, message: str) -> None:
         """Send message."""
         if TYPE_CHECKING:
-            assert self.group
-        self.group.send_message(message)
+            assert self.psn_group
+        self.psn_group.send_message(message)
 
+    @override
     def send_message(self, message: str, title: str | None = None) -> None:
         """Send a message."""
 
@@ -155,13 +153,13 @@ class PlaystationNetworkNotifyEntity(PlaystationNetworkNotifyBaseEntity):
         group_id: str,
     ) -> None:
         """Initialize a notification entity."""
-        self.group = coordinator.psn.psn.group(group_id=group_id)
+        self.psn_group = coordinator.psn.psn.group(group_id=group_id)
         group_details = coordinator.data[group_id]
         self.entity_description = NotifyEntityDescription(
             key=group_id,
             translation_key=PlaystationNetworkNotify.GROUP_MESSAGE,
             translation_placeholders={
-                CONF_NAME: group_details["groupName"]["value"]
+                "name": group_details["groupName"]["value"]
                 or ", ".join(
                     member["onlineId"]
                     for member in group_details["members"]
@@ -174,7 +172,7 @@ class PlaystationNetworkNotifyEntity(PlaystationNetworkNotifyBaseEntity):
 
 
 class PlaystationNetworkDirectMessageNotifyEntity(PlaystationNetworkNotifyBaseEntity):
-    """Representation of a PlayStation Network notify entity for sending direct messages."""
+    """PlayStation Network notify entity for direct messages."""
 
     coordinator: PlaystationNetworkFriendlistCoordinator
 
@@ -189,16 +187,17 @@ class PlaystationNetworkDirectMessageNotifyEntity(PlaystationNetworkNotifyBaseEn
             key=f"{account_id}_{PlaystationNetworkNotify.DIRECT_MESSAGE}",
             translation_key=PlaystationNetworkNotify.DIRECT_MESSAGE,
             translation_placeholders={
-                CONF_NAME: coordinator.psn.friends_list[account_id].online_id
+                "name": coordinator.psn.friends_list[account_id].online_id
             },
             entity_registry_enabled_default=False,
         )
 
         super().__init__(coordinator, self.entity_description)
 
+    @override
     def _send_message(self, message: str) -> None:
-        if not self.group:
-            self.group = self.coordinator.psn.psn.group(
+        if not self.psn_group:
+            self.psn_group = self.coordinator.psn.psn.group(
                 users_list=[self.coordinator.psn.friends_list[self.account_id]]
             )
         super()._send_message(message)

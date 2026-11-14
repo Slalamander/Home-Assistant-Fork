@@ -61,18 +61,21 @@ class PingDataICMPLib(PingData):
         except NameLookupError:
             _LOGGER.debug("Error resolving host: %s", self.ip_address)
             self.is_alive = False
+            self.data = None
             return
 
         _LOGGER.debug(
-            "async_ping returned: reachable=%s sent=%i received=%s",
+            "async_ping returned: reachable=%s sent=%i received=%s loss=%s",
             data.is_alive,
             data.packets_sent,
             data.packets_received,
+            data.packet_loss * 100,
         )
 
         self.is_alive = data.is_alive
         if not self.is_alive:
-            self.data = None
+            # No replies is still a measurement: report 100% packet loss
+            self.data = {"loss": data.packet_loss * 100}
             return
 
         self.data = {
@@ -80,6 +83,7 @@ class PingDataICMPLib(PingData):
             "max": data.max_rtt,
             "avg": data.avg_rtt,
             "jitter": data.jitter,
+            "loss": data.packet_loss * 100,
         }
 
 
@@ -162,7 +166,7 @@ class PingDataSubProcess(PingData):
 
             if pinger:
                 with suppress(TypeError, ProcessLookupError):
-                    await pinger.kill()  # type: ignore[func-returns-value]
+                    pinger.kill()
                 del pinger
 
             return None

@@ -1,14 +1,17 @@
 # serializer version: 1
 # name: test_all_sensors[sensor.home_controller_daily_active_water_use-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
-    'capabilities': None,
+    'capabilities': dict({
+      <SensorEntityCapabilityAttribute.STATE_CLASS: 'state_class'>: <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+    }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('hydrawise', '52496')]>,
     'disabled_by': None,
     'domain': 'sensor',
     'entity_category': None,
@@ -20,6 +23,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Daily active water use',
     'options': dict({
       'sensor': dict({
         'suggested_display_precision': 1,
@@ -28,7 +32,7 @@
         'suggested_unit_of_measurement': <UnitOfVolume.LITERS: 'L'>,
       }),
     }),
-    'original_device_class': <SensorDeviceClass.VOLUME: 'volume'>,
+    'original_device_class': <SensorDeviceClass.WATER: 'water'>,
     'original_icon': None,
     'original_name': 'Daily active water use',
     'platform': 'hydrawise',
@@ -43,10 +47,11 @@
 # name: test_all_sensors[sensor.home_controller_daily_active_water_use-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'attribution': 'Data provided by hydrawise.com',
-      'device_class': 'volume',
-      'friendly_name': 'Home Controller Daily active water use',
-      'unit_of_measurement': <UnitOfVolume.LITERS: 'L'>,
+      <EntityStateAttribute.ATTRIBUTION: 'attribution'>: 'Data provided by hydrawise.com',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'water',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Home Controller Daily active water use',
+      <SensorEntityCapabilityAttribute.STATE_CLASS: 'state_class'>: <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+      <EntityStateAttribute.UNIT_OF_MEASUREMENT: 'unit_of_measurement'>: <UnitOfVolume.LITERS: 'L'>,
     }),
     'context': <ANY>,
     'entity_id': 'sensor.home_controller_daily_active_water_use',
@@ -58,14 +63,17 @@
 # ---
 # name: test_all_sensors[sensor.home_controller_daily_active_watering_time-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
-    'capabilities': None,
+    'capabilities': dict({
+      <SensorEntityCapabilityAttribute.STATE_CLASS: 'state_class'>: <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+    }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('hydrawise', '52496')]>,
     'disabled_by': None,
     'domain': 'sensor',
     'entity_category': None,
@@ -77,6 +85,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Daily active watering time',
     'options': dict({
       'sensor': dict({
         'suggested_display_precision': 2,
@@ -97,10 +106,11 @@
 # name: test_all_sensors[sensor.home_controller_daily_active_watering_time-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'attribution': 'Data provided by hydrawise.com',
-      'device_class': 'duration',
-      'friendly_name': 'Home Controller Daily active watering time',
-      'unit_of_measurement': <UnitOfTime.SECONDS: 's'>,
+      <EntityStateAttribute.ATTRIBUTION: 'attribution'>: 'Data provided by hydrawise.com',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'duration',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Home Controller Daily active watering time',
+      <SensorEntityCapabilityAttribute.STATE_CLASS: 'state_class'>: <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+      <EntityStateAttribute.UNIT_OF_MEASUREMENT: 'unit_of_measurement'>: <UnitOfTime.SECONDS: 's'>,
     }),
     'context': <ANY>,
     'entity_id': 'sensor.home_controller_daily_active_watering_time',
@@ -112,14 +122,15 @@
 # ---
 # name: test_all_sensors[sensor.home_controller_daily_inactive_water_use-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('hydrawise', '52496')]>,
     'disabled_by': None,
     'domain': 'sensor',
     'entity_category': None,
@@ -131,6 +142,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Daily inactive water use',
     'options': dict({
       'sensor': dict({
         'suggested_display_precision': 1,
@@ -139,7 +151,7 @@
         'suggested_unit_of_measurement': <UnitOfVolume.LITERS: 'L'>,
       }),
     }),
-    'original_device_class': <SensorDeviceClass.VOLUME: 'volume'>,
+    'original_device_class': <SensorDeviceClass.WATER: 'water'>,
     'original_icon': None,
     'original_name': 'Daily inactive water use',
     'platform': 'hydrawise',
@@ -154,10 +166,10 @@
 # name: test_all_sensors[sensor.home_controller_daily_inactive_water_use-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'attribution': 'Data provided by hydrawise.com',
-      'device_class': 'volume',
-      'friendly_name': 'Home Controller Daily inactive water use',
-      'unit_of_measurement': <UnitOfVolume.LITERS: 'L'>,
+      <EntityStateAttribute.ATTRIBUTION: 'attribution'>: 'Data provided by hydrawise.com',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'water',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Home Controller Daily inactive water use',
+      <EntityStateAttribute.UNIT_OF_MEASUREMENT: 'unit_of_measurement'>: <UnitOfVolume.LITERS: 'L'>,
     }),
     'context': <ANY>,
     'entity_id': 'sensor.home_controller_daily_inactive_water_use',
@@ -169,14 +181,17 @@
 # ---
 # name: test_all_sensors[sensor.home_controller_daily_total_water_use-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
-    'capabilities': None,
+    'capabilities': dict({
+      <SensorEntityCapabilityAttribute.STATE_CLASS: 'state_class'>: <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+    }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('hydrawise', '52496')]>,
     'disabled_by': None,
     'domain': 'sensor',
     'entity_category': None,
@@ -188,6 +203,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Daily total water use',
     'options': dict({
       'sensor': dict({
         'suggested_display_precision': 1,
@@ -196,7 +212,7 @@
         'suggested_unit_of_measurement': <UnitOfVolume.LITERS: 'L'>,
       }),
     }),
-    'original_device_class': <SensorDeviceClass.VOLUME: 'volume'>,
+    'original_device_class': <SensorDeviceClass.WATER: 'water'>,
     'original_icon': None,
     'original_name': 'Daily total water use',
     'platform': 'hydrawise',
@@ -211,10 +227,11 @@
 # name: test_all_sensors[sensor.home_controller_daily_total_water_use-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'attribution': 'Data provided by hydrawise.com',
-      'device_class': 'volume',
-      'friendly_name': 'Home Controller Daily total water use',
-      'unit_of_measurement': <UnitOfVolume.LITERS: 'L'>,
+      <EntityStateAttribute.ATTRIBUTION: 'attribution'>: 'Data provided by hydrawise.com',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'water',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Home Controller Daily total water use',
+      <SensorEntityCapabilityAttribute.STATE_CLASS: 'state_class'>: <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+      <EntityStateAttribute.UNIT_OF_MEASUREMENT: 'unit_of_measurement'>: <UnitOfVolume.LITERS: 'L'>,
     }),
     'context': <ANY>,
     'entity_id': 'sensor.home_controller_daily_total_water_use',
@@ -226,14 +243,17 @@
 # ---
 # name: test_all_sensors[sensor.zone_one_daily_active_water_use-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
-    'capabilities': None,
+    'capabilities': dict({
+      <SensorEntityCapabilityAttribute.STATE_CLASS: 'state_class'>: <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+    }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('hydrawise', '5965394')]>,
     'disabled_by': None,
     'domain': 'sensor',
     'entity_category': None,
@@ -245,6 +265,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Daily active water use',
     'options': dict({
       'sensor': dict({
         'suggested_display_precision': 1,
@@ -253,7 +274,7 @@
         'suggested_unit_of_measurement': <UnitOfVolume.LITERS: 'L'>,
       }),
     }),
-    'original_device_class': <SensorDeviceClass.VOLUME: 'volume'>,
+    'original_device_class': <SensorDeviceClass.WATER: 'water'>,
     'original_icon': None,
     'original_name': 'Daily active water use',
     'platform': 'hydrawise',
@@ -268,10 +289,11 @@
 # name: test_all_sensors[sensor.zone_one_daily_active_water_use-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'attribution': 'Data provided by hydrawise.com',
-      'device_class': 'volume',
-      'friendly_name': 'Zone One Daily active water use',
-      'unit_of_measurement': <UnitOfVolume.LITERS: 'L'>,
+      <EntityStateAttribute.ATTRIBUTION: 'attribution'>: 'Data provided by hydrawise.com',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'water',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone One Daily active water use',
+      <SensorEntityCapabilityAttribute.STATE_CLASS: 'state_class'>: <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+      <EntityStateAttribute.UNIT_OF_MEASUREMENT: 'unit_of_measurement'>: <UnitOfVolume.LITERS: 'L'>,
     }),
     'context': <ANY>,
     'entity_id': 'sensor.zone_one_daily_active_water_use',
@@ -283,14 +305,17 @@
 # ---
 # name: test_all_sensors[sensor.zone_one_daily_active_watering_time-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
-    'capabilities': None,
+    'capabilities': dict({
+      <SensorEntityCapabilityAttribute.STATE_CLASS: 'state_class'>: <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+    }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('hydrawise', '5965394')]>,
     'disabled_by': None,
     'domain': 'sensor',
     'entity_category': None,
@@ -302,6 +327,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Daily active watering time',
     'options': dict({
       'sensor': dict({
         'suggested_display_precision': 2,
@@ -322,10 +348,11 @@
 # name: test_all_sensors[sensor.zone_one_daily_active_watering_time-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'attribution': 'Data provided by hydrawise.com',
-      'device_class': 'duration',
-      'friendly_name': 'Zone One Daily active watering time',
-      'unit_of_measurement': <UnitOfTime.SECONDS: 's'>,
+      <EntityStateAttribute.ATTRIBUTION: 'attribution'>: 'Data provided by hydrawise.com',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'duration',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone One Daily active watering time',
+      <SensorEntityCapabilityAttribute.STATE_CLASS: 'state_class'>: <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+      <EntityStateAttribute.UNIT_OF_MEASUREMENT: 'unit_of_measurement'>: <UnitOfTime.SECONDS: 's'>,
     }),
     'context': <ANY>,
     'entity_id': 'sensor.zone_one_daily_active_watering_time',
@@ -337,14 +364,15 @@
 # ---
 # name: test_all_sensors[sensor.zone_one_next_cycle-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('hydrawise', '5965394')]>,
     'disabled_by': None,
     'domain': 'sensor',
     'entity_category': None,
@@ -356,6 +384,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Next cycle',
     'options': dict({
     }),
     'original_device_class': <SensorDeviceClass.TIMESTAMP: 'timestamp'>,
@@ -373,9 +402,9 @@
 # name: test_all_sensors[sensor.zone_one_next_cycle-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'attribution': 'Data provided by hydrawise.com',
-      'device_class': 'timestamp',
-      'friendly_name': 'Zone One Next cycle',
+      <EntityStateAttribute.ATTRIBUTION: 'attribution'>: 'Data provided by hydrawise.com',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'timestamp',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone One Next cycle',
     }),
     'context': <ANY>,
     'entity_id': 'sensor.zone_one_next_cycle',
@@ -387,14 +416,15 @@
 # ---
 # name: test_all_sensors[sensor.zone_one_remaining_watering_time-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('hydrawise', '5965394')]>,
     'disabled_by': None,
     'domain': 'sensor',
     'entity_category': None,
@@ -406,9 +436,13 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Remaining watering time',
     'options': dict({
+      'sensor': dict({
+        'suggested_display_precision': 0,
+      }),
     }),
-    'original_device_class': None,
+    'original_device_class': <SensorDeviceClass.DURATION: 'duration'>,
     'original_icon': None,
     'original_name': 'Remaining watering time',
     'platform': 'hydrawise',
@@ -423,9 +457,10 @@
 # name: test_all_sensors[sensor.zone_one_remaining_watering_time-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'attribution': 'Data provided by hydrawise.com',
-      'friendly_name': 'Zone One Remaining watering time',
-      'unit_of_measurement': <UnitOfTime.MINUTES: 'min'>,
+      <EntityStateAttribute.ATTRIBUTION: 'attribution'>: 'Data provided by hydrawise.com',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'duration',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone One Remaining watering time',
+      <EntityStateAttribute.UNIT_OF_MEASUREMENT: 'unit_of_measurement'>: <UnitOfTime.MINUTES: 'min'>,
     }),
     'context': <ANY>,
     'entity_id': 'sensor.zone_one_remaining_watering_time',
@@ -437,14 +472,17 @@
 # ---
 # name: test_all_sensors[sensor.zone_two_daily_active_water_use-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
-    'capabilities': None,
+    'capabilities': dict({
+      <SensorEntityCapabilityAttribute.STATE_CLASS: 'state_class'>: <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+    }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('hydrawise', '5965395')]>,
     'disabled_by': None,
     'domain': 'sensor',
     'entity_category': None,
@@ -456,6 +494,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Daily active water use',
     'options': dict({
       'sensor': dict({
         'suggested_display_precision': 1,
@@ -464,8 +503,8 @@
         'suggested_unit_of_measurement': <UnitOfVolume.LITERS: 'L'>,
       }),
     }),
-    'original_device_class': <SensorDeviceClass.VOLUME: 'volume'>,
-    'original_icon': 'mdi:water-outline',
+    'original_device_class': <SensorDeviceClass.WATER: 'water'>,
+    'original_icon': None,
     'original_name': 'Daily active water use',
     'platform': 'hydrawise',
     'previous_unique_id': None,
@@ -479,11 +518,11 @@
 # name: test_all_sensors[sensor.zone_two_daily_active_water_use-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'attribution': 'Data provided by hydrawise.com',
-      'device_class': 'volume',
-      'friendly_name': 'Zone Two Daily active water use',
-      'icon': 'mdi:water-outline',
-      'unit_of_measurement': <UnitOfVolume.LITERS: 'L'>,
+      <EntityStateAttribute.ATTRIBUTION: 'attribution'>: 'Data provided by hydrawise.com',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'water',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone Two Daily active water use',
+      <SensorEntityCapabilityAttribute.STATE_CLASS: 'state_class'>: <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+      <EntityStateAttribute.UNIT_OF_MEASUREMENT: 'unit_of_measurement'>: <UnitOfVolume.LITERS: 'L'>,
     }),
     'context': <ANY>,
     'entity_id': 'sensor.zone_two_daily_active_water_use',
@@ -495,14 +534,17 @@
 # ---
 # name: test_all_sensors[sensor.zone_two_daily_active_watering_time-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
-    'capabilities': None,
+    'capabilities': dict({
+      <SensorEntityCapabilityAttribute.STATE_CLASS: 'state_class'>: <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+    }),
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('hydrawise', '5965395')]>,
     'disabled_by': None,
     'domain': 'sensor',
     'entity_category': None,
@@ -514,6 +556,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Daily active watering time',
     'options': dict({
       'sensor': dict({
         'suggested_display_precision': 2,
@@ -534,10 +577,11 @@
 # name: test_all_sensors[sensor.zone_two_daily_active_watering_time-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'attribution': 'Data provided by hydrawise.com',
-      'device_class': 'duration',
-      'friendly_name': 'Zone Two Daily active watering time',
-      'unit_of_measurement': <UnitOfTime.SECONDS: 's'>,
+      <EntityStateAttribute.ATTRIBUTION: 'attribution'>: 'Data provided by hydrawise.com',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'duration',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone Two Daily active watering time',
+      <SensorEntityCapabilityAttribute.STATE_CLASS: 'state_class'>: <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+      <EntityStateAttribute.UNIT_OF_MEASUREMENT: 'unit_of_measurement'>: <UnitOfTime.SECONDS: 's'>,
     }),
     'context': <ANY>,
     'entity_id': 'sensor.zone_two_daily_active_watering_time',
@@ -549,14 +593,15 @@
 # ---
 # name: test_all_sensors[sensor.zone_two_next_cycle-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('hydrawise', '5965395')]>,
     'disabled_by': None,
     'domain': 'sensor',
     'entity_category': None,
@@ -568,6 +613,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Next cycle',
     'options': dict({
     }),
     'original_device_class': <SensorDeviceClass.TIMESTAMP: 'timestamp'>,
@@ -585,9 +631,9 @@
 # name: test_all_sensors[sensor.zone_two_next_cycle-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'attribution': 'Data provided by hydrawise.com',
-      'device_class': 'timestamp',
-      'friendly_name': 'Zone Two Next cycle',
+      <EntityStateAttribute.ATTRIBUTION: 'attribution'>: 'Data provided by hydrawise.com',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'timestamp',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone Two Next cycle',
     }),
     'context': <ANY>,
     'entity_id': 'sensor.zone_two_next_cycle',
@@ -599,14 +645,15 @@
 # ---
 # name: test_all_sensors[sensor.zone_two_remaining_watering_time-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('hydrawise', '5965395')]>,
     'disabled_by': None,
     'domain': 'sensor',
     'entity_category': None,
@@ -618,9 +665,13 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Remaining watering time',
     'options': dict({
+      'sensor': dict({
+        'suggested_display_precision': 0,
+      }),
     }),
-    'original_device_class': None,
+    'original_device_class': <SensorDeviceClass.DURATION: 'duration'>,
     'original_icon': None,
     'original_name': 'Remaining watering time',
     'platform': 'hydrawise',
@@ -635,9 +686,10 @@
 # name: test_all_sensors[sensor.zone_two_remaining_watering_time-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'attribution': 'Data provided by hydrawise.com',
-      'friendly_name': 'Zone Two Remaining watering time',
-      'unit_of_measurement': <UnitOfTime.MINUTES: 'min'>,
+      <EntityStateAttribute.ATTRIBUTION: 'attribution'>: 'Data provided by hydrawise.com',
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'duration',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Zone Two Remaining watering time',
+      <EntityStateAttribute.UNIT_OF_MEASUREMENT: 'unit_of_measurement'>: <UnitOfTime.MINUTES: 'min'>,
     }),
     'context': <ANY>,
     'entity_id': 'sensor.zone_two_remaining_watering_time',

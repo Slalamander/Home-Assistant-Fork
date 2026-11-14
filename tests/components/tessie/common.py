@@ -5,23 +5,19 @@ from unittest.mock import patch
 
 from aiohttp import ClientConnectionError, ClientResponseError
 from aiohttp.client import RequestInfo
+from pytest_homeassistant.common import MockConfigEntry, load_json_object_fixture
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components.tessie import PLATFORMS
-from homeassistant.components.tessie.const import DOMAIN, TessieStatus
+from homeassistant.components.tessie.const import DOMAIN
 from homeassistant.const import CONF_ACCESS_TOKEN, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.typing import UNDEFINED, UndefinedType
-
-from tests.common import MockConfigEntry, load_json_object_fixture
+from homeassistant.helpers.typing import Undefined
 
 # Tessie library
 TEST_STATE_OF_ALL_VEHICLES = load_json_object_fixture("vehicles.json", DOMAIN)
 TEST_VEHICLE_STATE_ONLINE = load_json_object_fixture("online.json", DOMAIN)
-TEST_VEHICLE_STATUS_AWAKE = {"status": TessieStatus.AWAKE}
-TEST_VEHICLE_STATUS_ASLEEP = {"status": TessieStatus.ASLEEP}
-
 TEST_RESPONSE = {"result": True}
 TEST_RESPONSE_ERROR = {"result": False, "reason": "reason_why"}
 
@@ -52,6 +48,7 @@ ERROR_CONNECTION = ClientConnectionError()
 PRODUCTS = load_json_object_fixture("products.json", DOMAIN)
 LIVE_STATUS = load_json_object_fixture("live_status.json", DOMAIN)
 SITE_INFO = load_json_object_fixture("site_info.json", DOMAIN)
+ENERGY_HISTORY = load_json_object_fixture("energy_history.json", DOMAIN)
 RESPONSE_OK = {"response": {}, "error": None}
 COMMAND_OK = {"response": {"result": True, "reason": ""}}
 SCOPES = [
@@ -68,7 +65,7 @@ NO_SCOPES = ["user_data", "offline_access", "openid"]
 
 
 async def setup_platform(
-    hass: HomeAssistant, platforms: list[Platform] | UndefinedType = UNDEFINED
+    hass: HomeAssistant, platforms: list[Platform] | Undefined = Undefined
 ) -> MockConfigEntry:
     """Set up the Tessie platform."""
 
@@ -80,7 +77,7 @@ async def setup_platform(
 
     with patch(
         "homeassistant.components.tessie.PLATFORMS",
-        PLATFORMS if platforms is UNDEFINED else platforms,
+        PLATFORMS if platforms is Undefined else platforms,
     ):
         await hass.config_entries.async_setup(mock_entry.entry_id)
         await hass.async_block_till_done()

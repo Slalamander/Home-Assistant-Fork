@@ -1,14 +1,15 @@
 # serializer version: 1
 # name: test_switches[switch.05_111111111111_programmed_input_output-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '05.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -20,6 +21,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Programmed input-output',
     'options': dict({
     }),
     'original_device_class': None,
@@ -38,7 +40,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/05.111111111111/PIO',
-      'friendly_name': '05.111111111111 Programmed input-output',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '05.111111111111 Programmed input-output',
     }),
     'context': <ANY>,
     'entity_id': 'switch.05_111111111111_programmed_input_output',
@@ -50,14 +52,15 @@
 # ---
 # name: test_switches[switch.12_111111111111_latch_a-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '12.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -69,6 +72,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Latch A',
     'options': dict({
     }),
     'original_device_class': None,
@@ -87,7 +91,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/12.111111111111/latch.A',
-      'friendly_name': '12.111111111111 Latch A',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '12.111111111111 Latch A',
     }),
     'context': <ANY>,
     'entity_id': 'switch.12_111111111111_latch_a',
@@ -99,14 +103,15 @@
 # ---
 # name: test_switches[switch.12_111111111111_latch_b-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '12.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -118,6 +123,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Latch B',
     'options': dict({
     }),
     'original_device_class': None,
@@ -136,7 +142,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/12.111111111111/latch.B',
-      'friendly_name': '12.111111111111 Latch B',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '12.111111111111 Latch B',
     }),
     'context': <ANY>,
     'entity_id': 'switch.12_111111111111_latch_b',
@@ -148,14 +154,15 @@
 # ---
 # name: test_switches[switch.12_111111111111_programmed_input_output_a-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '12.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -167,6 +174,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Programmed input-output A',
     'options': dict({
     }),
     'original_device_class': None,
@@ -185,7 +193,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/12.111111111111/PIO.A',
-      'friendly_name': '12.111111111111 Programmed input-output A',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '12.111111111111 Programmed input-output A',
     }),
     'context': <ANY>,
     'entity_id': 'switch.12_111111111111_programmed_input_output_a',
@@ -197,14 +205,15 @@
 # ---
 # name: test_switches[switch.12_111111111111_programmed_input_output_b-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '12.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -216,6 +225,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Programmed input-output B',
     'options': dict({
     }),
     'original_device_class': None,
@@ -234,7 +244,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/12.111111111111/PIO.B',
-      'friendly_name': '12.111111111111 Programmed input-output B',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '12.111111111111 Programmed input-output B',
     }),
     'context': <ANY>,
     'entity_id': 'switch.12_111111111111_programmed_input_output_b',
@@ -246,14 +256,15 @@
 # ---
 # name: test_switches[switch.26_111111111111_current_a_d_control-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '26.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': <EntityCategory.CONFIG: 'config'>,
@@ -265,6 +276,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Current A/D control',
     'options': dict({
     }),
     'original_device_class': None,
@@ -283,7 +295,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/26.111111111111/IAD',
-      'friendly_name': '26.111111111111 Current A/D control',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '26.111111111111 Current A/D control',
     }),
     'context': <ANY>,
     'entity_id': 'switch.26_111111111111_current_a_d_control',
@@ -295,14 +307,15 @@
 # ---
 # name: test_switches[switch.29_111111111111_latch_0-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '29.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -314,6 +327,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Latch 0',
     'options': dict({
     }),
     'original_device_class': None,
@@ -332,7 +346,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/29.111111111111/latch.0',
-      'friendly_name': '29.111111111111 Latch 0',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '29.111111111111 Latch 0',
     }),
     'context': <ANY>,
     'entity_id': 'switch.29_111111111111_latch_0',
@@ -344,14 +358,15 @@
 # ---
 # name: test_switches[switch.29_111111111111_latch_1-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '29.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -363,6 +378,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Latch 1',
     'options': dict({
     }),
     'original_device_class': None,
@@ -381,7 +397,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/29.111111111111/latch.1',
-      'friendly_name': '29.111111111111 Latch 1',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '29.111111111111 Latch 1',
     }),
     'context': <ANY>,
     'entity_id': 'switch.29_111111111111_latch_1',
@@ -393,14 +409,15 @@
 # ---
 # name: test_switches[switch.29_111111111111_latch_2-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '29.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -412,6 +429,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Latch 2',
     'options': dict({
     }),
     'original_device_class': None,
@@ -430,7 +448,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/29.111111111111/latch.2',
-      'friendly_name': '29.111111111111 Latch 2',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '29.111111111111 Latch 2',
     }),
     'context': <ANY>,
     'entity_id': 'switch.29_111111111111_latch_2',
@@ -442,14 +460,15 @@
 # ---
 # name: test_switches[switch.29_111111111111_latch_3-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '29.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -461,6 +480,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Latch 3',
     'options': dict({
     }),
     'original_device_class': None,
@@ -479,7 +499,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/29.111111111111/latch.3',
-      'friendly_name': '29.111111111111 Latch 3',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '29.111111111111 Latch 3',
     }),
     'context': <ANY>,
     'entity_id': 'switch.29_111111111111_latch_3',
@@ -491,14 +511,15 @@
 # ---
 # name: test_switches[switch.29_111111111111_latch_4-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '29.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -510,6 +531,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Latch 4',
     'options': dict({
     }),
     'original_device_class': None,
@@ -528,7 +550,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/29.111111111111/latch.4',
-      'friendly_name': '29.111111111111 Latch 4',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '29.111111111111 Latch 4',
     }),
     'context': <ANY>,
     'entity_id': 'switch.29_111111111111_latch_4',
@@ -540,14 +562,15 @@
 # ---
 # name: test_switches[switch.29_111111111111_latch_5-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '29.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -559,6 +582,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Latch 5',
     'options': dict({
     }),
     'original_device_class': None,
@@ -577,7 +601,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/29.111111111111/latch.5',
-      'friendly_name': '29.111111111111 Latch 5',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '29.111111111111 Latch 5',
     }),
     'context': <ANY>,
     'entity_id': 'switch.29_111111111111_latch_5',
@@ -589,14 +613,15 @@
 # ---
 # name: test_switches[switch.29_111111111111_latch_6-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '29.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -608,6 +633,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Latch 6',
     'options': dict({
     }),
     'original_device_class': None,
@@ -626,7 +652,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/29.111111111111/latch.6',
-      'friendly_name': '29.111111111111 Latch 6',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '29.111111111111 Latch 6',
     }),
     'context': <ANY>,
     'entity_id': 'switch.29_111111111111_latch_6',
@@ -638,14 +664,15 @@
 # ---
 # name: test_switches[switch.29_111111111111_latch_7-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '29.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -657,6 +684,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Latch 7',
     'options': dict({
     }),
     'original_device_class': None,
@@ -675,7 +703,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/29.111111111111/latch.7',
-      'friendly_name': '29.111111111111 Latch 7',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '29.111111111111 Latch 7',
     }),
     'context': <ANY>,
     'entity_id': 'switch.29_111111111111_latch_7',
@@ -687,14 +715,15 @@
 # ---
 # name: test_switches[switch.29_111111111111_programmed_input_output_0-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '29.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -706,6 +735,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Programmed input-output 0',
     'options': dict({
     }),
     'original_device_class': None,
@@ -724,7 +754,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/29.111111111111/PIO.0',
-      'friendly_name': '29.111111111111 Programmed input-output 0',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '29.111111111111 Programmed input-output 0',
     }),
     'context': <ANY>,
     'entity_id': 'switch.29_111111111111_programmed_input_output_0',
@@ -736,14 +766,15 @@
 # ---
 # name: test_switches[switch.29_111111111111_programmed_input_output_1-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '29.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -755,6 +786,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Programmed input-output 1',
     'options': dict({
     }),
     'original_device_class': None,
@@ -773,7 +805,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/29.111111111111/PIO.1',
-      'friendly_name': '29.111111111111 Programmed input-output 1',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '29.111111111111 Programmed input-output 1',
     }),
     'context': <ANY>,
     'entity_id': 'switch.29_111111111111_programmed_input_output_1',
@@ -785,14 +817,15 @@
 # ---
 # name: test_switches[switch.29_111111111111_programmed_input_output_2-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '29.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -804,6 +837,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Programmed input-output 2',
     'options': dict({
     }),
     'original_device_class': None,
@@ -822,7 +856,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/29.111111111111/PIO.2',
-      'friendly_name': '29.111111111111 Programmed input-output 2',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '29.111111111111 Programmed input-output 2',
     }),
     'context': <ANY>,
     'entity_id': 'switch.29_111111111111_programmed_input_output_2',
@@ -834,14 +868,15 @@
 # ---
 # name: test_switches[switch.29_111111111111_programmed_input_output_3-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '29.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -853,6 +888,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Programmed input-output 3',
     'options': dict({
     }),
     'original_device_class': None,
@@ -870,27 +906,27 @@
 # name: test_switches[switch.29_111111111111_programmed_input_output_3-state]
   StateSnapshot({
     'attributes': ReadOnlyDict({
-      'device_file': '/29.111111111111/PIO.3',
-      'friendly_name': '29.111111111111 Programmed input-output 3',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '29.111111111111 Programmed input-output 3',
     }),
     'context': <ANY>,
     'entity_id': 'switch.29_111111111111_programmed_input_output_3',
     'last_changed': <ANY>,
     'last_reported': <ANY>,
     'last_updated': <ANY>,
-    'state': 'unknown',
+    'state': 'unavailable',
   })
 # ---
 # name: test_switches[switch.29_111111111111_programmed_input_output_4-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '29.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -902,6 +938,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Programmed input-output 4',
     'options': dict({
     }),
     'original_device_class': None,
@@ -920,7 +957,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/29.111111111111/PIO.4',
-      'friendly_name': '29.111111111111 Programmed input-output 4',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '29.111111111111 Programmed input-output 4',
     }),
     'context': <ANY>,
     'entity_id': 'switch.29_111111111111_programmed_input_output_4',
@@ -932,14 +969,15 @@
 # ---
 # name: test_switches[switch.29_111111111111_programmed_input_output_5-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '29.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -951,6 +989,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Programmed input-output 5',
     'options': dict({
     }),
     'original_device_class': None,
@@ -969,7 +1008,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/29.111111111111/PIO.5',
-      'friendly_name': '29.111111111111 Programmed input-output 5',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '29.111111111111 Programmed input-output 5',
     }),
     'context': <ANY>,
     'entity_id': 'switch.29_111111111111_programmed_input_output_5',
@@ -981,14 +1020,15 @@
 # ---
 # name: test_switches[switch.29_111111111111_programmed_input_output_6-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '29.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -1000,6 +1040,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Programmed input-output 6',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1018,7 +1059,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/29.111111111111/PIO.6',
-      'friendly_name': '29.111111111111 Programmed input-output 6',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '29.111111111111 Programmed input-output 6',
     }),
     'context': <ANY>,
     'entity_id': 'switch.29_111111111111_programmed_input_output_6',
@@ -1030,14 +1071,15 @@
 # ---
 # name: test_switches[switch.29_111111111111_programmed_input_output_7-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '29.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -1049,6 +1091,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Programmed input-output 7',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1067,7 +1110,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/29.111111111111/PIO.7',
-      'friendly_name': '29.111111111111 Programmed input-output 7',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '29.111111111111 Programmed input-output 7',
     }),
     'context': <ANY>,
     'entity_id': 'switch.29_111111111111_programmed_input_output_7',
@@ -1079,14 +1122,15 @@
 # ---
 # name: test_switches[switch.3a_111111111111_programmed_input_output_a-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '3A.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -1098,6 +1142,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Programmed input-output A',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1116,7 +1161,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/3A.111111111111/PIO.A',
-      'friendly_name': '3A.111111111111 Programmed input-output A',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '3A.111111111111 Programmed input-output A',
     }),
     'context': <ANY>,
     'entity_id': 'switch.3a_111111111111_programmed_input_output_a',
@@ -1128,14 +1173,15 @@
 # ---
 # name: test_switches[switch.3a_111111111111_programmed_input_output_b-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', '3A.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': None,
@@ -1147,6 +1193,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Programmed input-output B',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1165,7 +1212,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/3A.111111111111/PIO.B',
-      'friendly_name': '3A.111111111111 Programmed input-output B',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: '3A.111111111111 Programmed input-output B',
     }),
     'context': <ANY>,
     'entity_id': 'switch.3a_111111111111_programmed_input_output_b',
@@ -1177,14 +1224,15 @@
 # ---
 # name: test_switches[switch.a6_111111111111_current_a_d_control-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', 'A6.111111111111')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': <EntityCategory.CONFIG: 'config'>,
@@ -1196,6 +1244,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Current A/D control',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1214,7 +1263,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/A6.111111111111/IAD',
-      'friendly_name': 'A6.111111111111 Current A/D control',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'A6.111111111111 Current A/D control',
     }),
     'context': <ANY>,
     'entity_id': 'switch.a6_111111111111_current_a_d_control',
@@ -1226,14 +1275,15 @@
 # ---
 # name: test_switches[switch.ef_111111111112_leaf_sensor_0-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', 'EF.111111111112')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': <EntityCategory.CONFIG: 'config'>,
@@ -1245,6 +1295,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Leaf sensor 0',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1263,7 +1314,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/EF.111111111112/moisture/is_leaf.0',
-      'friendly_name': 'EF.111111111112 Leaf sensor 0',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'EF.111111111112 Leaf sensor 0',
     }),
     'context': <ANY>,
     'entity_id': 'switch.ef_111111111112_leaf_sensor_0',
@@ -1275,14 +1326,15 @@
 # ---
 # name: test_switches[switch.ef_111111111112_leaf_sensor_1-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', 'EF.111111111112')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': <EntityCategory.CONFIG: 'config'>,
@@ -1294,6 +1346,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Leaf sensor 1',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1312,7 +1365,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/EF.111111111112/moisture/is_leaf.1',
-      'friendly_name': 'EF.111111111112 Leaf sensor 1',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'EF.111111111112 Leaf sensor 1',
     }),
     'context': <ANY>,
     'entity_id': 'switch.ef_111111111112_leaf_sensor_1',
@@ -1324,14 +1377,15 @@
 # ---
 # name: test_switches[switch.ef_111111111112_leaf_sensor_2-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', 'EF.111111111112')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': <EntityCategory.CONFIG: 'config'>,
@@ -1343,6 +1397,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Leaf sensor 2',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1361,7 +1416,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/EF.111111111112/moisture/is_leaf.2',
-      'friendly_name': 'EF.111111111112 Leaf sensor 2',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'EF.111111111112 Leaf sensor 2',
     }),
     'context': <ANY>,
     'entity_id': 'switch.ef_111111111112_leaf_sensor_2',
@@ -1373,14 +1428,15 @@
 # ---
 # name: test_switches[switch.ef_111111111112_leaf_sensor_3-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', 'EF.111111111112')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': <EntityCategory.CONFIG: 'config'>,
@@ -1392,6 +1448,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Leaf sensor 3',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1410,7 +1467,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/EF.111111111112/moisture/is_leaf.3',
-      'friendly_name': 'EF.111111111112 Leaf sensor 3',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'EF.111111111112 Leaf sensor 3',
     }),
     'context': <ANY>,
     'entity_id': 'switch.ef_111111111112_leaf_sensor_3',
@@ -1422,14 +1479,15 @@
 # ---
 # name: test_switches[switch.ef_111111111112_moisture_sensor_0-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', 'EF.111111111112')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': <EntityCategory.CONFIG: 'config'>,
@@ -1441,6 +1499,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Moisture sensor 0',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1459,7 +1518,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/EF.111111111112/moisture/is_moisture.0',
-      'friendly_name': 'EF.111111111112 Moisture sensor 0',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'EF.111111111112 Moisture sensor 0',
     }),
     'context': <ANY>,
     'entity_id': 'switch.ef_111111111112_moisture_sensor_0',
@@ -1471,14 +1530,15 @@
 # ---
 # name: test_switches[switch.ef_111111111112_moisture_sensor_1-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', 'EF.111111111112')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': <EntityCategory.CONFIG: 'config'>,
@@ -1490,6 +1550,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Moisture sensor 1',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1508,7 +1569,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/EF.111111111112/moisture/is_moisture.1',
-      'friendly_name': 'EF.111111111112 Moisture sensor 1',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'EF.111111111112 Moisture sensor 1',
     }),
     'context': <ANY>,
     'entity_id': 'switch.ef_111111111112_moisture_sensor_1',
@@ -1520,14 +1581,15 @@
 # ---
 # name: test_switches[switch.ef_111111111112_moisture_sensor_2-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', 'EF.111111111112')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': <EntityCategory.CONFIG: 'config'>,
@@ -1539,6 +1601,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Moisture sensor 2',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1557,7 +1620,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/EF.111111111112/moisture/is_moisture.2',
-      'friendly_name': 'EF.111111111112 Moisture sensor 2',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'EF.111111111112 Moisture sensor 2',
     }),
     'context': <ANY>,
     'entity_id': 'switch.ef_111111111112_moisture_sensor_2',
@@ -1569,14 +1632,15 @@
 # ---
 # name: test_switches[switch.ef_111111111112_moisture_sensor_3-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', 'EF.111111111112')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': <EntityCategory.CONFIG: 'config'>,
@@ -1588,6 +1652,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Moisture sensor 3',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1606,7 +1671,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/EF.111111111112/moisture/is_moisture.3',
-      'friendly_name': 'EF.111111111112 Moisture sensor 3',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'EF.111111111112 Moisture sensor 3',
     }),
     'context': <ANY>,
     'entity_id': 'switch.ef_111111111112_moisture_sensor_3',
@@ -1618,14 +1683,15 @@
 # ---
 # name: test_switches[switch.ef_111111111113_hub_branch_0-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', 'EF.111111111113')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': <EntityCategory.CONFIG: 'config'>,
@@ -1637,6 +1703,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Hub branch 0',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1655,7 +1722,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/EF.111111111113/hub/branch.0',
-      'friendly_name': 'EF.111111111113 Hub branch 0',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'EF.111111111113 Hub branch 0',
     }),
     'context': <ANY>,
     'entity_id': 'switch.ef_111111111113_hub_branch_0',
@@ -1667,14 +1734,15 @@
 # ---
 # name: test_switches[switch.ef_111111111113_hub_branch_1-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', 'EF.111111111113')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': <EntityCategory.CONFIG: 'config'>,
@@ -1686,6 +1754,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Hub branch 1',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1704,7 +1773,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/EF.111111111113/hub/branch.1',
-      'friendly_name': 'EF.111111111113 Hub branch 1',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'EF.111111111113 Hub branch 1',
     }),
     'context': <ANY>,
     'entity_id': 'switch.ef_111111111113_hub_branch_1',
@@ -1716,14 +1785,15 @@
 # ---
 # name: test_switches[switch.ef_111111111113_hub_branch_2-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', 'EF.111111111113')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': <EntityCategory.CONFIG: 'config'>,
@@ -1735,6 +1805,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Hub branch 2',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1753,7 +1824,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/EF.111111111113/hub/branch.2',
-      'friendly_name': 'EF.111111111113 Hub branch 2',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'EF.111111111113 Hub branch 2',
     }),
     'context': <ANY>,
     'entity_id': 'switch.ef_111111111113_hub_branch_2',
@@ -1765,14 +1836,15 @@
 # ---
 # name: test_switches[switch.ef_111111111113_hub_branch_3-entry]
   EntityRegistryEntrySnapshot({
-    'aliases': set({
-    }),
+    'aliases': list([
+      None,
+    ]),
     'area_id': None,
     'capabilities': None,
     'config_entry_id': <ANY>,
-    'config_subentry_id': <ANY>,
+    'config_subentry_id': None,
     'device_class': None,
-    'device_id': <ANY>,
+    'device_id': <DeviceEntry identifiers=[('onewire', 'EF.111111111113')]>,
     'disabled_by': None,
     'domain': 'switch',
     'entity_category': <EntityCategory.CONFIG: 'config'>,
@@ -1784,6 +1856,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Hub branch 3',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1802,7 +1875,7 @@
   StateSnapshot({
     'attributes': ReadOnlyDict({
       'device_file': '/EF.111111111113/hub/branch.3',
-      'friendly_name': 'EF.111111111113 Hub branch 3',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'EF.111111111113 Hub branch 3',
     }),
     'context': <ANY>,
     'entity_id': 'switch.ef_111111111113_hub_branch_3',

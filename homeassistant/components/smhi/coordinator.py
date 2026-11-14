@@ -1,11 +1,17 @@
 """DataUpdateCoordinator for the SMHI integration."""
 
-from __future__ import annotations
-
 import asyncio
 from dataclasses import dataclass
+from typing import override
 
-from pysmhi import SMHIForecast, SmhiForecastException, SMHIPointForecast
+from pysmhi import (
+    SMHIFireForecast,
+    SmhiFireForecastException,
+    SMHIFirePointForecast,
+    SMHIForecast,
+    SmhiForecastException,
+    SMHIPointForecast,
+)
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_LATITUDE, CONF_LOCATION, CONF_LONGITUDE
@@ -15,7 +21,15 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, LOGGER, TIMEOUT
 
-type SMHIConfigEntry = ConfigEntry[SMHIDataUpdateCoordinator]
+type SMHIConfigEntry = ConfigEntry[SMHIRuntimeData]
+
+
+@dataclass
+class SMHIRuntimeData:
+    """Runtime data for the SMHI integration."""
+
+    coordinator: SMHIDataUpdateCoordinator
+    fire_coordinator: SMHIFireDataUpdateCoordinator
 
 
 @dataclass
@@ -25,6 +39,14 @@ class SMHIForecastData:
     daily: list[SMHIForecast]
     hourly: list[SMHIForecast]
     twice_daily: list[SMHIForecast]
+
+
+@dataclass
+class SMHIFireForecastData:
+    """Dataclass for SMHI fire data."""
+
+    fire_daily: list[SMHIFireForecast]
+    fire_hourly: list[SMHIFireForecast]
 
 
 class SMHIDataUpdateCoordinator(DataUpdateCoordinator[SMHIForecastData]):
@@ -47,6 +69,7 @@ class SMHIDataUpdateCoordinator(DataUpdateCoordinator[SMHIForecastData]):
             session=aiohttp_client.async_get_clientsession(hass),
         )
 
+    @override
     async def _async_update_data(self) -> SMHIForecastData:
         """Fetch data from SMHI."""
         try:
@@ -58,7 +81,8 @@ class SMHIDataUpdateCoordinator(DataUpdateCoordinator[SMHIForecastData]):
                 )
         except SmhiForecastException as ex:
             raise UpdateFailed(
-                "Failed to retrieve the forecast from the SMHI API"
+                translation_domain=DOMAIN,
+                translation_key="forecast_update_failed",
             ) from ex
 
         return SMHIForecastData(
@@ -71,3 +95,51 @@ class SMHIDataUpdateCoordinator(DataUpdateCoordinator[SMHIForecastData]):
     def current(self) -> SMHIForecast:
         """Return the current metrics."""
         return self.data.daily[0]
+
+
+class SMHIFireDataUpdateCoordinator(DataUpdateCoordinator[SMHIFireForecastData]):
+    """A SMHI Fire Data Update Coordinator."""
+
+    config_entry: SMHIConfigEntry
+
+    def __init__(self, hass: HomeAssistant, config_entry: SMHIConfigEntry) -> None:
+        """Initialize the SMHI coordinator."""
+        super().__init__(
+            hass,
+            LOGGER,
+            config_entry=config_entry,
+            name=DOMAIN,
+            update_interval=DEFAULT_SCAN_INTERVAL,
+        )
+        self._smhi_fire_api = SMHIFirePointForecast(
+            config_entry.data[CONF_LOCATION][CONF_LONGITUDE],
+            config_entry.data[CONF_LOCATION][CONF_LATITUDE],
+            session=aiohttp_client.async_get_clientsession(hass),
+        )
+
+    @override
+    async def _async_update_data(self) -> SMHIFireForecastData:
+        """Fetch data from SMHI."""
+        try:
+            async with asyncio.timeout(TIMEOUT):
+                _forecast_fire_daily = (
+                    await self._smhi_fire_api.async_get_daily_forecast()
+                )
+                _forecast_fire_hourly = (
+                    await self._smhi_fire_api.async_get_hourly_forecast()
+                )
+        except SmhiFireForecastException as ex:
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="fire_forecast_update_failed",
+            ) from ex
+
+        return SMHIFireForecastData(
+            fire_daily=_forecast_fire_daily,
+            fire_hourly=_forecast_fire_hourly,
+        )
+
+    @property
+    def fire_current(self) -> SMHIFireForecast:
+        """Return the current fire metrics."""
+        return self.data.fire_daily[0]

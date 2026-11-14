@@ -1,12 +1,10 @@
 """The OneDrive integration."""
 
-from __future__ import annotations
-
 from collections.abc import Awaitable, Callable
 from html import unescape
 from json import dumps, loads
 import logging
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from onedrive_personal_sdk import OneDriveClient
 from onedrive_personal_sdk.exceptions import (
@@ -14,12 +12,20 @@ from onedrive_personal_sdk.exceptions import (
     NotFoundError,
     OneDriveException,
 )
-from onedrive_personal_sdk.models.items import Item, ItemUpdate
 
+from homeassistant.components.backup import async_get_manager
 from homeassistant.const import CONF_ACCESS_TOKEN, Platform
-from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
-from homeassistant.helpers import config_validation as cv
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    ConfigEntryError,
+    ConfigEntryNotReady,
+)
+from homeassistant.helpers import (
+    config_validation as cv,
+    device_registry as dr,
+    entity_registry as er,
+)
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.config_entry_oauth2_flow import (
     OAuth2Session,
@@ -48,7 +54,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: OneDriveConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: OneDriveConfigEntry) -> None:
     """Set up OneDrive from a config entry."""
     client, get_access_token = await _get_onedrive_client(hass, entry)
 
@@ -69,15 +75,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: OneDriveConfigEntry) -> 
         )
         hass.config_entries.async_update_entry(
             entry, data={**entry.data, CONF_FOLDER_ID: backup_folder.id}
-        )
-
-    # write instance id to description
-    if backup_folder.description != (instance_id := await async_get_instance_id(hass)):
-        await _handle_item_operation(
-            lambda: client.update_drive_item(
-                backup_folder.id, ItemUpdate(description=instance_id)
-            ),
-            folder_name,
         )
 
     # update in case folder was renamed manually inside OneDrive
@@ -112,16 +109,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: OneDriveConfigEntry) -> 
 
     entry.async_on_unload(entry.async_on_state_change(async_notify_backup_listeners))
 
-    return True
 
-
-async def async_unload_entry(hass: HomeAssistant, entry: OneDriveConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: OneDriveConfigEntry) -> None:
     """Unload a OneDrive config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    await hass.config_entries.async_unload_platforms_or_raise(entry, PLATFORMS)
 
 
 async def _migrate_backup_files(client: OneDriveClient, backup_folder_id: str) -> None:
-    """Migrate backup files to metadata version 2."""
+    """Migrate backup files from metadata version 1 to version 2.
+
+    Version 1: Backup metadata was stored in the backup file's description field.
+    Version 2: Backup metadata is stored in a separate .metadata.json file.
+    """
     files = await client.list_drive_items(backup_folder_id)
     for file in files:
         if file.description and '"metadata_version": 1' in (
@@ -130,32 +129,16 @@ async def _migrate_backup_files(client: OneDriveClient, backup_folder_id: str) -
             metadata = loads(metadata_json)
             del metadata["metadata_version"]
             metadata_filename = file.name.rsplit(".", 1)[0] + ".metadata.json"
-            metadata_file = await client.upload_file(
+            await client.upload_file(
                 backup_folder_id,
                 metadata_filename,
                 dumps(metadata),
             )
-            metadata_description = {
-                "metadata_version": 2,
-                "backup_id": metadata["backup_id"],
-                "backup_file_id": file.id,
-            }
-            await client.update_drive_item(
-                path_or_id=metadata_file.id,
-                data=ItemUpdate(description=dumps(metadata_description)),
-            )
-            await client.update_drive_item(
-                path_or_id=file.id,
-                data=ItemUpdate(description=""),
-            )
             _LOGGER.debug("Migrated backup file %s", file.name)
 
 
-async def async_migrate_entry(hass: HomeAssistant, entry: OneDriveConfigEntry) -> bool:
+async def async_migrate_entry(hass: HomeAssistant, entry: OneDriveConfigEntry) -> None:
     """Migrate old entry."""
-    if entry.version > 1:
-        # This means the user has downgraded from a future version
-        return False
 
     if (version := entry.version) == 1 and (minor_version := entry.minor_version) == 1:
         _LOGGER.debug(
@@ -168,9 +151,16 @@ async def async_migrate_entry(hass: HomeAssistant, entry: OneDriveConfigEntry) -
             folder = await client.get_drive_item(
                 f"{approot.id}:/backups_{instance_id[:8]}:"
             )
-        except OneDriveException:
-            _LOGGER.exception("Migration to version 1.2 failed")
-            return False
+        except AuthenticationError as err:
+            raise ConfigEntryError(
+                translation_domain=DOMAIN, translation_key="authentication_failed"
+            ) from err
+        except OneDriveException as err:
+            raise ConfigEntryError(
+                translation_domain=DOMAIN,
+                translation_key="failed_to_get_folder",
+                translation_placeholders={"folder": f"backups_{instance_id[:8]}"},
+            ) from err
 
         hass.config_entries.async_update_entry(
             entry,
@@ -182,7 +172,78 @@ async def async_migrate_entry(hass: HomeAssistant, entry: OneDriveConfigEntry) -
             minor_version=2,
         )
         _LOGGER.debug("Migration to version 1.2 successful")
-    return True
+
+    if entry.version == 1 and entry.minor_version == 2:
+        if TYPE_CHECKING:
+            assert entry.unique_id
+        # Microsoft returns drive IDs with inconsistent casing
+        drive_id = entry.unique_id.upper()
+        if (
+            other_entry := hass.config_entries.async_entry_for_domain_unique_id(
+                DOMAIN, drive_id
+            )
+        ) and other_entry.entry_id != entry.entry_id:
+            raise ConfigEntryError(
+                translation_domain=DOMAIN,
+                translation_key="duplicate_drive",
+                translation_placeholders={"title": other_entry.title},
+            )
+
+        entity_registry = er.async_get(hass)
+
+        @callback
+        def _uppercase_drive_id(
+            entity_entry: er.RegistryEntry,
+        ) -> dict[str, str] | None:
+            if entity_entry.unique_id.startswith(drive_id):
+                return None
+            new_unique_id = drive_id + entity_entry.unique_id[len(drive_id) :]
+            # A casing flip may have created a duplicate, keep the older entity
+            if (
+                (
+                    existing_entity_id := entity_registry.async_get_entity_id(
+                        entity_entry.domain, DOMAIN, new_unique_id
+                    )
+                )
+                and (existing_entity := entity_registry.async_get(existing_entity_id))
+                and existing_entity.config_entry_id == entry.entry_id
+            ):
+                if existing_entity.created_at <= entity_entry.created_at:
+                    entity_registry.async_remove(entity_entry.entity_id)
+                    return None
+                entity_registry.async_remove(existing_entity_id)
+            return {"new_unique_id": new_unique_id}
+
+        await er.async_migrate_entries(hass, entry.entry_id, _uppercase_drive_id)
+        device_registry = dr.async_get(hass)
+        # A casing flip may have created duplicate devices, keep the oldest
+        if devices := sorted(
+            dr.async_entries_for_config_entry(device_registry, entry.entry_id),
+            key=lambda device: device.created_at,
+        ):
+            device, *duplicates = devices
+            for duplicate in duplicates:
+                for entity_entry in er.async_entries_for_device(
+                    entity_registry, duplicate.id, include_disabled_entities=True
+                ):
+                    entity_registry.async_update_entity(
+                        entity_entry.entity_id, device_id=device.id
+                    )
+                device_registry.async_remove_device(duplicate.id)
+            device_registry.async_update_device(
+                device.id, new_identifiers={(DOMAIN, drive_id)}
+            )
+        if entry.unique_id != drive_id:
+            async_get_manager(hass).async_rename_agent(
+                f"{DOMAIN}.{entry.unique_id}",
+                f"{DOMAIN}.{drive_id}",
+                # No other config entry has the drive ID, checked above
+                overwrite_orphaned_settings=True,
+            )
+        hass.config_entries.async_update_entry(
+            entry, unique_id=drive_id, minor_version=3
+        )
+        _LOGGER.debug("Migration to version 1.3 successful")
 
 
 async def _get_onedrive_client(
@@ -191,6 +252,9 @@ async def _get_onedrive_client(
     """Get OneDrive client."""
     implementation = await async_get_config_entry_implementation(hass, entry)
     session = OAuth2Session(hass, entry, implementation)
+
+    # Refresh up front, so a failure surfaces here instead of from inside the client
+    await session.async_ensure_token_valid()
 
     async def get_access_token() -> str:
         await session.async_ensure_token_valid()
@@ -202,9 +266,7 @@ async def _get_onedrive_client(
     )
 
 
-async def _handle_item_operation(
-    func: Callable[[], Awaitable[Item]], folder: str
-) -> Item:
+async def _handle_item_operation[T](func: Callable[[], Awaitable[T]], folder: str) -> T:
     try:
         return await func()
     except NotFoundError:

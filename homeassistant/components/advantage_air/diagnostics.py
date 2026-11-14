@@ -1,13 +1,11 @@
 """Provides diagnostics for Advantage Air."""
 
-from __future__ import annotations
-
 from typing import Any
 
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 
-from . import AdvantageAirDataConfigEntry
+from .coordinator import AdvantageAirDataConfigEntry
 
 TO_REDACT = [
     "dealerPhoneNumber",
@@ -15,6 +13,7 @@ TO_REDACT = [
     "logoPIN",
     "longitude",
     "postCode",
+    "mid",
     "rid",
     "deviceNames",
     "deviceIds",
@@ -27,7 +26,7 @@ async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, config_entry: AdvantageAirDataConfigEntry
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
-    data = config_entry.runtime_data.coordinator.data
+    data = config_entry.runtime_data.data
 
     # Return only the relevant children
     return {

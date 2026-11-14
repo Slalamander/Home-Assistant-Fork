@@ -1,7 +1,8 @@
 """Tests for the AI Task entity model."""
 
-from freezegun import freeze_time
-import voluptuous as vol
+import probatio
+import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.ai_task import async_generate_data
 from homeassistant.const import STATE_UNKNOWN
@@ -10,10 +11,8 @@ from homeassistant.helpers import selector
 
 from .conftest import TEST_ENTITY_ID, MockAITaskEntity
 
-from tests.common import MockConfigEntry
 
-
-@freeze_time("2025-06-08 16:28:13")
+@pytest.mark.freeze_time("2025-06-08 16:28:13")
 async def test_state_generate_data(
     hass: HomeAssistant,
     init_components: None,
@@ -53,10 +52,10 @@ async def test_generate_structured_data(
         task_name="Test task",
         entity_id=TEST_ENTITY_ID,
         instructions="Please generate a profile for a new user",
-        structure=vol.Schema(
+        structure=probatio.Schema(
             {
-                vol.Required("name"): selector.TextSelector(),
-                vol.Optional("age"): selector.NumberSelector(
+                probatio.Required("name"): selector.TextSelector(),
+                probatio.Optional("age"): selector.NumberSelector(
                     config=selector.NumberSelectorConfig(
                         min=0,
                         max=120,
@@ -65,7 +64,8 @@ async def test_generate_structured_data(
             }
         ),
     )
-    # Arbitrary data returned by the mock entity (not determined by above schema in test)
+    # Arbitrary data returned by the mock entity
+    # (not determined by above schema in test)
     assert result.data == {
         "name": "Tracy Chen",
         "age": 30,
@@ -75,4 +75,4 @@ async def test_generate_structured_data(
     task = mock_ai_task_entity.mock_generate_data_tasks[0]
     assert task.instructions == "Please generate a profile for a new user"
     assert task.structure
-    assert isinstance(task.structure, vol.Schema)
+    assert isinstance(task.structure, probatio.Schema)

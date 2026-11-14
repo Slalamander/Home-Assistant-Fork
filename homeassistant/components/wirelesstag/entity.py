@@ -1,6 +1,9 @@
 """Support for Wireless Sensor Tags."""
 
 import logging
+from typing import Any, override
+
+from wirelesstagpy import SensorTag
 
 from homeassistant.const import (
     ATTR_BATTERY_LEVEL,
@@ -10,6 +13,8 @@ from homeassistant.const import (
     UnitOfElectricPotential,
 )
 from homeassistant.helpers.entity import Entity
+
+from . import WirelessTagPlatform
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,20 +30,16 @@ ATTR_TAG_POWER_CONSUMPTION = "power_consumption"
 class WirelessTagBaseSensor(Entity):
     """Base class for HA implementation for Wireless Sensor Tag."""
 
-    def __init__(self, api, tag):
+    def __init__(self, api: WirelessTagPlatform, tag: SensorTag) -> None:
         """Initialize a base sensor for Wireless Sensor Tag platform."""
         self._api = api
         self._tag = tag
         self._uuid = self._tag.uuid
         self.tag_id = self._tag.tag_id
         self.tag_manager_mac = self._tag.tag_manager_mac
-        self._name = self._tag.name
+        self._attr_name = self._tag.name
         self._state = None
-
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._name
+        self._tag_missing = False
 
     @property
     def principal_value(self):
@@ -60,9 +61,10 @@ class WirelessTagBaseSensor(Entity):
         return f"{value:.1f}"
 
     @property
+    @override
     def available(self) -> bool:
         """Return True if entity is available."""
-        return self._tag.is_alive
+        return not self._tag_missing and self._tag.is_alive
 
     def update(self) -> None:
         """Update state."""
@@ -70,15 +72,24 @@ class WirelessTagBaseSensor(Entity):
             return
 
         updated_tags = self._api.load_tags()
-        if (updated_tag := updated_tags[self._uuid]) is None:
-            _LOGGER.error('Unable to update tag: "%s"', self.name)
+        if (updated_tag := updated_tags.get(self._uuid)) is None:
+            # A tag can be removed from the account, so this is not an error.
+            _LOGGER.debug('Unable to update tag: "%s"', self.name)
+            self._tag_missing = True
+            self._state = None
             return
 
-        self._tag = updated_tag
+        self._apply_tag(updated_tag)
+
+    def _apply_tag(self, tag: SensorTag) -> None:
+        """Adopt a freshly received tag and refresh the state from it."""
+        self._tag_missing = False
+        self._tag = tag
         self._state = self.updated_state_value()
 
     @property
-    def extra_state_attributes(self):
+    @override
+    def extra_state_attributes(self) -> dict[str, Any]:
         """Return the state attributes."""
         return {
             ATTR_BATTERY_LEVEL: int(self._tag.battery_remaining * 100),

@@ -4,6 +4,7 @@ from collections.abc import Generator
 from unittest.mock import AsyncMock
 
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 from pytraccar import TraccarAuthenticationException, TraccarException
 
 from homeassistant import config_entries
@@ -16,17 +17,14 @@ from homeassistant.components.traccar_server.const import (
 )
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
+    CONF_API_TOKEN,
     CONF_HOST,
-    CONF_PASSWORD,
     CONF_PORT,
     CONF_SSL,
-    CONF_USERNAME,
     CONF_VERIFY_SSL,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-
-from tests.common import MockConfigEntry
 
 
 async def test_form(
@@ -44,8 +42,7 @@ async def test_form(
         result["flow_id"],
         {
             CONF_HOST: "1.1.1.1",
-            CONF_USERNAME: "test-username",
-            CONF_PASSWORD: "test-password",
+            CONF_API_TOKEN: "test-token",
         },
     )
     await hass.async_block_till_done()
@@ -55,8 +52,7 @@ async def test_form(
     assert result["data"] == {
         CONF_HOST: "1.1.1.1",
         CONF_PORT: "8082",
-        CONF_USERNAME: "test-username",
-        CONF_PASSWORD: "test-password",
+        CONF_API_TOKEN: "test-token",
         CONF_SSL: False,
         CONF_VERIFY_SSL: True,
     }
@@ -87,8 +83,7 @@ async def test_form_cannot_connect(
         result["flow_id"],
         {
             CONF_HOST: "1.1.1.1",
-            CONF_USERNAME: "test-username",
-            CONF_PASSWORD: "test-password",
+            CONF_API_TOKEN: "test-token",
         },
     )
 
@@ -101,8 +96,7 @@ async def test_form_cannot_connect(
         result["flow_id"],
         {
             CONF_HOST: "1.1.1.1",
-            CONF_USERNAME: "test-username",
-            CONF_PASSWORD: "test-password",
+            CONF_API_TOKEN: "test-token",
         },
     )
     await hass.async_block_till_done()
@@ -112,8 +106,7 @@ async def test_form_cannot_connect(
     assert result["data"] == {
         CONF_HOST: "1.1.1.1",
         CONF_PORT: "8082",
-        CONF_USERNAME: "test-username",
-        CONF_PASSWORD: "test-password",
+        CONF_API_TOKEN: "test-token",
         CONF_SSL: False,
         CONF_VERIFY_SSL: True,
     }
@@ -168,8 +161,7 @@ async def test_abort_already_configured(
         {
             CONF_HOST: "1.1.1.1",
             CONF_PORT: "8082",
-            CONF_USERNAME: "test-username",
-            CONF_PASSWORD: "test-password",
+            CONF_API_TOKEN: "test-token",
         },
     )
 
@@ -186,14 +178,7 @@ async def test_reauth_flow(
     mock_config_entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
 
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN,
-        context={
-            "source": config_entries.SOURCE_REAUTH,
-            "entry_id": mock_config_entry.entry_id,
-        },
-        data=mock_config_entry.data,
-    )
+    result = await mock_config_entry.start_reauth_flow(hass)
 
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "reauth_confirm"
@@ -201,8 +186,7 @@ async def test_reauth_flow(
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
-            CONF_USERNAME: "new-username",
-            CONF_PASSWORD: "new-password",
+            CONF_API_TOKEN: "new-token",
         },
     )
     await hass.async_block_till_done()
@@ -211,8 +195,7 @@ async def test_reauth_flow(
     assert result["reason"] == "reauth_successful"
 
     # Verify the config entry was updated
-    assert mock_config_entry.data[CONF_USERNAME] == "new-username"
-    assert mock_config_entry.data[CONF_PASSWORD] == "new-password"
+    assert mock_config_entry.data[CONF_API_TOKEN] == "new-token"
 
 
 @pytest.mark.parametrize(
@@ -234,22 +217,14 @@ async def test_reauth_flow_errors(
     mock_config_entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
 
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN,
-        context={
-            "source": config_entries.SOURCE_REAUTH,
-            "entry_id": mock_config_entry.entry_id,
-        },
-        data=mock_config_entry.data,
-    )
+    result = await mock_config_entry.start_reauth_flow(hass)
 
     mock_traccar_api_client.get_server.side_effect = side_effect
 
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
-            CONF_USERNAME: "new-username",
-            CONF_PASSWORD: "new-password",
+            CONF_API_TOKEN: "new-token",
         },
     )
 
@@ -262,8 +237,7 @@ async def test_reauth_flow_errors(
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
-            CONF_USERNAME: "new-username",
-            CONF_PASSWORD: "new-password",
+            CONF_API_TOKEN: "new-token",
         },
     )
     await hass.async_block_till_done()

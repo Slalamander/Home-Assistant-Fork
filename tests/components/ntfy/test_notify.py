@@ -9,8 +9,8 @@ from aiontfy.exceptions import (
     NtfyHTTPError,
     NtfyUnauthorizedAuthenticationError,
 )
-from freezegun.api import freeze_time
 import pytest
+from pytest_homeassistant.common import AsyncMock, MockConfigEntry, snapshot_platform
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components.notify import (
@@ -25,8 +25,6 @@ from homeassistant.const import ATTR_ENTITY_ID, STATE_UNKNOWN, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
-
-from tests.common import AsyncMock, MockConfigEntry, snapshot_platform
 
 
 @pytest.fixture(autouse=True)
@@ -57,7 +55,7 @@ async def test_notify_platform(
     await snapshot_platform(hass, entity_registry, snapshot, config_entry.entry_id)
 
 
-@freeze_time("2025-01-09T12:00:00+00:00")
+@pytest.mark.freeze_time("2025-01-09T12:00:00+00:00")
 async def test_send_message(
     hass: HomeAssistant,
     config_entry: MockConfigEntry,
@@ -91,7 +89,7 @@ async def test_send_message(
     assert state.state == "2025-01-09T12:00:00+00:00"
 
     mock_aiontfy.publish.assert_called_once_with(
-        Message(topic="mytopic", message="triggered", title="test")
+        Message(topic="mytopic", message="triggered", title="test"), None
     )
 
 
@@ -142,7 +140,7 @@ async def test_send_message_exception(
         )
 
     mock_aiontfy.publish.assert_called_once_with(
-        Message(topic="mytopic", message="triggered", title="test")
+        Message(topic="mytopic", message="triggered", title="test"), None
     )
 
 

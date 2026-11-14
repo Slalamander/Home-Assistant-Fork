@@ -1,10 +1,17 @@
 """Tests for the WLED select platform."""
 
+from collections.abc import Generator
 import typing
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from freezegun.api import FrozenDateTimeFactory
 import pytest
+from pytest_homeassistant.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+    async_load_json_object_fixture,
+    snapshot_platform,
+)
 from syrupy.assertion import SnapshotAssertion
 from wled import (
     Device as WLEDDevice,
@@ -15,16 +22,35 @@ from wled import (
     WLEDError,
 )
 
-from homeassistant.components.select import ATTR_OPTION, DOMAIN as SELECT_DOMAIN
+from homeassistant.components.select import (
+    DOMAIN as SELECT_DOMAIN,
+    SelectService,
+    SelectServiceArgument,
+)
 from homeassistant.components.wled.const import DOMAIN, SCAN_INTERVAL
-from homeassistant.const import ATTR_ENTITY_ID, SERVICE_SELECT_OPTION, STATE_UNAVAILABLE
+from homeassistant.const import STATE_UNAVAILABLE, CommonServiceArgument, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
-from tests.common import async_fire_time_changed, async_load_json_object_fixture
-
 pytestmark = pytest.mark.usefixtures("init_integration")
+
+
+@pytest.fixture(autouse=True)
+def override_platforms() -> Generator[None]:
+    """Override PLATFORMS."""
+    with patch("homeassistant.components.wled.PLATFORMS", [Platform.SELECT]):
+        yield
+
+
+async def test_snapshots(
+    hass: HomeAssistant,
+    entity_registry: er.EntityRegistry,
+    snapshot: SnapshotAssertion,
+    mock_config_entry: MockConfigEntry,
+) -> None:
+    """Test snapshots of the platform."""
+    await snapshot_platform(hass, entity_registry, snapshot, mock_config_entry.entry_id)
 
 
 @pytest.mark.parametrize(
@@ -71,24 +97,16 @@ async def test_color_palette_state(
     method: str,
     called_with: dict[str, int | str],
 ) -> None:
-    """Test the creation and values of the WLED selects."""
-    # First segment of the strip
-    assert (state := hass.states.get(entity_id))
-    assert state == snapshot
-
-    assert (entity_entry := entity_registry.async_get(state.entity_id))
-    assert entity_entry == snapshot
-
-    assert entity_entry.device_id
-    assert (device_entry := device_registry.async_get(entity_entry.device_id))
-    assert device_entry == snapshot
-
+    """Test the behavior of the WLED selects."""
     method_mock = getattr(mock_wled, method)
 
     await hass.services.async_call(
         SELECT_DOMAIN,
-        SERVICE_SELECT_OPTION,
-        {ATTR_ENTITY_ID: state.entity_id, ATTR_OPTION: option},
+        SelectService.SELECT_OPTION,
+        {
+            CommonServiceArgument.ENTITY_ID: entity_id,
+            SelectServiceArgument.OPTION: option,
+        },
         blocking=True,
     )
     assert method_mock.call_count == 1
@@ -99,12 +117,15 @@ async def test_color_palette_state(
     with pytest.raises(HomeAssistantError, match="Invalid response from WLED API"):
         await hass.services.async_call(
             SELECT_DOMAIN,
-            SERVICE_SELECT_OPTION,
-            {ATTR_ENTITY_ID: state.entity_id, ATTR_OPTION: option},
+            SelectService.SELECT_OPTION,
+            {
+                CommonServiceArgument.ENTITY_ID: entity_id,
+                SelectServiceArgument.OPTION: option,
+            },
             blocking=True,
         )
 
-    assert (state := hass.states.get(state.entity_id))
+    assert (state := hass.states.get(entity_id))
     assert state.state != STATE_UNAVAILABLE
     assert method_mock.call_count == 2
     method_mock.assert_called_with(**called_with)
@@ -114,8 +135,11 @@ async def test_color_palette_state(
     with pytest.raises(HomeAssistantError, match="Error communicating with WLED API"):
         await hass.services.async_call(
             SELECT_DOMAIN,
-            SERVICE_SELECT_OPTION,
-            {ATTR_ENTITY_ID: state.entity_id, ATTR_OPTION: option},
+            SelectService.SELECT_OPTION,
+            {
+                CommonServiceArgument.ENTITY_ID: state.entity_id,
+                SelectServiceArgument.OPTION: option,
+            },
             blocking=True,
         )
 

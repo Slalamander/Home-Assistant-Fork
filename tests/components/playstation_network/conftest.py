@@ -13,11 +13,10 @@ from psnawp_api.models.trophies import (
     TrophyTitle,
 )
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.playstation_network.const import CONF_NPSSO, DOMAIN
 from homeassistant.config_entries import ConfigSubentryData
-
-from tests.common import MockConfigEntry
 
 NPSSO_TOKEN: str = "npsso-token"
 NPSSO_TOKEN_INVALID_JSON: str = "{'npsso': 'npsso-token'"
@@ -51,7 +50,7 @@ def mock_setup_entry() -> Generator[AsyncMock]:
     """Override async_setup_entry."""
     with patch(
         "homeassistant.components.playstation_network.async_setup_entry",
-        return_value=True,
+        return_value=None,
     ) as mock_setup_entry:
         yield mock_setup_entry
 
@@ -103,7 +102,10 @@ def mock_psnawpapi(mock_user: MagicMock) -> Generator[MagicMock]:
         client.me.return_value.get_account_devices.return_value = [
             {"deviceType": "PSVITA"},
             {
-                "deviceId": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234",
+                "deviceId": (
+                    "1234567890abcdef1234567890abcdef"
+                    "1234567890abcdef1234567890abcdef1234"
+                ),
                 "deviceType": "PS5",
                 "activationType": "PRIMARY",
                 "activationDate": "2021-01-14T18:00:00.000Z",
@@ -185,7 +187,9 @@ def mock_psnawpapi(mock_user: MagicMock) -> Generator[MagicMock]:
             spec=User, account_id="fren-psn-id", online_id="PublicUniversalFriend"
         )
         fren.get_presence.return_value = mock_user.get_presence.return_value
-
+        fren.trophy_summary.return_value = TrophySummary(
+            "fren-psn-id", 420, 20, 5, TrophySet(4782, 1245, 437, 96)
+        )
         client.user.return_value.friends_list.return_value = [fren]
 
         yield client

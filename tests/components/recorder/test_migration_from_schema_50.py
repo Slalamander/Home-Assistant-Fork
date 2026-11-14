@@ -1,4 +1,4 @@
-"""The tests for the recorder filter matching the EntityFilter component."""
+"""Test for migration from DB schema version 50."""
 
 import importlib
 import sys
@@ -6,6 +6,13 @@ import threading
 from unittest.mock import patch
 
 import pytest
+from pytest_homeassistant.common import async_test_home_assistant
+from pytest_homeassistant.components.recorder.common import (
+    async_recorder_block_till_done,
+    async_wait_recording_done,
+    get_patched_live_version,
+)
+from pytest_homeassistant.typing import RecorderInstanceContextManager
 from pytest_unordered import unordered
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import Session
@@ -18,18 +25,10 @@ from homeassistant.components.recorder.models import StatisticMeanType
 from homeassistant.components.recorder.util import session_scope
 from homeassistant.core import HomeAssistant
 
-from .common import (
-    async_recorder_block_till_done,
-    async_wait_recording_done,
-    get_patched_live_version,
-)
 from .conftest import instrument_migration
 
-from tests.common import async_test_home_assistant
-from tests.typing import RecorderInstanceContextManager
-
 CREATE_ENGINE_TARGET = "homeassistant.components.recorder.core.create_engine"
-SCHEMA_MODULE_50 = "tests.components.recorder.db_schema_50"
+SCHEMA_MODULE_50 = "pytest_homeassistant.components.recorder.db_schema_50"
 
 
 @pytest.fixture
@@ -132,6 +131,26 @@ async def test_migrate_statistics_meta(
                         has_mean=None,
                         has_sum=True,
                         name="Test 3",
+                        mean_type=StatisticMeanType.NONE,
+                    ),
+                    # Wrong case
+                    old_db_schema.StatisticsMeta(
+                        statistic_id="sensor.test4",
+                        source="recorder",
+                        unit_of_measurement="l/min",
+                        has_mean=None,
+                        has_sum=True,
+                        name="Test 4",
+                        mean_type=StatisticMeanType.NONE,
+                    ),
+                    # Wrong encoding
+                    old_db_schema.StatisticsMeta(
+                        statistic_id="sensor.test5",
+                        source="recorder",
+                        unit_of_measurement="㎡",
+                        has_mean=None,
+                        has_sum=True,
+                        name="Test 5",
                         mean_type=StatisticMeanType.NONE,
                     ),
                 )
@@ -251,6 +270,28 @@ async def test_migrate_statistics_meta(
                 "statistics_unit_of_measurement": "ppm",
                 "unit_class": "unitless",
             },
+            {
+                "display_unit_of_measurement": "l/min",
+                "has_mean": False,
+                "has_sum": True,
+                "mean_type": StatisticMeanType.NONE,
+                "name": "Test 4",
+                "source": "recorder",
+                "statistic_id": "sensor.test4",
+                "statistics_unit_of_measurement": "l/min",
+                "unit_class": None,
+            },
+            {
+                "display_unit_of_measurement": "㎡",
+                "has_mean": False,
+                "has_sum": True,
+                "mean_type": StatisticMeanType.NONE,
+                "name": "Test 5",
+                "source": "recorder",
+                "statistic_id": "sensor.test5",
+                "statistics_unit_of_measurement": "㎡",
+                "unit_class": None,
+            },
         ]
     )
     assert post_migration_metadata_db == {
@@ -286,6 +327,28 @@ async def test_migrate_statistics_meta(
             "statistic_id": "sensor.test3",
             "unit_class": "unitless",
             "unit_of_measurement": "ppm",
+        },
+        "sensor.test4": {
+            "has_mean": None,
+            "has_sum": True,
+            "id": 4,
+            "mean_type": 0,
+            "name": "Test 4",
+            "source": "recorder",
+            "statistic_id": "sensor.test4",
+            "unit_class": None,
+            "unit_of_measurement": "l/min",
+        },
+        "sensor.test5": {
+            "has_mean": None,
+            "has_sum": True,
+            "id": 5,
+            "mean_type": 0,
+            "name": "Test 5",
+            "source": "recorder",
+            "statistic_id": "sensor.test5",
+            "unit_class": None,
+            "unit_of_measurement": "㎡",
         },
     }
     assert post_migration_metadata_api == unordered(pre_migration_metadata_api)

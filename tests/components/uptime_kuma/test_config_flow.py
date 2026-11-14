@@ -3,7 +3,13 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from pythonkuma import UptimeKumaAuthenticationException, UptimeKumaConnectionException
+from pytest_homeassistant.common import MockConfigEntry
+from pythonkuma import (
+    UptimeKumaAuthenticationException,
+    UptimeKumaConnectionException,
+    UptimeKumaParseException,
+    UptimeKumaVersion,
+)
 
 from homeassistant.components.uptime_kuma.const import DOMAIN
 from homeassistant.config_entries import SOURCE_HASSIO, SOURCE_IGNORE, SOURCE_USER
@@ -12,8 +18,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
 from .conftest import ADDON_SERVICE_INFO
-
-from tests.common import MockConfigEntry
 
 
 @pytest.mark.usefixtures("mock_pythonkuma")
@@ -34,6 +38,7 @@ async def test_form(hass: HomeAssistant, mock_setup_entry: AsyncMock) -> None:
         },
     )
 
+    # pylint: disable-next=home-assistant-tests-config-flow-unique-id
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "uptime.example.org"
     assert result["data"] == {
@@ -49,6 +54,7 @@ async def test_form(hass: HomeAssistant, mock_setup_entry: AsyncMock) -> None:
     [
         (UptimeKumaConnectionException, "cannot_connect"),
         (UptimeKumaAuthenticationException, "invalid_auth"),
+        (UptimeKumaParseException, "invalid_data"),
         (ValueError, "unknown"),
     ],
 )
@@ -78,6 +84,54 @@ async def test_form_errors(
     assert result["errors"] == {"base": text_error}
 
     mock_pythonkuma.metrics.side_effect = None
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_URL: "https://uptime.example.org/",
+            CONF_VERIFY_SSL: True,
+            CONF_API_KEY: "apikey",
+        },
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["title"] == "uptime.example.org"
+    assert result["data"] == {
+        CONF_URL: "https://uptime.example.org/",
+        CONF_VERIFY_SSL: True,
+        CONF_API_KEY: "apikey",
+    }
+    assert len(mock_setup_entry.mock_calls) == 1
+
+
+async def test_form_error_unsupported_version(
+    hass: HomeAssistant,
+    mock_setup_entry: AsyncMock,
+    mock_pythonkuma: AsyncMock,
+) -> None:
+    """Test we handle unsupported version error and recover."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+
+    mock_pythonkuma.version = UptimeKumaVersion(
+        version="1.23.16", major="1", minor="23", patch="16"
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_URL: "https://uptime.example.org/",
+            CONF_VERIFY_SSL: True,
+            CONF_API_KEY: "apikey",
+        },
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "version_unsupported"}
+
+    mock_pythonkuma.version = UptimeKumaVersion(
+        version="2.0.0", major="2", minor="0", patch="0"
+    )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
@@ -152,6 +206,7 @@ async def test_flow_reauth(
     [
         (UptimeKumaConnectionException, "cannot_connect"),
         (UptimeKumaAuthenticationException, "invalid_auth"),
+        (UptimeKumaParseException, "invalid_data"),
         (ValueError, "unknown"),
     ],
 )
@@ -230,6 +285,7 @@ async def test_flow_reconfigure(
     [
         (UptimeKumaConnectionException, "cannot_connect"),
         (UptimeKumaAuthenticationException, "invalid_auth"),
+        (UptimeKumaParseException, "invalid_data"),
         (ValueError, "unknown"),
     ],
 )
@@ -348,6 +404,7 @@ async def test_hassio_addon_discovery_confirm_only(
         CONF_VERIFY_SSL: True,
         CONF_API_KEY: None,
     }
+    assert result["result"].unique_id == "1234"
 
     assert len(mock_setup_entry.mock_calls) == 1
 
@@ -382,6 +439,7 @@ async def test_hassio_addon_discovery_already_configured(
     [
         (UptimeKumaConnectionException, "cannot_connect"),
         (UptimeKumaAuthenticationException, "invalid_auth"),
+        (UptimeKumaParseException, "invalid_data"),
         (ValueError, "unknown"),
     ],
 )
@@ -454,7 +512,7 @@ async def test_hassio_addon_discovery_ignored(
 async def test_hassio_addon_discovery_update_info(
     hass: HomeAssistant,
 ) -> None:
-    """Test we abort discovery flow if already configured and we update from discovery info."""
+    """Test we abort discovery flow if already configured and update info."""
 
     entry = MockConfigEntry(
         domain=DOMAIN,

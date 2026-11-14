@@ -10,8 +10,14 @@ from aioautomower.model import MowerAttributes
 from aioautomower.utils import mower_list_to_dictionary_dataclass
 from aiohttp import ClientWebSocketResponse
 import pytest
+from pytest_homeassistant.common import (
+    MockConfigEntry,
+    load_fixture,
+    load_json_value_fixture,
+)
 
 from homeassistant.components.application_credentials import (
+    DOMAIN as APPLICATION_CREDENTIALS_DOMAIN,
     ClientCredential,
     async_import_client_credential,
 )
@@ -21,8 +27,6 @@ from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 
 from .const import CLIENT_ID, CLIENT_SECRET, USER_ID
-
-from tests.common import MockConfigEntry, load_fixture, load_json_value_fixture
 
 
 @pytest.fixture(name="jwt")
@@ -95,7 +99,7 @@ def mock_config_entry(jwt: str, expires_at: int, scope: str) -> MockConfigEntry:
 @pytest.fixture(autouse=True)
 async def setup_credentials(hass: HomeAssistant) -> None:
     """Fixture to setup credentials."""
-    assert await async_setup_component(hass, "application_credentials", {})
+    assert await async_setup_component(hass, APPLICATION_CREDENTIALS_DOMAIN, {})
     await async_import_client_credential(
         hass,
         DOMAIN,

@@ -7,8 +7,9 @@ from aiotedee import (
     TedeeDataUpdateException,
     TedeeLocalAuthException,
 )
-from aiotedee.bridge import TedeeBridge
+from aiotedee.models import TedeeBridge
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.tedee.const import CONF_LOCAL_ACCESS_TOKEN, DOMAIN
 from homeassistant.config_entries import SOURCE_USER, ConfigFlowResult
@@ -17,8 +18,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
 from .conftest import WEBHOOK_ID
-
-from tests.common import MockConfigEntry
 
 FLOW_UNIQUE_ID = "112233445566778899"
 LOCAL_ACCESS_TOKEN = "api_token"
@@ -34,7 +33,7 @@ async def test_flow(hass: HomeAssistant, mock_tedee: MagicMock) -> None:
             DOMAIN, context={"source": SOURCE_USER}
         )
         await hass.async_block_till_done()
-        assert result["type"] == FlowResultType.FORM
+        assert result["type"] is FlowResultType.FORM
 
         result2 = await hass.config_entries.flow.async_configure(
             result["flow_id"],
@@ -44,12 +43,13 @@ async def test_flow(hass: HomeAssistant, mock_tedee: MagicMock) -> None:
             },
         )
 
-        assert result2["type"] == FlowResultType.CREATE_ENTRY
+        assert result2["type"] is FlowResultType.CREATE_ENTRY
         assert result2["data"] == {
             CONF_HOST: "192.168.1.62",
             CONF_LOCAL_ACCESS_TOKEN: "token",
             CONF_WEBHOOK_ID: WEBHOOK_ID,
         }
+        assert result2["result"].unique_id == "0000-0000"
 
 
 async def test_flow_already_configured(
@@ -114,6 +114,16 @@ async def test_config_flow_errors(
     assert result2["type"] is FlowResultType.FORM
     assert result2["errors"] == error
     assert len(mock_tedee.get_local_bridge.mock_calls) == 1
+
+    mock_tedee.get_local_bridge.side_effect = None
+    result3 = await hass.config_entries.flow.async_configure(
+        result2["flow_id"],
+        {
+            CONF_HOST: "192.168.1.62",
+            CONF_LOCAL_ACCESS_TOKEN: "token",
+        },
+    )
+    assert result3["type"] is FlowResultType.CREATE_ENTRY
 
 
 async def test_reauth_flow(

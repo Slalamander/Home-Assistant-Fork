@@ -9,12 +9,37 @@ from homeassistant.components.switch import (
     DOMAIN as SWITCH_DOMAIN,
     SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
+    SwitchService,
 )
-from homeassistant.const import ATTR_ENTITY_ID, STATE_OFF, STATE_ON, Platform
+from homeassistant.components.tessie.switch import DESCRIPTIONS
+from homeassistant.const import STATE_OFF, STATE_ON, CommonServiceArgument, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.typing import StateType
 
 from .common import RESPONSE_OK, assert_entities, setup_platform
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("Starting", True),
+        ("Charging", True),
+        ("Stopped", False),
+        (True, True),
+        (False, False),
+        ("Unexpected", False),
+        (None, False),
+    ],
+)
+def test_charge_switch_state(value: StateType, expected: bool) -> None:
+    """Test charging switch state conversion."""
+    description = next(
+        description
+        for description in DESCRIPTIONS
+        if description.key == "charge_state_charging_state"
+    )
+    assert description.value_func(value) is expected
 
 
 async def test_switches(
@@ -33,8 +58,8 @@ async def test_switches(
         # Test Switch On
         await hass.services.async_call(
             SWITCH_DOMAIN,
-            SERVICE_TURN_ON,
-            {ATTR_ENTITY_ID: [entity_id]},
+            SwitchService.TURN_ON,
+            {CommonServiceArgument.ENTITY_ID: [entity_id]},
             blocking=True,
         )
         mock_start_charging.assert_called_once()
@@ -46,8 +71,8 @@ async def test_switches(
         # Test Switch Off
         await hass.services.async_call(
             SWITCH_DOMAIN,
-            SERVICE_TURN_OFF,
-            {ATTR_ENTITY_ID: [entity_id]},
+            SwitchService.TURN_OFF,
+            {CommonServiceArgument.ENTITY_ID: [entity_id]},
             blocking=True,
         )
         mock_stop_charging.assert_called_once()
@@ -85,8 +110,8 @@ async def test_switch_services(
     ) as call:
         await hass.services.async_call(
             SWITCH_DOMAIN,
-            SERVICE_TURN_ON,
-            {ATTR_ENTITY_ID: entity_id},
+            SwitchService.TURN_ON,
+            {CommonServiceArgument.ENTITY_ID: entity_id},
             blocking=True,
         )
         state = hass.states.get(entity_id)
@@ -99,8 +124,8 @@ async def test_switch_services(
     ) as call:
         await hass.services.async_call(
             SWITCH_DOMAIN,
-            SERVICE_TURN_OFF,
-            {ATTR_ENTITY_ID: entity_id},
+            SwitchService.TURN_OFF,
+            {CommonServiceArgument.ENTITY_ID: entity_id},
             blocking=True,
         )
         state = hass.states.get(entity_id)

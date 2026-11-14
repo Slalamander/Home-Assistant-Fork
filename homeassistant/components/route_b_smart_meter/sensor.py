@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import override
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -16,7 +17,6 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from . import BRouteConfigEntry
 from .const import (
     ATTR_API_INSTANTANEOUS_CURRENT_R_PHASE,
     ATTR_API_INSTANTANEOUS_CURRENT_T_PHASE,
@@ -24,7 +24,7 @@ from .const import (
     ATTR_API_TOTAL_CONSUMPTION,
     DOMAIN,
 )
-from .coordinator import BRouteData, BRouteUpdateCoordinator
+from .coordinator import BRouteConfigEntry, BRouteData, BRouteUpdateCoordinator
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -70,6 +70,22 @@ SENSOR_DESCRIPTIONS = (
 )
 
 
+def _build_device_info(coordinator: BRouteUpdateCoordinator) -> DeviceInfo:
+    """Build device information from coordinator data."""
+    device = DeviceInfo(
+        identifiers={(DOMAIN, coordinator.bid)},
+        name=f"Route B Smart Meter {coordinator.bid}",
+    )
+    data = coordinator.device_info_data
+    if data.manufacturer_code is not None:
+        device.manufacturer = data.manufacturer_code
+    if data.serial_number is not None:
+        device.serial_number = data.serial_number
+    if data.echonet_version is not None:
+        device.sw_version = data.echonet_version
+    return device
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: BRouteConfigEntry,
@@ -98,12 +114,10 @@ class SmartMeterBRouteSensor(CoordinatorEntity[BRouteUpdateCoordinator], SensorE
         super().__init__(coordinator)
         self.entity_description: SensorEntityDescriptionWithValueAccessor = description
         self._attr_unique_id = f"{coordinator.bid}_{description.key}"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, coordinator.bid)},
-            name=f"Route B Smart Meter {coordinator.bid}",
-        )
+        self._attr_device_info = _build_device_info(coordinator)
 
     @property
+    @override
     def native_value(self) -> StateType:
         """Return the state of the sensor."""
         return self.entity_description.value_accessor(self.coordinator.data)

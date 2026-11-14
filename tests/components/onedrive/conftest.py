@@ -1,7 +1,6 @@
 """Fixtures for OneDrive tests."""
 
 from collections.abc import AsyncIterator, Generator
-from html import escape
 from json import dumps
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -19,8 +18,10 @@ from onedrive_personal_sdk.models.items import (
     User,
 )
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.application_credentials import (
+    DOMAIN as APPLICATION_CREDENTIALS_DOMAIN,
     ClientCredential,
     async_import_client_credential,
 )
@@ -35,8 +36,6 @@ from homeassistant.setup import async_setup_component
 
 from .const import BACKUP_METADATA, CLIENT_ID, CLIENT_SECRET, IDENTITY_SET, INSTANCE_ID
 
-from tests.common import MockConfigEntry
-
 
 @pytest.fixture(name="scopes")
 def mock_scopes() -> list[str]:
@@ -47,7 +46,7 @@ def mock_scopes() -> list[str]:
 @pytest.fixture(autouse=True)
 async def setup_credentials(hass: HomeAssistant) -> None:
     """Fixture to setup credentials."""
-    assert await async_setup_component(hass, "application_credentials", {})
+    assert await async_setup_component(hass, APPLICATION_CREDENTIALS_DOMAIN, {})
     await async_import_client_credential(
         hass,
         DOMAIN,
@@ -78,8 +77,8 @@ def mock_config_entry(expires_at: int, scopes: list[str]) -> MockConfigEntry:
             CONF_FOLDER_NAME: "backups_123",
             CONF_FOLDER_ID: "my_folder_id",
         },
-        unique_id="mock_drive_id",
-        minor_version=2,
+        unique_id="MOCK_DRIVE_ID",
+        minor_version=3,
     )
 
 
@@ -146,7 +145,6 @@ def mock_folder() -> Folder:
         name="name",
         size=0,
         child_count=0,
-        description="9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0",
         parent_reference=ItemParentReference(
             drive_id="mock_drive_id", id="id", path="path"
         ),
@@ -182,9 +180,9 @@ def mock_backup_file() -> File:
 def mock_metadata_file() -> File:
     """Return a mocked metadata file."""
     return File(
-        id="id",
-        name="23e64aec.tar",
-        size=34519040,
+        id="metadata_id",
+        name="23e64aec.metadata.json",
+        size=1024,
         parent_reference=ItemParentReference(
             drive_id="mock_drive_id", id="id", path="path"
         ),
@@ -192,15 +190,6 @@ def mock_metadata_file() -> File:
             quick_xor_hash="hash",
         ),
         mime_type="application/x-tar",
-        description=escape(
-            dumps(
-                {
-                    "metadata_version": 2,
-                    "backup_id": "23e64aec",
-                    "backup_file_id": "id",
-                }
-            )
-        ),
         created_by=IDENTITY_SET,
     )
 
@@ -227,6 +216,7 @@ def mock_onedrive_client(
             yield b"backup data"
 
         async def read(self) -> bytes:
+            # Metadata contains just the backup metadata (no backup_file_id)
             return dumps(BACKUP_METADATA).encode()
 
     client.download_drive_item.return_value = MockStreamReader()
@@ -248,7 +238,7 @@ def mock_large_file_upload_client(mock_backup_file: File) -> Generator[AsyncMock
 def mock_setup_entry() -> Generator[AsyncMock]:
     """Override async_setup_entry."""
     with patch(
-        "homeassistant.components.onedrive.async_setup_entry", return_value=True
+        "homeassistant.components.onedrive.async_setup_entry", return_value=None
     ) as mock_setup_entry:
         yield mock_setup_entry
 

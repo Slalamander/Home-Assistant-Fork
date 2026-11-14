@@ -1,8 +1,6 @@
 """Base entity for Firefly III integration."""
 
-from __future__ import annotations
-
-from pyfirefly.models import Account, Category
+from pyfirefly.models import Account, Budget, Category
 from yarl import URL
 
 from homeassistant.const import CONF_URL
@@ -44,7 +42,7 @@ class FireflyAccountBaseEntity(FireflyBaseEntity):
     ) -> None:
         """Initialize a Firefly account entity."""
         super().__init__(coordinator)
-        self._account = account
+        self._account_id = account.id
         self._attr_device_info = DeviceInfo(
             entry_type=DeviceEntryType.SERVICE,
             manufacturer=MANUFACTURER,
@@ -58,6 +56,10 @@ class FireflyAccountBaseEntity(FireflyBaseEntity):
             f"{coordinator.config_entry.unique_id}_account_{account.id}_{key}"
         )
 
+    @property
+    def _account(self) -> Account:
+        return self.coordinator.data.accounts[self._account_id]
+
 
 class FireflyCategoryBaseEntity(FireflyBaseEntity):
     """Base class for Firefly III category entity."""
@@ -70,7 +72,7 @@ class FireflyCategoryBaseEntity(FireflyBaseEntity):
     ) -> None:
         """Initialize a Firefly category entity."""
         super().__init__(coordinator)
-        self._category = category
+        self._category_id = category.id
         self._attr_device_info = DeviceInfo(
             entry_type=DeviceEntryType.SERVICE,
             manufacturer=MANUFACTURER,
@@ -83,3 +85,37 @@ class FireflyCategoryBaseEntity(FireflyBaseEntity):
         self._attr_unique_id = (
             f"{coordinator.config_entry.unique_id}_category_{category.id}_{key}"
         )
+
+    @property
+    def _category(self) -> Category:
+        return self.coordinator.data.category_details[self._category_id]
+
+
+class FireflyBudgetBaseEntity(FireflyBaseEntity):
+    """Base class for Firefly III budget entity."""
+
+    def __init__(
+        self,
+        coordinator: FireflyDataUpdateCoordinator,
+        budget: Budget,
+        key: str,
+    ) -> None:
+        """Initialize a Firefly budget entity."""
+        super().__init__(coordinator)
+        self._budget_id = budget.id
+        self._attr_device_info = DeviceInfo(
+            entry_type=DeviceEntryType.SERVICE,
+            manufacturer=MANUFACTURER,
+            name=budget.attributes.name,
+            configuration_url=f"{URL(coordinator.config_entry.data[CONF_URL])}/budgets/show/{budget.id}",
+            identifiers={
+                (DOMAIN, f"{coordinator.config_entry.entry_id}_budget_{budget.id}")
+            },
+        )
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.unique_id}_budget_{budget.id}_{key}"
+        )
+
+    @property
+    def _budget(self) -> Budget:
+        return self.coordinator.data.budgets[self._budget_id]

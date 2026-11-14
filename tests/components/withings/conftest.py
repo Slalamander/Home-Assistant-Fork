@@ -7,8 +7,10 @@ from unittest.mock import AsyncMock, patch
 from aiowithings import Device, WithingsClient
 from aiowithings.models import NotificationConfiguration
 import pytest
+from pytest_homeassistant.common import MockConfigEntry, load_json_array_fixture
 
 from homeassistant.components.application_credentials import (
+    DOMAIN as APPLICATION_CREDENTIALS_DOMAIN,
     ClientCredential,
     async_import_client_credential,
 )
@@ -23,8 +25,6 @@ from . import (
     load_sleep_fixture,
     load_workout_fixture,
 )
-
-from tests.common import MockConfigEntry, load_json_array_fixture
 
 CLIENT_ID = "1234"
 CLIENT_SECRET = "5678"
@@ -48,7 +48,7 @@ def mock_scopes() -> list[str]:
 @pytest.fixture(autouse=True)
 async def setup_credentials(hass: HomeAssistant) -> None:
     """Fixture to setup credentials."""
-    assert await async_setup_component(hass, "application_credentials", {})
+    assert await async_setup_component(hass, APPLICATION_CREDENTIALS_DOMAIN, {})
     await async_import_client_credential(
         hass,
         DOMAIN,
@@ -161,13 +161,13 @@ def mock_withings():
     """Mock withings."""
 
     devices_json = load_json_array_fixture("withings/devices.json")
-    devices = [Device.from_api(device) for device in devices_json]
+    devices = [Device.from_dict(device) for device in devices_json]
 
     measurement_groups = load_measurements_fixture()
 
     notification_json = load_json_array_fixture("withings/notifications.json")
     notifications = [
-        NotificationConfiguration.from_api(not_conf) for not_conf in notification_json
+        NotificationConfiguration.from_dict(not_conf) for not_conf in notification_json
     ]
 
     workouts = load_workout_fixture()
@@ -195,9 +195,7 @@ def mock_withings():
 
 @pytest.fixture(name="disable_webhook_delay", autouse=True)
 def disable_webhook_delay():
-    """Disable webhook delay."""
-
-    mock = AsyncMock()
+    """Disable webhook delays for faster tests."""
     with (
         patch(
             "homeassistant.components.withings.SUBSCRIBE_DELAY",
@@ -207,5 +205,9 @@ def disable_webhook_delay():
             "homeassistant.components.withings.UNSUBSCRIBE_DELAY",
             timedelta(seconds=0),
         ),
+        patch(
+            "homeassistant.components.withings.WEBHOOK_REGISTER_DELAY",
+            0,
+        ),
     ):
-        yield mock
+        yield

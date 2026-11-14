@@ -3,7 +3,36 @@
 To update, run python3 -m script.hassfest
 """
 
+SERIAL_PORT_SELECTOR_INTEGRATIONS = [
+    "aerosmart",
+    "denon_rs232",
+    "dsmr",
+    "edl21",
+    "flexit",
+    "kaco_rs485",
+    "landisgyr_heat_meter",
+    "lg_tv_rs232",
+    "marantz_rs232",
+    "monoprice",
+    "neopool",
+    "russound_rio",
+    "samsung_exlink",
+    "sofar",
+    "solaredge_modbus",
+    "tonewinner",
+    "upb",
+    "velbus",
+    "zha",
+]
+
 USB = [
+    {
+        "description": "*usb 300*",
+        "domain": "enocean",
+        "manufacturer": "*enocean*",
+        "pid": "6001",
+        "vid": "0403",
+    },
     {
         "description": "*zbt-2*",
         "domain": "homeassistant_connect_zbt2",
@@ -178,5 +207,12 @@ USB = [
         "manufacturer": "nabu casa",
         "pid": "4001",
         "vid": "303A",
+    },
+    {
+        "description": "*sonoff*zwave*",
+        "domain": "zwave_js",
+        "manufacturer": "sonoff",
+        "pid": "EA60",
+        "vid": "10C4",
     },
 ]

@@ -1,9 +1,7 @@
 """Helpers for components that manage entities."""
 
-from __future__ import annotations
-
 import asyncio
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Coroutine, Iterable, Mapping
 from datetime import timedelta
 import logging
 from types import ModuleType
@@ -17,6 +15,7 @@ from homeassistant.const import (
     EVENT_HOMEASSISTANT_STOP,
 )
 from homeassistant.core import (
+    EntityServiceResponse,
     Event,
     HassJobType,
     HomeAssistant,
@@ -24,20 +23,23 @@ from homeassistant.core import (
     SupportsResponse,
     callback,
 )
-from homeassistant.exceptions import HomeAssistantError
-from homeassistant.loader import async_get_integration, bind_hass
+from homeassistant.exceptions import (
+    ConfigValidationError,
+    HomeAssistantError,
+    ServiceValidationError,
+)
+from homeassistant.loader import async_get_integration
 from homeassistant.setup import async_prepare_setup_platform
 from homeassistant.util.hass_dict import HassKey
 
-from . import device_registry as dr, discovery, entity, entity_registry as er, service
-from .entity_platform import EntityPlatform, async_calculate_suggested_object_id
+from . import discovery, entity, service
+from .entity_platform import EntityPlatform
 from .typing import ConfigType, DiscoveryInfoType, VolDictType, VolSchemaType
 
 DEFAULT_SCAN_INTERVAL = timedelta(seconds=15)
 DATA_INSTANCES: HassKey[dict[str, EntityComponent]] = HassKey("entity_components")
 
 
-@bind_hass
 async def async_update_entity(hass: HomeAssistant, entity_id: str) -> None:
     """Trigger an update for an entity."""
     domain = entity_id.partition(".")[0]
@@ -58,36 +60,6 @@ async def async_update_entity(hass: HomeAssistant, entity_id: str) -> None:
     await entity_obj.async_update_ha_state(True)
 
 
-@callback
-def async_get_entity_suggested_object_id(
-    hass: HomeAssistant, entity_id: str
-) -> str | None:
-    """Get the suggested object id for an entity.
-
-    Raises HomeAssistantError if the entity is not in the registry or
-    is not backed by an object.
-    """
-    entity_registry = er.async_get(hass)
-    if not (entity_entry := entity_registry.async_get(entity_id)):
-        raise HomeAssistantError(f"Entity {entity_id} is not in the registry.")
-
-    domain = entity_id.partition(".")[0]
-
-    if entity_entry.name:
-        return entity_entry.name
-
-    if entity_entry.suggested_object_id:
-        return entity_entry.suggested_object_id
-
-    entity_comp = hass.data.get(DATA_INSTANCES, {}).get(domain)
-    if not (entity_obj := entity_comp.get_entity(entity_id) if entity_comp else None):
-        raise HomeAssistantError(f"Entity {entity_id} has no object.")
-    device: dr.DeviceEntry | None = None
-    if device_id := entity_entry.device_id:
-        device = dr.async_get(hass).async_get(device_id)
-    return async_calculate_suggested_object_id(entity_obj, device)
-
-
 class EntityComponent[_EntityT: entity.Entity = entity.Entity]:
     """The EntityComponent manages platforms that manage entities.
 
@@ -95,7 +67,8 @@ class EntityComponent[_EntityT: entity.Entity = entity.Entity]:
     as 'hue.light'.
 
     This class has the following responsibilities:
-     - Process the configuration and set up a platform based component, for example light.
+     - Process the configuration and set up a platform based component,
+       for example light.
      - Manage the platforms and their entities.
      - Help extract the entities from a service call.
      - Listen for discovery events for platforms related to the domain.
@@ -116,13 +89,13 @@ class EntityComponent[_EntityT: entity.Entity = entity.Entity]:
 
         self.config: ConfigType | None = None
 
-        domain_platform = self._async_init_entity_platform(domain, None)
         self._platforms: dict[
             str | tuple[str, timedelta | None, str | None], EntityPlatform
-        ] = {domain: domain_platform}
+        ] = {}
+        domain_platform = self._async_init_entity_platform(domain, domain, None)
         self.async_add_entities = domain_platform.async_add_entities
         self.add_entities = domain_platform.add_entities
-        self._entities: dict[str, entity.Entity] = domain_platform.domain_entities
+        self._entities: dict[str, _EntityT] = domain_platform.domain_entities  # type: ignore[assignment]
         hass.data.setdefault(DATA_INSTANCES, {})[domain] = self  # type: ignore[assignment]
 
     @property
@@ -133,11 +106,11 @@ class EntityComponent[_EntityT: entity.Entity = entity.Entity]:
         callers that iterate over this asynchronously should make a copy
         using list() before iterating.
         """
-        return self._entities.values()  # type: ignore[return-value]
+        return self._entities.values()
 
     def get_entity(self, entity_id: str) -> _EntityT | None:
         """Get an entity."""
-        return self._entities.get(entity_id)  # type: ignore[return-value]
+        return self._entities.get(entity_id)
 
     def register_shutdown(self) -> None:
         """Register shutdown on Home Assistant STOP event.
@@ -212,23 +185,42 @@ class EntityComponent[_EntityT: entity.Entity = entity.Entity]:
                 f"{platform_type}.{self.domain} has already been setup!"
             )
 
-        self._platforms[key] = self._async_init_entity_platform(
+        entity_platform = self._async_init_entity_platform(
+            key,
             platform_type,
             platform,
             scan_interval=getattr(platform, "SCAN_INTERVAL", None),
         )
 
-        return await self._platforms[key].async_setup_entry(config_entry)
+        return await entity_platform.async_setup_entry(config_entry)
 
     async def async_unload_entry(self, config_entry: ConfigEntry) -> bool:
         """Unload a config entry."""
         key = config_entry.entry_id
 
-        if (platform := self._platforms.pop(key, None)) is None:
-            raise ValueError("Config entry was never loaded!")
+        if key not in self._platforms:
+            self.logger.warning(
+                (
+                    "Ignored unload request for config entry %s (%s) in %s.%s; "
+                    "no platform is loaded, it was never set up "
+                    "or has already been unloaded"
+                ),
+                config_entry.title,
+                key,
+                config_entry.domain,
+                self.domain,
+            )
+            return True
 
-        await platform.async_reset()
+        await self._async_destroy_platform(key)
         return True
+
+    async def _async_destroy_platform(
+        self, key: str | tuple[str, timedelta | None, str | None]
+    ) -> None:
+        """Remove an owned platform from the component and global registry."""
+        platform = self._platforms.pop(key)
+        await platform.async_destroy()
 
     async def async_extract_from_service(
         self, service_call: ServiceCall, expand_group: bool = True
@@ -251,18 +243,54 @@ class EntityComponent[_EntityT: entity.Entity = entity.Entity]:
         func: str | Callable[..., Any],
         required_features: list[int] | None = None,
         supports_response: SupportsResponse = SupportsResponse.NONE,
+        *,
+        admin_only: bool = False,
+        description_placeholders: Mapping[str, str] | None = None,
     ) -> None:
         """Register an entity service."""
         service.async_register_entity_service(
             self.hass,
             self.domain,
             name,
+            admin_only=admin_only,
             entities=self._entities,
             func=func,
             job_type=HassJobType.Coroutinefunction,
             required_features=required_features,
             schema=schema,
             supports_response=supports_response,
+            description_placeholders=description_placeholders,
+        )
+
+    @callback
+    def async_register_batched_entity_service(
+        self,
+        name: str,
+        schema: VolDictType | VolSchemaType | None,
+        func: Callable[
+            [list[_EntityT], ServiceCall],
+            Coroutine[Any, Any, EntityServiceResponse | None],
+        ],
+        required_features: Iterable[int] | None = None,
+        supports_response: SupportsResponse = SupportsResponse.NONE,
+        *,
+        description_placeholders: Mapping[str, str] | None = None,
+    ) -> None:
+        """Register a batched entity service.
+
+        A batched entity service calls the service function once with all
+        matching entities as a list, instead of once per entity.
+        """
+        service.async_register_batched_entity_service(
+            self.hass,
+            self.domain,
+            name,
+            entities=self._entities,
+            func=func,
+            required_features=required_features,
+            schema=schema,
+            supports_response=supports_response,
+            description_placeholders=description_placeholders,
         )
 
     async def async_setup_platform(
@@ -291,8 +319,8 @@ class EntityComponent[_EntityT: entity.Entity = entity.Entity]:
         key = (platform_type, scan_interval, entity_namespace)
 
         if key not in self._platforms:
-            self._platforms[key] = self._async_init_entity_platform(
-                platform_type, platform, scan_interval, entity_namespace
+            self._async_init_entity_platform(
+                key, platform_type, platform, scan_interval, entity_namespace
             )
 
         await self._platforms[key].async_setup(platform_config, discovery_info)
@@ -308,12 +336,11 @@ class EntityComponent[_EntityT: entity.Entity = entity.Entity]:
             if key == self.domain:
                 tasks.append(platform.async_reset())
             else:
-                tasks.append(platform.async_destroy())
+                tasks.append(self._async_destroy_platform(key))
 
         if tasks:
             await asyncio.gather(*tasks)
 
-        self._platforms = {self.domain: self._platforms[self.domain]}
         self.config = None
 
     async def async_remove_entity(self, entity_id: str) -> None:
@@ -328,27 +355,31 @@ class EntityComponent[_EntityT: entity.Entity = entity.Entity]:
         if found:
             await found.async_remove_entity(entity_id)
 
-    async def async_prepare_reload(
-        self, *, skip_reset: bool = False
-    ) -> ConfigType | None:
+    async def async_prepare_reload(self, *, skip_reset: bool = False) -> ConfigType:
         """Prepare reloading this entity component.
 
-        This method must be run in the event loop.
+        This method is intended to be called from service handlers implementing reload.
+        Will raise ServiceValidationError if the config is not valid.
         """
         try:
             conf = await conf_util.async_hass_config_yaml(self.hass)
         except HomeAssistantError as err:
-            self.logger.error(err)
-            return None
+            raise ServiceValidationError(
+                f"Failed to load configuration: {err}"
+            ) from err
 
         integration = await async_get_integration(self.hass, self.domain)
 
-        processed_conf = await conf_util.async_process_component_and_handle_errors(
-            self.hass, conf, integration
-        )
-
-        if processed_conf is None:
-            return None
+        try:
+            processed_conf = await conf_util.async_process_component_and_handle_errors(
+                self.hass, conf, integration, raise_on_failure=True
+            )
+        except ConfigValidationError as err:
+            raise ServiceValidationError(
+                translation_domain=err.translation_domain,
+                translation_key=err.translation_key,
+                translation_placeholders=err.translation_placeholders,
+            ) from err
 
         if not skip_reset:
             await self._async_reset()
@@ -358,12 +389,15 @@ class EntityComponent[_EntityT: entity.Entity = entity.Entity]:
     @callback
     def _async_init_entity_platform(
         self,
+        key: str | tuple[str, timedelta | None, str | None],
         platform_type: str,
         platform: ModuleType | None,
         scan_interval: timedelta | None = None,
         entity_namespace: str | None = None,
     ) -> EntityPlatform:
-        """Initialize an entity platform."""
+        """Create and register a platform owned by this component."""
+        if key in self._platforms:
+            raise ValueError(f"Platform {key} is already registered")
         if scan_interval is None:
             scan_interval = self.scan_interval
 
@@ -377,6 +411,7 @@ class EntityComponent[_EntityT: entity.Entity = entity.Entity]:
             entity_namespace=entity_namespace,
         )
         entity_platform.async_prepare()
+        self._platforms[key] = entity_platform
         return entity_platform
 
     @callback

@@ -1,9 +1,7 @@
 """Config flow for the Home Assistant Connect ZBT-2 integration."""
 
-from __future__ import annotations
-
 import logging
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, override
 
 from homeassistant.components import usb
 from homeassistant.components.homeassistant_hardware import firmware_config_flow
@@ -13,14 +11,10 @@ from homeassistant.components.homeassistant_hardware.helpers import (
 from homeassistant.components.homeassistant_hardware.util import (
     ApplicationType,
     FirmwareInfo,
-    ResetTarget,
+    FlasherType,
 )
-from homeassistant.components.usb import (
-    usb_service_info_from_device,
-    usb_unique_id_from_service_info,
-)
+from homeassistant.components.usb import usb_service_info_from_device
 from homeassistant.config_entries import (
-    ConfigEntry,
     ConfigEntryBaseFlow,
     ConfigFlowContext,
     ConfigFlowResult,
@@ -29,6 +23,7 @@ from homeassistant.config_entries import (
 from homeassistant.core import callback
 from homeassistant.helpers.service_info.usb import UsbServiceInfo
 
+from . import HomeAssistantConnectZBT2ConfigEntry
 from .const import (
     DEVICE,
     DOMAIN,
@@ -74,7 +69,9 @@ class ZBT2FirmwareMixin(ConfigEntryBaseFlow, FirmwareInstallFlowProtocol):
     """Mixin for Home Assistant Connect ZBT-2 firmware methods."""
 
     context: ConfigFlowContext
-    BOOTLOADER_RESET_METHODS = [ResetTarget.RTS_DTR]
+
+    ZIGBEE_BAUDRATE = 460800
+    _flasher_type = FlasherType.ZBT2
 
     async def async_step_install_zigbee_firmware(
         self, user_input: dict[str, Any] | None = None
@@ -111,8 +108,7 @@ class HomeAssistantConnectZBT2ConfigFlow(
     """Handle a config flow for Home Assistant Connect ZBT-2."""
 
     VERSION = 1
-    MINOR_VERSION = 1
-    ZIGBEE_BAUDRATE = 460800
+    MINOR_VERSION = 2
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize the config flow."""
@@ -122,22 +118,22 @@ class HomeAssistantConnectZBT2ConfigFlow(
 
     @staticmethod
     @callback
+    @override
     def async_get_options_flow(
-        config_entry: ConfigEntry,
+        config_entry: HomeAssistantConnectZBT2ConfigEntry,
     ) -> OptionsFlow:
         """Return the options flow."""
         return HomeAssistantConnectZBT2OptionsFlowHandler(config_entry)
 
+    @override
     async def async_step_usb(self, discovery_info: UsbServiceInfo) -> ConfigFlowResult:
         """Handle usb discovery."""
-        unique_id = usb_unique_id_from_service_info(discovery_info)
-
         discovery_info.device = await self.hass.async_add_executor_job(
             usb.get_serial_by_id, discovery_info.device
         )
 
         try:
-            await self.async_set_unique_id(unique_id)
+            await self.async_set_unique_id(discovery_info.serial_number)
         finally:
             self._abort_if_unique_id_configured(updates={DEVICE: discovery_info.device})
 
@@ -155,9 +151,10 @@ class HomeAssistantConnectZBT2ConfigFlow(
         """Handle import from ZHA/OTBR firmware notification."""
         assert fw_discovery_info["usb_device"] is not None
         usb_info = usb_service_info_from_device(fw_discovery_info["usb_device"])
-        unique_id = usb_unique_id_from_service_info(usb_info)
 
-        if await self.async_set_unique_id(unique_id, raise_on_progress=False):
+        if await self.async_set_unique_id(
+            usb_info.serial_number, raise_on_progress=False
+        ):
             self._abort_if_unique_id_configured(updates={DEVICE: usb_info.device})
 
         self._usb_info = usb_info
@@ -167,6 +164,7 @@ class HomeAssistantConnectZBT2ConfigFlow(
 
         return self._async_flow_finished()
 
+    @override
     def _async_flow_finished(self) -> ConfigFlowResult:
         """Create the config entry."""
         assert self._usb_info is not None
@@ -196,14 +194,14 @@ class HomeAssistantConnectZBT2OptionsFlowHandler(
         """Instantiate options flow."""
         super().__init__(*args, **kwargs)
 
-        self._usb_info = get_usb_service_info(self.config_entry)
+        self._usb_info = get_usb_service_info(self._config_entry)
         self._hardware_name = HARDWARE_NAME
         self._device = self._usb_info.device
 
         self._probed_firmware_info = FirmwareInfo(
             device=self._device,
-            firmware_type=ApplicationType(self.config_entry.data[FIRMWARE]),
-            firmware_version=self.config_entry.data[FIRMWARE_VERSION],
+            firmware_type=ApplicationType(self._config_entry.data[FIRMWARE]),
+            firmware_version=self._config_entry.data[FIRMWARE_VERSION],
             source="guess",
             owners=[],
         )
@@ -211,6 +209,7 @@ class HomeAssistantConnectZBT2OptionsFlowHandler(
         # Regenerate the translation placeholders
         self._get_translation_placeholders()
 
+    @override
     def _async_flow_finished(self) -> ConfigFlowResult:
         """Create the config entry."""
         assert self._probed_firmware_info is not None

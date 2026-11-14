@@ -5,6 +5,11 @@ from unittest.mock import MagicMock, patch
 from aiohttp import ClientError
 from freezegun.api import FrozenDateTimeFactory
 import pytest
+from pytest_homeassistant.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+    snapshot_platform,
+)
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components.imeon_inverter.coordinator import INTERVAL
@@ -13,8 +18,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from . import setup_integration
-
-from tests.common import MockConfigEntry, async_fire_time_changed, snapshot_platform
 
 
 async def test_sensors(
@@ -38,7 +41,6 @@ async def test_sensors(
         ValueError,
     ],
 )
-@pytest.mark.asyncio
 async def test_sensor_unavailable_on_update_error(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,

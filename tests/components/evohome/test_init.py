@@ -1,22 +1,22 @@
 """The tests for Evohome."""
 
-from __future__ import annotations
-
 from http import HTTPStatus
 import logging
 from unittest.mock import Mock, patch
 
 import aiohttp
-from evohomeasync2 import EvohomeClient, exceptions as exc
+from evohomeasync2 import exceptions as evo_exc
 import pytest
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components.evohome.const import DOMAIN
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.setup import async_setup_component
 
-from .conftest import mock_post_request
-from .const import TEST_INSTALLS
+from .conftest import mock_post_request, setup_evohome
+from .const import USERNAME
 
 _MSG_429 = (
     "You have exceeded the server's API rate limit. Wait a while "
@@ -31,13 +31,9 @@ _MSG_USR = (
     "special characters accepted via the vendor's website are not valid here."
 )
 
-LOG_HINT_429_CREDS = ("evohome.credentials", logging.ERROR, _MSG_429)
-LOG_HINT_OTH_CREDS = ("evohome.credentials", logging.ERROR, _MSG_OTH)
-LOG_HINT_USR_CREDS = ("evohome.credentials", logging.ERROR, _MSG_USR)
-
-LOG_HINT_429_AUTH = ("evohome.auth", logging.ERROR, _MSG_429)
-LOG_HINT_OTH_AUTH = ("evohome.auth", logging.ERROR, _MSG_OTH)
-LOG_HINT_USR_AUTH = ("evohome.auth", logging.ERROR, _MSG_USR)
+LOG_HINT_429_AUTH = ("evohomeasync2.auth", logging.ERROR, _MSG_429)
+LOG_HINT_OTH_AUTH = ("evohomeasync2.auth", logging.ERROR, _MSG_OTH)
+LOG_HINT_USR_AUTH = ("evohomeasync2.auth", logging.ERROR, _MSG_USR)
 
 LOG_FAIL_CONNECTION = (
     "homeassistant.components.evohome",
@@ -54,13 +50,13 @@ LOG_FAIL_GATEWAY = (
     "homeassistant.components.evohome",
     logging.ERROR,
     "Failed to fetch initial data: "
-    "Authenticator response is invalid: 502 Bad Gateway, response=None",
+    "Authenticator response is invalid: 502 Bad Gateway, response=<no response>",
 )
 LOG_FAIL_TOO_MANY = (
     "homeassistant.components.evohome",
     logging.ERROR,
     "Failed to fetch initial data: "
-    "Authenticator response is invalid: 429 Too Many Requests, response=None",
+    "Authenticator response is invalid: 429 Too Many Requests, response=<no response>",
 )
 
 LOG_FGET_CONNECTION = (
@@ -75,14 +71,14 @@ LOG_FGET_GATEWAY = (
     logging.ERROR,
     "Failed to fetch initial data: "
     "GET https://tccna.resideo.com/WebAPI/emea/api/v1/userAccount: "
-    "502 Bad Gateway, response=None",
+    "502 Bad Gateway",
 )
 LOG_FGET_TOO_MANY = (
     "homeassistant.components.evohome",
     logging.ERROR,
     "Failed to fetch initial data: "
     "GET https://tccna.resideo.com/WebAPI/emea/api/v1/userAccount: "
-    "429 Too Many Requests, response=None",
+    "429 Too Many Requests",
 )
 
 
@@ -95,7 +91,7 @@ LOG_SETUP_FAILED = (
 EXC_BAD_CONNECTION = aiohttp.ClientConnectionError(
     "Connection error",
 )
-EXC_BAD_CREDENTIALS = exc.AuthenticationFailedError(
+EXC_BAD_CREDENTIALS = evo_exc.AuthenticationFailedError(
     "Authenticator response is invalid: {'error': 'invalid_grant'}",
     status=HTTPStatus.BAD_REQUEST,
 )
@@ -110,10 +106,10 @@ EXC_BAD_GATEWAY = aiohttp.ClientResponseError(
 )
 
 AUTHENTICATION_TESTS: dict[Exception, list] = {
-    EXC_BAD_CONNECTION: [LOG_HINT_OTH_CREDS, LOG_FAIL_CONNECTION, LOG_SETUP_FAILED],
-    EXC_BAD_CREDENTIALS: [LOG_HINT_USR_CREDS, LOG_FAIL_CREDENTIALS, LOG_SETUP_FAILED],
-    EXC_BAD_GATEWAY: [LOG_HINT_OTH_CREDS, LOG_FAIL_GATEWAY, LOG_SETUP_FAILED],
-    EXC_TOO_MANY_REQUESTS: [LOG_HINT_429_CREDS, LOG_FAIL_TOO_MANY, LOG_SETUP_FAILED],
+    EXC_BAD_CONNECTION: [LOG_HINT_OTH_AUTH, LOG_FAIL_CONNECTION, LOG_SETUP_FAILED],
+    EXC_BAD_CREDENTIALS: [LOG_HINT_USR_AUTH, LOG_FAIL_CREDENTIALS, LOG_SETUP_FAILED],
+    EXC_BAD_GATEWAY: [LOG_HINT_OTH_AUTH, LOG_FAIL_GATEWAY, LOG_SETUP_FAILED],
+    EXC_TOO_MANY_REQUESTS: [LOG_HINT_429_AUTH, LOG_FAIL_TOO_MANY, LOG_SETUP_FAILED],
 }
 
 CLIENT_REQUEST_TESTS: dict[Exception, list] = {
@@ -137,7 +133,8 @@ async def test_authentication_failure_v2(
 
     with (
         patch(
-            "evohome.credentials.CredentialsManagerBase._request", side_effect=exception
+            "_evohome.credentials.CredentialsManagerBase._request",
+            side_effect=exception,
         ),
         caplog.at_level(logging.WARNING),
     ):
@@ -165,7 +162,7 @@ async def test_client_request_failure_v2(
             "evohomeasync2.auth.CredentialsManagerBase._post_request",
             mock_post_request("default"),
         ),
-        patch("evohome.auth.AbstractAuth._request", side_effect=exception),
+        patch("_evohome.auth.AbstractAuth._request", side_effect=exception),
         caplog.at_level(logging.WARNING),
     ):
         result = await async_setup_component(hass, DOMAIN, {DOMAIN: config})
@@ -175,15 +172,84 @@ async def test_client_request_failure_v2(
     assert caplog.record_tuples == CLIENT_REQUEST_TESTS[exception]
 
 
-@pytest.mark.parametrize("install", [*TEST_INSTALLS, "botched"])
-async def test_setup(
-    hass: HomeAssistant,
-    evohome: EvohomeClient,
-    snapshot: SnapshotAssertion,
-) -> None:
+@pytest.mark.parametrize("install", ["default"])
+@pytest.mark.usefixtures("evohome")
+async def test_setup(hass: HomeAssistant, snapshot: SnapshotAssertion) -> None:
     """Test services after setup of evohome.
 
     Registered services vary by the type of system.
     """
 
     assert hass.services.async_services_for_domain(DOMAIN).keys() == snapshot
+
+
+@pytest.mark.parametrize(
+    ("install", "config"),
+    [
+        pytest.param(
+            install,
+            {CONF_USERNAME: USERNAME, CONF_PASSWORD: "password", "location_idx": i},
+            id=f"{install}-location_idx_{i}",
+        )
+        for install, i in (("sys_004", 1), ("sys_004", 2), ("sys_006", 1))
+    ],
+)
+@pytest.mark.usefixtures("evohome")
+async def test_setup_non_default_location(
+    hass: HomeAssistant,
+    ctl_id: str,
+    zone_id: str,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Test setup of a location other than the first of a multi-location account."""
+
+    assert hass.states.get(ctl_id) is not None
+    assert hass.states.get(zone_id) is not None
+
+    assert sorted(hass.states.async_entity_ids()) == snapshot
+
+
+_STALE_ISSUES = {  # issue_id: translation_key
+    "deprecated_clear_zone_override_service": "deprecated_clear_zone_override_service",
+    "deprecated_preset_reset": "deprecated_preset_reset",
+    "deprecated_reset_system_service": "deprecated_reset_system_service",
+    "deprecated_set_system_mode_service": "deprecated_controller_service",
+}
+
+
+@pytest.mark.parametrize("install", ["default"])
+@pytest.mark.parametrize(
+    "ignore_missing_translations",
+    [
+        [
+            f"component.evohome.issues.{translation_key}.{key}"
+            for translation_key in _STALE_ISSUES.values()
+            for key in ("title", "description")
+        ]
+    ],
+)
+async def test_stale_deprecation_issues_removed(
+    hass: HomeAssistant,
+    config: dict[str, str],
+    install: str,
+    issue_registry: ir.IssueRegistry,
+) -> None:
+    """Test persistent repair issues of completed deprecations are removed."""
+
+    for issue_id, translation_key in _STALE_ISSUES.items():
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            is_persistent=True,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key=translation_key,
+        )
+        assert issue_registry.async_get_issue(DOMAIN, issue_id) is not None
+
+    async for _ in setup_evohome(hass, config, install=install):
+        pass
+
+    for issue_id in _STALE_ISSUES:
+        assert issue_registry.async_get_issue(DOMAIN, issue_id) is None

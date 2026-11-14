@@ -1,16 +1,13 @@
 """Support for Tibber sensors."""
 
-from __future__ import annotations
-
 from collections.abc import Callable
-import datetime
 from datetime import timedelta
 import logging
-from random import randrange
-from typing import Any
+from typing import Any, override
 
 import aiohttp
-import tibber
+from tibber import FatalHttpExceptionError, RetryableHttpExceptionError, TibberHome
+from tibber.data_api import TibberDevice
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -18,7 +15,6 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     EVENT_HOMEASSISTANT_STOP,
     PERCENTAGE,
@@ -27,11 +23,13 @@ from homeassistant.const import (
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
     UnitOfEnergy,
+    UnitOfLength,
     UnitOfPower,
+    UnitOfTemperature,
 )
-from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.exceptions import PlatformNotReady
-from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
@@ -39,18 +37,20 @@ from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
 )
-from homeassistant.util import Throttle, dt as dt_util
+from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, MANUFACTURER
-from .coordinator import TibberDataCoordinator
+from .const import DOMAIN, MANUFACTURER, TibberConfigEntry
+from .coordinator import (
+    TibberDataAPICoordinator,
+    TibberDataCoordinator,
+    TibberPriceCoordinator,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 ICON = "mdi:currency-usd"
 SCAN_INTERVAL = timedelta(minutes=1)
-MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=5)
 PARALLEL_UPDATES = 0
-TWENTY_MINUTES = 20 * 60
 
 RT_SENSORS_UNIQUE_ID_MIGRATION = {
     "accumulated_consumption_last_hour": "accumulated consumption current hour",
@@ -260,19 +260,355 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
 )
 
 
+DATA_API_SENSORS: tuple[SensorEntityDescription, ...] = (
+    SensorEntityDescription(
+        key="cellular.rssi",
+        translation_key="cellular_rssi",
+        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
+        native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="storage.stateOfCharge",
+        translation_key="storage_state_of_charge",
+        device_class=SensorDeviceClass.BATTERY,
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="storage.targetStateOfCharge",
+        translation_key="storage_target_state_of_charge",
+        device_class=SensorDeviceClass.BATTERY,
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="storage.ratedCapacity",
+        translation_key="storage_rated_capacity",
+        device_class=SensorDeviceClass.ENERGY_STORAGE,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    SensorEntityDescription(
+        key="storage.ratedPower",
+        translation_key="storage_rated_power",
+        device_class=SensorDeviceClass.POWER,
+        native_unit_of_measurement=UnitOfPower.WATT,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    SensorEntityDescription(
+        key="storage.availableEnergy",
+        translation_key="storage_available_energy",
+        device_class=SensorDeviceClass.ENERGY_STORAGE,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="powerFlow.battery.power",
+        translation_key="power_flow_battery",
+        device_class=SensorDeviceClass.POWER,
+        native_unit_of_measurement=UnitOfPower.WATT,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="powerFlow.grid.power",
+        translation_key="power_flow_grid",
+        device_class=SensorDeviceClass.POWER,
+        native_unit_of_measurement=UnitOfPower.WATT,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="powerFlow.load.power",
+        translation_key="power_flow_load",
+        device_class=SensorDeviceClass.POWER,
+        native_unit_of_measurement=UnitOfPower.WATT,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="powerFlow.toGrid",
+        translation_key="power_flow_to_grid",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="powerFlow.toLoad",
+        translation_key="power_flow_to_load",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="powerFlow.fromGrid",
+        translation_key="power_flow_from_grid",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="powerFlow.fromLoad",
+        translation_key="power_flow_from_load",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.hour.battery.charged",
+        translation_key="energy_flow_hour_battery_charged",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.hour.battery.discharged",
+        translation_key="energy_flow_hour_battery_discharged",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.hour.battery.source.grid",
+        translation_key="energy_flow_hour_battery_source_grid",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.hour.battery.source.load",
+        translation_key="energy_flow_hour_battery_source_load",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.hour.grid.imported",
+        translation_key="energy_flow_hour_grid_imported",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.hour.grid.exported",
+        translation_key="energy_flow_hour_grid_exported",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.hour.load.consumed",
+        translation_key="energy_flow_hour_load_consumed",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.hour.load.generated",
+        translation_key="energy_flow_hour_load_generated",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.hour.load.source.battery",
+        translation_key="energy_flow_hour_load_source_battery",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.hour.load.source.grid",
+        translation_key="energy_flow_hour_load_source_grid",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.month.battery.charged",
+        translation_key="energy_flow_month_battery_charged",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.month.battery.discharged",
+        translation_key="energy_flow_month_battery_discharged",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.month.battery.source.grid",
+        translation_key="energy_flow_month_battery_source_grid",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.month.battery.source.battery",
+        translation_key="energy_flow_month_battery_source_battery",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.month.battery.source.load",
+        translation_key="energy_flow_month_battery_source_load",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.month.grid.imported",
+        translation_key="energy_flow_month_grid_imported",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.month.grid.exported",
+        translation_key="energy_flow_month_grid_exported",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.month.grid.source.battery",
+        translation_key="energy_flow_month_grid_source_battery",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.month.grid.source.grid",
+        translation_key="energy_flow_month_grid_source_grid",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.month.grid.source.load",
+        translation_key="energy_flow_month_grid_source_load",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.month.load.consumed",
+        translation_key="energy_flow_month_load_consumed",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.month.load.generated",
+        translation_key="energy_flow_month_load_generated",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.month.load.source.battery",
+        translation_key="energy_flow_month_load_source_battery",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="energyFlow.month.load.source.grid",
+        translation_key="energy_flow_month_load_source_grid",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="range.remaining",
+        translation_key="range_remaining",
+        device_class=SensorDeviceClass.DISTANCE,
+        native_unit_of_measurement=UnitOfLength.METERS,
+        suggested_unit_of_measurement=UnitOfLength.KILOMETERS,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+    ),
+    SensorEntityDescription(
+        key="charging.current.max",
+        translation_key="charging_current_max",
+        device_class=SensorDeviceClass.CURRENT,
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="charging.current.offlineFallback",
+        translation_key="charging_current_offline_fallback",
+        device_class=SensorDeviceClass.CURRENT,
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="temp.setpoint",
+        translation_key="temp_setpoint",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="temp.current",
+        translation_key="temp_current",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="temp.comfort",
+        translation_key="temp_comfort",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="grid.phaseCount",
+        translation_key="grid_phase_count",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: TibberConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the Tibber sensor."""
 
-    tibber_connection = hass.data[DOMAIN]
+    _setup_data_api_sensors(entry, async_add_entities)
+    await _async_setup_graphql_sensors(hass, entry, async_add_entities)
+
+
+async def _async_setup_graphql_sensors(
+    hass: HomeAssistant,
+    entry: TibberConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+) -> None:
+    """Set up the Tibber sensor."""
+
+    tibber_connection = await entry.runtime_data.async_get_client(hass)
 
     entity_registry = er.async_get(hass)
-    device_registry = dr.async_get(hass)
 
-    coordinator: TibberDataCoordinator | None = None
+    coordinator = entry.runtime_data.data_coordinator
+    price_coordinator = entry.runtime_data.price_coordinator
     entities: list[TibberSensor] = []
     for home in tibber_connection.get_homes(only_active=False):
         try:
@@ -280,14 +616,17 @@ async def async_setup_entry(
         except TimeoutError as err:
             _LOGGER.error("Timeout connecting to Tibber home: %s ", err)
             raise PlatformNotReady from err
-        except (tibber.RetryableHttpExceptionError, aiohttp.ClientError) as err:
+        except (
+            RetryableHttpExceptionError,
+            FatalHttpExceptionError,
+            aiohttp.ClientError,
+        ) as err:
             _LOGGER.error("Error connecting to Tibber home: %s ", err)
             raise PlatformNotReady from err
 
-        if home.has_active_subscription:
-            entities.append(TibberSensorElPrice(home))
-            if coordinator is None:
-                coordinator = TibberDataCoordinator(hass, entry, tibber_connection)
+        if price_coordinator is not None and home.has_active_subscription:
+            entities.append(TibberSensorElPrice(price_coordinator, home))
+        if coordinator is not None and home.has_active_subscription:
             entities.extend(
                 TibberDataSensor(home, coordinator, entity_description)
                 for entity_description in SENSORS
@@ -297,35 +636,76 @@ async def async_setup_entry(
             entity_creator = TibberRtEntityCreator(
                 async_add_entities, home, entity_registry
             )
+            rt_coordinator = TibberRtDataCoordinator(
+                hass,
+                entry,
+                entity_creator.add_sensors,
+                home,
+            )
             await home.rt_subscribe(
-                TibberRtDataCoordinator(
-                    hass,
-                    entry,
-                    entity_creator.add_sensors,
-                    home,
-                ).async_set_updated_data
+                rt_coordinator.async_set_updated_data,
+                on_error=rt_coordinator.async_set_update_error,
             )
 
-        # migrate
-        old_id = home.info["viewer"]["home"]["meteringPointData"]["consumptionEan"]
-        if old_id is None:
-            continue
+    async_add_entities(entities)
 
-        # migrate to new device ids
-        old_entity_id = entity_registry.async_get_entity_id("sensor", DOMAIN, old_id)
-        if old_entity_id is not None:
-            entity_registry.async_update_entity(
-                old_entity_id, new_unique_id=home.home_id
-            )
 
-        # migrate to new device ids
-        device_entry = device_registry.async_get_device(identifiers={(DOMAIN, old_id)})
-        if device_entry and entry.entry_id in device_entry.config_entries:
-            device_registry.async_update_device(
-                device_entry.id, new_identifiers={(DOMAIN, home.home_id)}
-            )
+def _setup_data_api_sensors(
+    entry: TibberConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+) -> None:
+    """Set up sensors backed by the Tibber Data API."""
 
-    async_add_entities(entities, True)
+    coordinator = entry.runtime_data.data_api_coordinator
+    if coordinator is None:
+        return
+
+    entities: list[TibberDataAPISensor] = []
+    api_sensors = {sensor.key: sensor for sensor in DATA_API_SENSORS}
+
+    for device in coordinator.data.values():
+        for sensor in device.sensors:
+            description: SensorEntityDescription | None = api_sensors.get(sensor.id)
+            if description is None:
+                continue
+            entities.append(TibberDataAPISensor(coordinator, device, description))
+    async_add_entities(entities)
+
+
+class TibberDataAPISensor(CoordinatorEntity[TibberDataAPICoordinator], SensorEntity):
+    """Representation of a Tibber Data API capability sensor."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: TibberDataAPICoordinator,
+        device: TibberDevice,
+        entity_description: SensorEntityDescription,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+
+        self._device_id: str = device.id
+        self.entity_description = entity_description
+        self._attr_translation_key = entity_description.translation_key
+
+        self._attr_unique_id = f"{device.id}_{self.entity_description.key}"
+
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, device.id)},
+            name=device.name,
+            manufacturer=device.brand,
+            model=device.model,
+        )
+
+    @property
+    @override
+    def native_value(self) -> StateType:
+        """Return the value reported by the device."""
+        sensors = self.coordinator.sensors_by_device.get(self._device_id, {})
+        sensor = sensors.get(self.entity_description.key)
+        return sensor.value if sensor else None
 
 
 class TibberSensor(SensorEntity):
@@ -333,9 +713,7 @@ class TibberSensor(SensorEntity):
 
     _attr_has_entity_name = True
 
-    def __init__(
-        self, *args: Any, tibber_home: tibber.TibberHome, **kwargs: Any
-    ) -> None:
+    def __init__(self, *args: Any, tibber_home: TibberHome, **kwargs: Any) -> None:
         """Initialize the sensor."""
         super().__init__(*args, **kwargs)
         self._tibber_home = tibber_home
@@ -348,6 +726,7 @@ class TibberSensor(SensorEntity):
         self._model: str | None = None
 
     @property
+    @override
     def device_info(self) -> DeviceInfo:
         """Return the device_info of the device."""
         device_info = DeviceInfo(
@@ -356,23 +735,25 @@ class TibberSensor(SensorEntity):
             manufacturer=MANUFACTURER,
         )
         if self._model is not None:
-            device_info["model"] = self._model
+            device_info.model = self._model
         return device_info
 
 
-class TibberSensorElPrice(TibberSensor):
+class TibberSensorElPrice(TibberSensor, CoordinatorEntity[TibberPriceCoordinator]):
     """Representation of a Tibber sensor for el price."""
 
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_translation_key = "electricity_price"
 
-    def __init__(self, tibber_home: tibber.TibberHome) -> None:
+    def __init__(
+        self,
+        coordinator: TibberPriceCoordinator,
+        tibber_home: TibberHome,
+    ) -> None:
         """Initialize the sensor."""
-        super().__init__(tibber_home=tibber_home)
-        self._last_updated: datetime.datetime | None = None
-        self._spread_load_constant = randrange(TWENTY_MINUTES)
-
-        self._attr_available = False
+        super().__init__(coordinator=coordinator, tibber_home=tibber_home)
+        self._price_data_available = False
+        self._attr_native_unit_of_measurement = tibber_home.price_unit
         self._attr_extra_state_attributes = {
             "app_nickname": None,
             "grid_company": None,
@@ -390,52 +771,51 @@ class TibberSensorElPrice(TibberSensor):
         self._model = "Price Sensor"
 
         self._device_name = self._home_name
+        self._update_attributes()
 
-    async def async_update(self) -> None:
-        """Get the latest data and updates the states."""
-        now = dt_util.now()
-        if (
-            not self._tibber_home.last_data_timestamp
-            or (self._tibber_home.last_data_timestamp - now).total_seconds()
-            < 10 * 3600 - self._spread_load_constant
-            or not self.available
-        ):
-            _LOGGER.debug("Asking for new data")
-            await self._fetch_data()
+    @property
+    @override
+    def available(self) -> bool:
+        """Return if the sensor is available."""
+        return super().available and self._price_data_available
 
-        elif (
-            self._tibber_home.price_total
-            and self._last_updated
-            and self._last_updated.hour == now.hour
-            and now - self._last_updated < timedelta(minutes=15)
-            and self._tibber_home.last_data_timestamp
+    @callback
+    @override
+    def _handle_coordinator_update(self) -> None:
+        self._update_attributes()
+        super()._handle_coordinator_update()
+
+    @callback
+    def _update_attributes(self) -> None:
+        """Handle updated data from the coordinator."""
+        data = self.coordinator.data
+        if not data or (
+            (home_data := data.get(self._tibber_home.home_id)) is None
+            or (current_price := home_data.get("current_price")) is None
         ):
+            self._price_data_available = False
+            self._attr_native_value = None
             return
 
-        res = self._tibber_home.current_price_data()
-        self._attr_native_value, self._last_updated, price_rank = res
-        self._attr_extra_state_attributes["intraday_price_ranking"] = price_rank
-
-        attrs = self._tibber_home.current_attributes()
-        self._attr_extra_state_attributes.update(attrs)
-        self._attr_available = self._attr_native_value is not None
-        self._attr_native_unit_of_measurement = self._tibber_home.price_unit
-
-    @Throttle(MIN_TIME_BETWEEN_UPDATES)
-    async def _fetch_data(self) -> None:
-        _LOGGER.debug("Fetching data")
-        try:
-            await self._tibber_home.update_info_and_price_info()
-        except (TimeoutError, aiohttp.ClientError):
-            return
-        data = self._tibber_home.info["viewer"]["home"]
-        self._attr_extra_state_attributes["app_nickname"] = data["appNickname"]
-        self._attr_extra_state_attributes["grid_company"] = data["meteringPointData"][
-            "gridCompany"
+        self._attr_native_unit_of_measurement = home_data.get(
+            "price_unit", self._tibber_home.price_unit
+        )
+        self._attr_native_value = current_price
+        self._attr_extra_state_attributes["intraday_price_ranking"] = home_data.get(
+            "intraday_price_ranking"
+        )
+        self._attr_extra_state_attributes["max_price"] = home_data["max_price"]
+        self._attr_extra_state_attributes["avg_price"] = home_data["avg_price"]
+        self._attr_extra_state_attributes["min_price"] = home_data["min_price"]
+        self._attr_extra_state_attributes["off_peak_1"] = home_data["off_peak_1"]
+        self._attr_extra_state_attributes["peak"] = home_data["peak"]
+        self._attr_extra_state_attributes["off_peak_2"] = home_data["off_peak_2"]
+        self._attr_extra_state_attributes["app_nickname"] = home_data["app_nickname"]
+        self._attr_extra_state_attributes["grid_company"] = home_data["grid_company"]
+        self._attr_extra_state_attributes["estimated_annual_consumption"] = home_data[
+            "estimated_annual_consumption"
         ]
-        self._attr_extra_state_attributes["estimated_annual_consumption"] = data[
-            "meteringPointData"
-        ]["estimatedAnnualConsumption"]
+        self._price_data_available = True
 
 
 class TibberDataSensor(TibberSensor, CoordinatorEntity[TibberDataCoordinator]):
@@ -443,7 +823,7 @@ class TibberDataSensor(TibberSensor, CoordinatorEntity[TibberDataCoordinator]):
 
     def __init__(
         self,
-        tibber_home: tibber.TibberHome,
+        tibber_home: TibberHome,
         coordinator: TibberDataCoordinator,
         entity_description: SensorEntityDescription,
     ) -> None:
@@ -460,6 +840,7 @@ class TibberDataSensor(TibberSensor, CoordinatorEntity[TibberDataCoordinator]):
         self._device_name = self._home_name
 
     @property
+    @override
     def native_value(self) -> StateType:
         """Return the value of the sensor."""
         return getattr(self._tibber_home, self.entity_description.key)  # type: ignore[no-any-return]
@@ -470,7 +851,7 @@ class TibberSensorRT(TibberSensor, CoordinatorEntity["TibberRtDataCoordinator"])
 
     def __init__(
         self,
-        tibber_home: tibber.TibberHome,
+        tibber_home: TibberHome,
         description: SensorEntityDescription,
         initial_state: float,
         coordinator: TibberRtDataCoordinator,
@@ -488,16 +869,24 @@ class TibberSensorRT(TibberSensor, CoordinatorEntity["TibberRtDataCoordinator"])
             self._attr_native_unit_of_measurement = tibber_home.currency
 
     @property
+    @override
     def available(self) -> bool:
         """Return True if entity is available."""
-        return self._tibber_home.rt_subscription_running
+        return (
+            super().available
+            and bool(self.coordinator.get_live_measurement())
+            and self._tibber_home.rt_subscription_running
+        )
 
     @callback
+    @override
     def _handle_coordinator_update(self) -> None:
         if not (live_measurement := self.coordinator.get_live_measurement()):
+            self.async_write_ha_state()
             return
         state = live_measurement.get(self.entity_description.key)
         if state is None:
+            self.async_write_ha_state()
             return
         if self.entity_description.key in (
             "accumulatedConsumption",
@@ -532,7 +921,7 @@ class TibberRtEntityCreator:
     def __init__(
         self,
         async_add_entities: AddConfigEntryEntitiesCallback,
-        tibber_home: tibber.TibberHome,
+        tibber_home: TibberHome,
         entity_registry: er.EntityRegistry,
     ) -> None:
         """Initialize the data handler."""
@@ -610,15 +999,15 @@ class TibberRtEntityCreator:
             self._async_add_entities(new_entities)
 
 
-class TibberRtDataCoordinator(DataUpdateCoordinator):  # pylint: disable=hass-enforce-class-module
+class TibberRtDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # pylint: disable=home-assistant-enforce-class-module
     """Handle Tibber realtime data."""
 
     def __init__(
         self,
         hass: HomeAssistant,
-        config_entry: ConfigEntry,
+        config_entry: TibberConfigEntry,
         add_sensor_callback: Callable[[TibberRtDataCoordinator, Any], None],
-        tibber_home: tibber.TibberHome,
+        tibber_home: TibberHome,
     ) -> None:
         """Initialize the data handler."""
         self._add_sensor_callback = add_sensor_callback
@@ -631,25 +1020,47 @@ class TibberRtDataCoordinator(DataUpdateCoordinator):  # pylint: disable=hass-en
             ),
         )
 
-        self._async_remove_device_updates_handler = self.async_add_listener(
-            self._data_updated
+        self._async_remove_device_updates_handler: CALLBACK_TYPE | None = (
+            self.async_add_listener(self._data_updated)
         )
-        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, self._handle_ha_stop)
+        self._async_remove_stop_handler: CALLBACK_TYPE | None = (
+            hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, self._handle_ha_stop)
+        )
+        config_entry.async_on_unload(self._remove_listeners)
+
+    @callback
+    def _remove_listeners(self) -> None:
+        """Remove listeners owned by this coordinator."""
+        if remove := self._async_remove_stop_handler:
+            self._async_remove_stop_handler = None
+            remove()
+        if remove := self._async_remove_device_updates_handler:
+            self._async_remove_device_updates_handler = None
+            remove()
 
     @callback
     def _handle_ha_stop(self, _event: Event) -> None:
         """Handle Home Assistant stopping."""
-        self._async_remove_device_updates_handler()
+        self._async_remove_stop_handler = None
+        self._remove_listeners()
 
     @callback
     def _data_updated(self) -> None:
         """Triggered when data is updated."""
+        if (
+            self.last_update_success
+            and self.data is not None
+            and (errors := self.data.get("errors"))
+        ):
+            _LOGGER.error(errors[0])
+            return
         if live_measurement := self.get_live_measurement():
             self._add_sensor_callback(self, live_measurement)
 
     def get_live_measurement(self) -> Any:
         """Get live measurement data."""
-        if errors := self.data.get("errors"):
-            _LOGGER.error(errors[0])
+        if not self.last_update_success or self.data is None:
+            return None
+        if self.data.get("errors"):
             return None
         return self.data.get("data", {}).get("liveMeasurement")

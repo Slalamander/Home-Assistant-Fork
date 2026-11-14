@@ -4,6 +4,7 @@ from datetime import timedelta
 from unittest.mock import Mock, patch
 
 import pytest
+from pytest_homeassistant.common import async_fire_time_changed, snapshot_platform
 from requests.exceptions import HTTPError
 from syrupy.assertion import SnapshotAssertion
 
@@ -26,8 +27,6 @@ from . import (
     setup_config_entry,
 )
 from .const import CONF_FAKE_NAME, MOCK_CONFIG
-
-from tests.common import async_fire_time_changed, snapshot_platform
 
 ENTITY_ID = f"{SENSOR_DOMAIN}.{CONF_FAKE_NAME}"
 
@@ -80,20 +79,21 @@ async def test_update(hass: HomeAssistant, fritz: Mock) -> None:
 async def test_update_error(hass: HomeAssistant, fritz: Mock) -> None:
     """Test update with error."""
     device = FritzDeviceSensorMock()
-    fritz().update_devices.side_effect = HTTPError("Boom")
+    fritz().update_devices.side_effect = ["", HTTPError("Boom"), ""]
     entry = await setup_config_entry(
-        hass, MOCK_CONFIG[DOMAIN][CONF_DEVICES][0], ENTITY_ID, device, fritz
+        hass, MOCK_CONFIG[DOMAIN][CONF_DEVICES][0], device=device, fritz=fritz
     )
-    assert entry.state is ConfigEntryState.SETUP_RETRY
-    assert fritz().update_devices.call_count == 2
-    assert fritz().login.call_count == 2
+    assert entry.state is ConfigEntryState.LOADED
 
-    next_update = dt_util.utcnow() + timedelta(seconds=200)
+    assert fritz().update_devices.call_count == 1
+    assert fritz().login.call_count == 1
+
+    next_update = dt_util.utcnow() + timedelta(seconds=35)
     async_fire_time_changed(hass, next_update)
     await hass.async_block_till_done(wait_background_tasks=True)
 
-    assert fritz().update_devices.call_count == 4
-    assert fritz().login.call_count == 4
+    assert fritz().update_devices.call_count == 3
+    assert fritz().login.call_count == 2
 
 
 async def test_discover_new_device(hass: HomeAssistant, fritz: Mock) -> None:
@@ -170,3 +170,43 @@ async def test_next_change_sensors(
     state = hass.states.get(f"{base_name}_current_scheduled_preset")
     assert state
     assert state.state == expected_states[3]
+
+
+@pytest.mark.parametrize(
+    ("attribute", "value", "entity_id", "expected_state"),
+    [
+        pytest.param(
+            "power", None, f"{ENTITY_ID}_power", STATE_UNKNOWN, id="power_missing"
+        ),
+        pytest.param("power", 0, f"{ENTITY_ID}_power", "0.0", id="power_zero"),
+        pytest.param(
+            "voltage", None, f"{ENTITY_ID}_voltage", STATE_UNKNOWN, id="voltage_missing"
+        ),
+        pytest.param(
+            "current", None, f"{ENTITY_ID}_current", STATE_UNKNOWN, id="current_missing"
+        ),
+        pytest.param(
+            "energy", None, f"{ENTITY_ID}_energy", STATE_UNKNOWN, id="energy_missing"
+        ),
+        pytest.param("energy", 0, f"{ENTITY_ID}_energy", "0.0", id="energy_zero"),
+    ],
+)
+async def test_powermeter_missing_values(
+    hass: HomeAssistant,
+    fritz: Mock,
+    attribute: str,
+    value: int | None,
+    entity_id: str,
+    expected_state: str,
+) -> None:
+    """Test powermeter sensors do not report 0 for missing values."""
+    device = FritzDeviceSwitchMock()
+    setattr(device, attribute, value)
+
+    await setup_config_entry(
+        hass, MOCK_CONFIG[DOMAIN][CONF_DEVICES][0], ENTITY_ID, device, fritz
+    )
+
+    state = hass.states.get(entity_id)
+    assert state
+    assert state.state == expected_state

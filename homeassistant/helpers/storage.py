@@ -1,7 +1,5 @@
 """Helper to help store data."""
 
-from __future__ import annotations
-
 import asyncio
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import suppress
@@ -28,10 +26,10 @@ from homeassistant.core import (
     HomeAssistant,
     callback,
 )
-from homeassistant.exceptions import HomeAssistantError
-from homeassistant.loader import bind_hass
+from homeassistant.exceptions import HomeAssistantError, UnsupportedStorageVersionError
 from homeassistant.util import dt as dt_util, json as json_util
-from homeassistant.util.file import WriteError
+from homeassistant.util.async_ import wait_shared_future
+from homeassistant.util.file import WriteError, write_utf8_file, write_utf8_file_atomic
 from homeassistant.util.hass_dict import HassKey
 
 from . import json as json_helper
@@ -49,7 +47,6 @@ STORAGE_MANAGER: HassKey[_StoreManager] = HassKey("storage_manager")
 MANAGER_CLEANUP_DELAY = 60
 
 
-@bind_hass
 async def async_migrator[_T: Mapping[str, Any] | Sequence[Any]](
     hass: HomeAssistant,
     old_path: str,
@@ -226,7 +223,72 @@ class _StoreManager:
             self._files = set(os.listdir(self._storage_path))
 
 
-@bind_hass
+class _FileStoreIO:
+    """File operations and preload cache for one Store."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        key: str,
+        path: str,
+        private: bool,
+        atomic_writes: bool,
+    ) -> None:
+        self._hass = hass
+        self._key = key
+        self._manager = get_internal_store_manager(hass)
+        self.path = path
+        self._private = private
+        self._atomic_writes = atomic_writes
+
+    async def async_load(self) -> json_util.JsonValueType:
+        """Read from the file cache or disk."""
+        if cache := self._manager.async_fetch(self._key):
+            exists, data = cache
+            return data if exists else {}
+        return await self._hass.async_add_executor_job(self._load)
+
+    async def async_write(self, mode: str, json_data: str | bytes) -> None:
+        """Persist a prepared storage envelope in the executor."""
+        await self._hass.async_add_executor_job(self._write, mode, json_data)
+
+    async def async_move_corrupt(self, postfix: str) -> str:
+        """Preserve a corrupt file in the executor."""
+        return await self._hass.async_add_executor_job(self._move_corrupt, postfix)
+
+    async def async_remove(self) -> None:
+        """Remove the stored envelope in the executor."""
+        await self._hass.async_add_executor_job(self._remove)
+
+    @callback
+    def async_invalidate_cache(self) -> None:
+        """Invalidate file data before a write or removal."""
+        self._manager.async_invalidate(self._key)
+
+    def _load(self) -> json_util.JsonValueType:
+        """Read the serialized storage envelope."""
+        return json_util.load_json(self.path)
+
+    def _write(self, mode: str, json_data: str | bytes) -> None:
+        """Persist a prepared storage envelope."""
+        os.makedirs(os.path.dirname(self.path), exist_ok=True)
+        write_method = (
+            write_utf8_file_atomic if self._atomic_writes else write_utf8_file
+        )
+        write_method(self.path, json_data, self._private, mode=mode)
+
+    def _move_corrupt(self, postfix: str) -> str:
+        """Preserve a corrupt file for recovery."""
+        corrupt_path = f"{self.path}{postfix}"
+        os.rename(self.path, corrupt_path)
+        return corrupt_path
+
+    def _remove(self) -> None:
+        """Remove the stored envelope, if present."""
+        with suppress(FileNotFoundError):
+            os.unlink(self.path)
+
+
 class Store[_T: Mapping[str, Any] | Sequence[Any]]:
     """Class to help storing data."""
 
@@ -239,25 +301,50 @@ class Store[_T: Mapping[str, Any] | Sequence[Any]]:
         *,
         atomic_writes: bool = False,
         encoder: type[JSONEncoder] | None = None,
+        max_readable_version: int | None = None,
         minor_version: int = 1,
         read_only: bool = False,
+        serialize_in_event_loop: bool = True,
     ) -> None:
-        """Initialize storage class."""
+        """Initialize storage class.
+
+        Args:
+            max_readable_version: Maximum major version that can be read. Defaults
+            to version. Set higher than version to support forward compatibility,
+            allowing reading data written by newer versions (e.g., after downgrade).
+
+            serialize_in_event_loop: Whether to serialize data in the event loop.
+            Set to True (default) if data passed to async_save and data produced by
+            data_func passed to async_delay_save needs to be serialized in the event
+            loop because it is not thread safe.
+
+            Set to False if the data passed to async_save and data produced by
+            data_func passed to async_delay_save can safely be accessed from a
+            separate thread, i.e. the data is thread safe and not mutated by other
+            code while serialization is in progress.
+
+            Users should support serializing in a separate thread for stores which
+            are expected to store large amounts of data to avoid blocking the event
+            loop during serialization.
+        """
         self.version = version
         self.minor_version = minor_version
         self.key = key
         self.hass = hass
-        self._private = private
+        self._io = _FileStoreIO(hass, key, self.path, private, atomic_writes)
         self._data: dict[str, Any] | None = None
         self._delay_handle: asyncio.TimerHandle | None = None
         self._unsub_final_write_listener: CALLBACK_TYPE | None = None
         self._write_lock = asyncio.Lock()
         self._load_future: asyncio.Future[_T | None] | None = None
         self._encoder = encoder
-        self._atomic_writes = atomic_writes
         self._read_only = read_only
+        self._load_empty = False
+        self._max_readable_version = (
+            max_readable_version if max_readable_version is not None else version
+        )
         self._next_write_time = 0.0
-        self._manager = get_internal_store_manager(hass)
+        self._serialize_in_event_loop = serialize_in_event_loop
 
     @cached_property
     def path(self):
@@ -271,6 +358,14 @@ class Store[_T: Mapping[str, Any] | Sequence[Any]]:
         """
         self._read_only = True
 
+    def set_load_empty(self) -> None:
+        """Set the store to load empty data and become read-only.
+
+        When set, the store will skip loading data from disk and return None,
+        while also becoming read-only to preserve on-disk data untouched.
+        """
+        self._load_empty = True
+
     async def async_load(self) -> _T | None:
         """Load data.
 
@@ -282,7 +377,7 @@ class Store[_T: Mapping[str, Any] | Sequence[Any]]:
         the second call will wait and return the result of the first call.
         """
         if self._load_future:
-            return await self._load_future
+            return await wait_shared_future(self._load_future)
 
         self._load_future = self.hass.loop.create_future()
         try:
@@ -310,6 +405,12 @@ class Store[_T: Mapping[str, Any] | Sequence[Any]]:
 
     async def _async_load_data(self):
         """Load the data."""
+        # When load_empty is set, skip loading storage files and use empty
+        # data while preserving the on-disk files untouched.
+        if self._load_empty:
+            self.make_read_only()
+            return None
+
         # Check if we have a pending write
         if self._data is not None:
             data = self._data
@@ -321,27 +422,19 @@ class Store[_T: Mapping[str, Any] | Sequence[Any]]:
             # We make a copy because code might assume it's safe to mutate loaded data
             # and we don't want that to mess with what we're trying to store.
             data = deepcopy(data)
-        elif cache := self._manager.async_fetch(self.key):
-            exists, data = cache
-            if not exists:
-                return None
         else:
             try:
-                data = await self.hass.async_add_executor_job(
-                    json_util.load_json, self.path
-                )
+                data = await self._io.async_load()
             except HomeAssistantError as err:
                 if isinstance(err.__cause__, JSONDecodeError):
                     # If we have a JSONDecodeError, it means the file is corrupt.
-                    # We can't recover from this, so we'll log an error, rename the file and
+                    # We can't recover from this, so we'll log
+                    # an error, rename the file and
                     # return None so that we can start with a clean slate which will
                     # allow startup to continue so they can restore from a backup.
                     isotime = dt_util.utcnow().isoformat()
                     corrupt_postfix = f".corrupt.{isotime}"
-                    corrupt_path = f"{self.path}{corrupt_postfix}"
-                    await self.hass.async_add_executor_job(
-                        os.rename, self.path, corrupt_path
-                    )
+                    corrupt_path = await self._io.async_move_corrupt(corrupt_postfix)
                     storage_key = self.key
                     _LOGGER.error(
                         "Unrecoverable error decoding storage %s at %s; "
@@ -354,10 +447,7 @@ class Store[_T: Mapping[str, Any] | Sequence[Any]]:
                         corrupt_path,
                         err,
                     )
-                    from .issue_registry import (  # noqa: PLC0415
-                        IssueSeverity,
-                        async_create_issue,
-                    )
+                    from .issue_registry import IssueSeverity, async_create_issue  # noqa: PLC0415
 
                     issue_domain = HOMEASSISTANT_DOMAIN
                     if (
@@ -397,6 +487,10 @@ class Store[_T: Mapping[str, Any] | Sequence[Any]]:
         ):
             stored = data["data"]
         else:
+            if data["version"] > self._max_readable_version:
+                raise UnsupportedStorageVersionError(
+                    self.key, data["version"], self._max_readable_version
+                )
             _LOGGER.info(
                 "Migrating %s storage from %s.%s to %s.%s",
                 self.key,
@@ -441,7 +535,13 @@ class Store[_T: Mapping[str, Any] | Sequence[Any]]:
         data_func: Callable[[], _T],
         delay: float = 0,
     ) -> None:
-        """Save data with an optional delay."""
+        """Save data with an optional delay.
+
+        data_func: A function that returns the data to save. If serialize_in_event_loop
+        is True, it will be called from and the returned data will be serialized in the
+        in the event loop. If serialize_in_event_loop is False, it will be called from
+        and the returned data will be serialized by a separate thread.
+        """
         self._data = {
             "version": self.version,
             "minor_version": self.minor_version,
@@ -522,7 +622,7 @@ class Store[_T: Mapping[str, Any] | Sequence[Any]]:
     async def _async_handle_write_data(self, *_args):
         """Handle writing the config."""
         async with self._write_lock:
-            self._manager.async_invalidate(self.key)
+            self._io.async_invalidate_cache()
             self._async_cleanup_delay_listener()
             self._async_cleanup_final_write_listener()
 
@@ -537,28 +637,25 @@ class Store[_T: Mapping[str, Any] | Sequence[Any]]:
                 return
 
             try:
-                await self._async_write_data(self.path, data)
+                await self._async_write_data(data)
             except (json_util.SerializationError, WriteError) as err:
                 _LOGGER.error("Error writing config for %s: %s", self.key, err)
 
-    async def _async_write_data(self, path: str, data: dict) -> None:
-        await self.hass.async_add_executor_job(self._write_data, self.path, data)
+    async def _async_write_data(self, data: dict) -> None:
+        if self._serialize_in_event_loop:
+            mode, json_data = self._prepare_data(data)
+        else:
+            mode, json_data = await self.hass.async_add_executor_job(
+                self._prepare_data, data
+            )
+        _LOGGER.debug("Writing data for %s to %s", self.key, self.path)
+        await self._io.async_write(mode, json_data)
 
-    def _write_data(self, path: str, data: dict) -> None:
-        """Write the data."""
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-
+    def _prepare_data(self, data: dict) -> tuple[str, str | bytes]:
+        """Serialize data for the I/O implementation."""
         if "data_func" in data:
             data["data"] = data.pop("data_func")()
-
-        _LOGGER.debug("Writing data for %s to %s", self.key, path)
-        json_helper.save_json(
-            path,
-            data,
-            self._private,
-            encoder=self._encoder,
-            atomic_writes=self._atomic_writes,
-        )
+        return json_helper.prepare_save_json(data, encoder=self._encoder)
 
     async def _async_migrate_func(self, old_major_version, old_minor_version, old_data):
         """Migrate to the new version."""
@@ -566,9 +663,10 @@ class Store[_T: Mapping[str, Any] | Sequence[Any]]:
 
     async def async_remove(self) -> None:
         """Remove all data."""
-        self._manager.async_invalidate(self.key)
+        self._data = None
         self._async_cleanup_delay_listener()
         self._async_cleanup_final_write_listener()
 
-        with suppress(FileNotFoundError):
-            await self.hass.async_add_executor_job(os.unlink, self.path)
+        async with self._write_lock:
+            self._io.async_invalidate_cache()
+            await self._io.async_remove()

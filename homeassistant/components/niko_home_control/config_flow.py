@@ -1,12 +1,10 @@
 """Config flow for the Niko home control integration."""
 
-from __future__ import annotations
-
 import logging
-from typing import Any
+from typing import Any, override
 
 from nhc.controller import NHCController
-import voluptuous as vol
+import probatio
 
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST
@@ -15,9 +13,9 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-DATA_SCHEMA = vol.Schema(
+DATA_SCHEMA = probatio.Schema(
     {
-        vol.Required(CONF_HOST): str,
+        probatio.Required(CONF_HOST): str,
     }
 )
 
@@ -28,9 +26,13 @@ async def test_connection(host: str) -> str | None:
     controller = NHCController(host, 8000)
     try:
         await controller.connect()
-    except Exception:
-        _LOGGER.exception("Unexpected exception")
+    except TimeoutError:
+        return "timeout_connect"
+    except OSError:
         return "cannot_connect"
+    except Exception:
+        _LOGGER.exception("Unexpected exception during connection")
+        return "unknown"
     return None
 
 
@@ -58,6 +60,7 @@ class NikoHomeControlConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="reconfigure", data_schema=DATA_SCHEMA, errors=errors
         )
 
+    @override
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:

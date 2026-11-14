@@ -1,8 +1,10 @@
 {
   "domain": "lyric",
   "name": "Honeywell Lyric",
+  "categories": ["climate.thermostats_heating"],
   "codeowners": ["@timmo001"],
   "config_flow": true,
+  "connectivity": ["cloud"],
   "dependencies": ["application_credentials"],
   "dhcp": [
     {
@@ -19,7 +21,8 @@
     }
   ],
   "documentation": "https://www.home-assistant.io/integrations/lyric",
+  "integration_type": "hub",
   "iot_class": "cloud_polling",
   "loggers": ["aiolyric"],
-  "requirements": ["aiolyric==2.0.2"]
+  "requirements": ["aiolyric==2.2.1"]
 }

@@ -6,9 +6,15 @@ import aiohttp
 from freezegun.api import FrozenDateTimeFactory
 from pynws import NwsNoDataError
 import pytest
+from pytest_homeassistant.common import MockConfigEntry, async_fire_time_changed
+from pytest_homeassistant.typing import WebSocketGenerator
 from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components import nws
+from homeassistant.components.homeassistant import (
+    DOMAIN as HOMEASSISTANT_DOMAIN,
+    SERVICE_UPDATE_ENTITY,
+)
 from homeassistant.components.nws.const import (
     DEFAULT_SCAN_INTERVAL,
     OBSERVATION_VALID_TIME,
@@ -17,7 +23,7 @@ from homeassistant.components.weather import (
     ATTR_CONDITION_CLEAR_NIGHT,
     ATTR_CONDITION_SUNNY,
     DOMAIN as WEATHER_DOMAIN,
-    SERVICE_GET_FORECASTS,
+    WeatherService,
 )
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
@@ -35,9 +41,6 @@ from .const import (
     WEATHER_EXPECTED_OBSERVATION_IMPERIAL,
     WEATHER_EXPECTED_OBSERVATION_METRIC,
 )
-
-from tests.common import MockConfigEntry, async_fire_time_changed
-from tests.typing import WebSocketGenerator
 
 
 @pytest.mark.parametrize(
@@ -64,12 +67,13 @@ async def test_imperial_metric(
     entry = MockConfigEntry(
         domain=nws.DOMAIN,
         data=NWS_CONFIG,
+        version=2,
     )
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    state = hass.states.get("weather.abc")
+    state = hass.states.get("weather.nws_35_75_abc")
 
     assert state
     assert state.state == ATTR_CONDITION_SUNNY
@@ -87,12 +91,13 @@ async def test_night_clear(hass: HomeAssistant, mock_simple_nws, no_sensor) -> N
     entry = MockConfigEntry(
         domain=nws.DOMAIN,
         data=NWS_CONFIG,
+        version=2,
     )
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    state = hass.states.get("weather.abc")
+    state = hass.states.get("weather.nws_35_75_abc")
     assert state.state == ATTR_CONDITION_CLEAR_NIGHT
 
 
@@ -105,12 +110,13 @@ async def test_none_values(hass: HomeAssistant, mock_simple_nws, no_sensor) -> N
     entry = MockConfigEntry(
         domain=nws.DOMAIN,
         data=NWS_CONFIG,
+        version=2,
     )
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    state = hass.states.get("weather.abc")
+    state = hass.states.get("weather.nws_35_75_abc")
     assert state.state == STATE_UNKNOWN
     data = state.attributes
     for key in WEATHER_EXPECTED_OBSERVATION_IMPERIAL:
@@ -130,12 +136,13 @@ async def test_data_caching_error_observation(
     entry = MockConfigEntry(
         domain=nws.DOMAIN,
         data=NWS_CONFIG,
+        version=2,
     )
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    state = hass.states.get("weather.abc")
+    state = hass.states.get("weather.nws_35_75_abc")
     assert state.state == "sunny"
 
     # data is still valid even when update fails
@@ -145,7 +152,7 @@ async def test_data_caching_error_observation(
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
 
-    state = hass.states.get("weather.abc")
+    state = hass.states.get("weather.nws_35_75_abc")
     assert state.state == "sunny"
 
     assert (
@@ -158,10 +165,13 @@ async def test_data_caching_error_observation(
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
 
-    state = hass.states.get("weather.abc")
+    state = hass.states.get("weather.nws_35_75_abc")
     assert state.state == STATE_UNAVAILABLE
 
-    assert "Error fetching NWS observation station ABC data: Test" in caplog.text
+    assert (
+        "Error fetching NWS observation station ABC data: "
+        "An error occurred while updating the observation data" in caplog.text
+    )
 
 
 async def test_no_data_error_observation(
@@ -174,12 +184,16 @@ async def test_no_data_error_observation(
     entry = MockConfigEntry(
         domain=nws.DOMAIN,
         data=NWS_CONFIG,
+        version=2,
     )
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert "Error fetching NWS observation station ABC data: Test" in caplog.text
+    assert (
+        "Error fetching NWS observation station ABC data: "
+        "An error occurred while updating the observation data" in caplog.text
+    )
 
 
 async def test_no_data_error_forecast(
@@ -192,6 +206,7 @@ async def test_no_data_error_forecast(
     entry = MockConfigEntry(
         domain=nws.DOMAIN,
         data=NWS_CONFIG,
+        version=2,
     )
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
@@ -212,6 +227,7 @@ async def test_no_data_error_forecast_hourly(
     entry = MockConfigEntry(
         domain=nws.DOMAIN,
         data=NWS_CONFIG,
+        version=2,
     )
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
@@ -232,12 +248,13 @@ async def test_none(hass: HomeAssistant, mock_simple_nws, no_sensor) -> None:
     entry = MockConfigEntry(
         domain=nws.DOMAIN,
         data=NWS_CONFIG,
+        version=2,
     )
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    state = hass.states.get("weather.abc")
+    state = hass.states.get("weather.nws_35_75_abc")
     assert state
     assert state.state == STATE_UNKNOWN
 
@@ -260,18 +277,19 @@ async def test_error_station(hass: HomeAssistant, mock_simple_nws, no_sensor) ->
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert hass.states.get("weather.abc") is None
+    assert hass.states.get("weather.nws_35_75_abc") is None
 
 
 async def test_entity_refresh(hass: HomeAssistant, mock_simple_nws, no_sensor) -> None:
     """Test manual refresh."""
     instance = mock_simple_nws.return_value
 
-    await async_setup_component(hass, "homeassistant", {})
+    await async_setup_component(hass, HOMEASSISTANT_DOMAIN, {})
 
     entry = MockConfigEntry(
         domain=nws.DOMAIN,
         data=NWS_CONFIG,
+        version=2,
     )
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
@@ -281,9 +299,9 @@ async def test_entity_refresh(hass: HomeAssistant, mock_simple_nws, no_sensor) -
     instance.update_forecast_hourly.assert_called_once()
 
     await hass.services.async_call(
-        "homeassistant",
-        "update_entity",
-        {"entity_id": "weather.abc"},
+        HOMEASSISTANT_DOMAIN,
+        SERVICE_UPDATE_ENTITY,
+        {"entity_id": "weather.nws_35_75_abc"},
         blocking=True,
     )
     await hass.async_block_till_done()
@@ -303,6 +321,7 @@ async def test_error_observation(
     entry = MockConfigEntry(
         domain=nws.DOMAIN,
         data=NWS_CONFIG,
+        version=2,
     )
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
@@ -310,7 +329,7 @@ async def test_error_observation(
 
     instance.update_observation.assert_called_once()
 
-    state = hass.states.get("weather.abc")
+    state = hass.states.get("weather.nws_35_75_abc")
     assert state
     assert state.state == STATE_UNAVAILABLE
 
@@ -322,6 +341,7 @@ async def test_new_config_entry(
     entry = MockConfigEntry(
         domain=nws.DOMAIN,
         data=NWS_CONFIG,
+        version=2,
     )
     entry.add_to_hass(hass)
 
@@ -336,7 +356,7 @@ async def test_new_config_entry(
 @pytest.mark.parametrize(
     ("service"),
     [
-        SERVICE_GET_FORECASTS,
+        WeatherService.GET_FORECASTS,
     ],
 )
 async def test_forecast_service(
@@ -353,6 +373,7 @@ async def test_forecast_service(
     entry = MockConfigEntry(
         domain=nws.DOMAIN,
         data=NWS_CONFIG,
+        version=2,
     )
     entry.add_to_hass(hass)
 
@@ -367,7 +388,7 @@ async def test_forecast_service(
             WEATHER_DOMAIN,
             service,
             {
-                "entity_id": "weather.abc",
+                "entity_id": "weather.nws_35_75_abc",
                 "type": forecast_type,
             },
             blocking=True,
@@ -394,7 +415,7 @@ async def test_forecast_service(
             WEATHER_DOMAIN,
             service,
             {
-                "entity_id": "weather.abc",
+                "entity_id": "weather.nws_35_75_abc",
                 "type": forecast_type,
             },
             blocking=True,
@@ -417,7 +438,7 @@ async def test_forecast_service(
         WEATHER_DOMAIN,
         service,
         {
-            "entity_id": "weather.abc",
+            "entity_id": "weather.nws_35_75_abc",
             "type": "hourly",
         },
         blocking=True,
@@ -434,7 +455,7 @@ async def test_forecast_service(
         WEATHER_DOMAIN,
         service,
         {
-            "entity_id": "weather.abc",
+            "entity_id": "weather.nws_35_75_abc",
             "type": "hourly",
         },
         blocking=True,
@@ -445,7 +466,7 @@ async def test_forecast_service(
 
 @pytest.mark.parametrize(
     ("forecast_type", "entity_id"),
-    [("hourly", "weather.abc")],
+    [("hourly", "weather.nws_35_75_abc")],
 )
 async def test_forecast_subscription(
     hass: HomeAssistant,
@@ -472,6 +493,7 @@ async def test_forecast_subscription(
     entry = MockConfigEntry(
         domain=nws.DOMAIN,
         data=NWS_CONFIG,
+        version=2,
     )
     entry.add_to_hass(hass)
 
@@ -512,7 +534,7 @@ async def test_forecast_subscription(
 
 @pytest.mark.parametrize(
     ("forecast_type", "entity_id"),
-    [("hourly", "weather.abc")],
+    [("hourly", "weather.nws_35_75_abc")],
 )
 async def test_forecast_subscription_with_failing_coordinator(
     hass: HomeAssistant,
@@ -576,6 +598,7 @@ async def test_detailed_forecast_service(
     entry = MockConfigEntry(
         domain=nws.DOMAIN,
         data=NWS_CONFIG,
+        version=2,
     )
     entry.add_to_hass(hass)
 
@@ -586,7 +609,7 @@ async def test_detailed_forecast_service(
         nws.DOMAIN,
         "get_forecasts_extra",
         {
-            "entity_id": "weather.abc",
+            "entity_id": "weather.nws_35_75_abc",
             "type": forecast_type,
         },
         blocking=True,
@@ -617,6 +640,7 @@ async def test_detailed_forecast_service_no_data(
     entry = MockConfigEntry(
         domain=nws.DOMAIN,
         data=NWS_CONFIG,
+        version=2,
     )
     entry.add_to_hass(hass)
 
@@ -627,10 +651,52 @@ async def test_detailed_forecast_service_no_data(
         nws.DOMAIN,
         "get_forecasts_extra",
         {
-            "entity_id": "weather.abc",
+            "entity_id": "weather.nws_35_75_abc",
             "type": forecast_type,
         },
         blocking=True,
         return_response=True,
     )
     assert response == snapshot
+
+
+@pytest.mark.parametrize("forecast_type", ["hourly", "twice_daily"])
+@pytest.mark.usefixtures("mock_simple_nws", "no_sensor")
+async def test_forecast_subscription_single_event_per_update(
+    hass: HomeAssistant,
+    hass_ws_client: WebSocketGenerator,
+    freezer: FrozenDateTimeFactory,
+    forecast_type: str,
+) -> None:
+    """Test a forecast refresh is pushed to subscribers once, not once per listener."""
+    client = await hass_ws_client(hass)
+    entry = MockConfigEntry(domain=nws.DOMAIN, data=NWS_CONFIG)
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    await client.send_json_auto_id(
+        {
+            "type": "weather/subscribe_forecast",
+            "forecast_type": forecast_type,
+            "entity_id": "weather.nws_35_75_abc",
+        }
+    )
+    msg = await client.receive_json()
+    assert msg["success"]
+    subscription_id = msg["id"]
+    msg = await client.receive_json()
+    assert msg["type"] == "event"
+
+    freezer.tick(nws.DEFAULT_SCAN_INTERVAL + timedelta(seconds=1))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+
+    msg = await client.receive_json()
+    assert msg["id"] == subscription_id
+    assert msg["type"] == "event"
+
+    # A duplicate forecast event would arrive before the pong
+    await client.send_json_auto_id({"type": "ping"})
+    msg = await client.receive_json()
+    assert msg["type"] == "pong"

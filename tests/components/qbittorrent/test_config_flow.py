@@ -1,6 +1,7 @@
 """Test the qBittorrent config flow."""
 
 import pytest
+from pytest_homeassistant.common import MockConfigEntry
 from requests.exceptions import RequestException
 import requests_mock
 
@@ -15,8 +16,6 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-
-from tests.common import MockConfigEntry
 
 pytestmark = pytest.mark.usefixtures("mock_setup_entry")
 
@@ -83,7 +82,7 @@ async def test_flow_user(hass: HomeAssistant, mock_api: requests_mock.Mocker) ->
             result["flow_id"], USER_INPUT
         )
         await hass.async_block_till_done()
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] is FlowResultType.CREATE_ENTRY
 
     assert result["data"] == {
         CONF_URL: "http://localhost:8080",

@@ -1,7 +1,6 @@
 """Constants for the Z-Wave JS integration."""
 
-from __future__ import annotations
-
+from enum import StrEnum
 import logging
 
 from awesomeversion import AwesomeVersion
@@ -25,9 +24,7 @@ CONF_ADDON_S2_UNAUTHENTICATED_KEY = "s2_unauthenticated_key"
 CONF_ADDON_LR_S2_ACCESS_CONTROL_KEY = "lr_s2_access_control_key"
 CONF_ADDON_LR_S2_AUTHENTICATED_KEY = "lr_s2_authenticated_key"
 CONF_ADDON_SOCKET = "socket"
-CONF_INSTALLER_MODE = "installer_mode"
 CONF_INTEGRATION_CREATED_ADDON = "integration_created_addon"
-CONF_KEEP_OLD_DEVICES = "keep_old_devices"
 CONF_NETWORK_KEY = "network_key"
 CONF_S0_LEGACY_KEY = "s0_legacy_key"
 CONF_S2_ACCESS_CONTROL_KEY = "s2_access_control_key"
@@ -43,7 +40,10 @@ DOMAIN = "zwave_js"
 
 
 EVENT_DEVICE_ADDED_TO_REGISTRY = f"{DOMAIN}_device_added_to_registry"
+EVENT_VALUE_ADDED = "value added"
+EVENT_VALUE_REMOVED = "value removed"
 EVENT_VALUE_UPDATED = "value updated"
+EVENT_METADATA_UPDATED = "metadata updated"
 
 LOGGER = logging.getLogger(__package__)
 LIB_LOGGER = logging.getLogger("zwave_js_server")
@@ -57,6 +57,7 @@ ZWAVE_JS_NOTIFICATION_EVENT = f"{DOMAIN}_notification"
 ZWAVE_JS_VALUE_UPDATED_EVENT = f"{DOMAIN}_value_updated"
 ATTR_NODE_ID = "node_id"
 ATTR_HOME_ID = "home_id"
+ATTR_HOME_ID_HEX = "home_id_hex"
 ATTR_ENDPOINT = "endpoint"
 ATTR_LABEL = "label"
 ATTR_VALUE = "value"
@@ -81,9 +82,8 @@ ATTR_TEST_NODE_ID = "test_node_id"
 ATTR_STATUS = "status"
 ATTR_ACKNOWLEDGED_FRAMES = "acknowledged_frames"
 ATTR_EVENT_TYPE_LABEL = "event_type_label"
+ATTR_URGENCY = "urgency"
 ATTR_DATA_TYPE_LABEL = "data_type_label"
-ATTR_NOTIFICATION_TYPE = "notification_type"
-ATTR_NOTIFICATION_EVENT = "notification_event"
 
 ATTR_NODE = "node"
 ATTR_ZWAVE_VALUE = "zwave_value"
@@ -97,49 +97,53 @@ ATTR_DESCRIPTION = "description"
 ATTR_EVENT_SOURCE = "event_source"
 ATTR_PARTIAL_DICT_MATCH = "partial_dict_match"
 
-# service constants
-SERVICE_BULK_SET_PARTIAL_CONFIG_PARAMETERS = "bulk_set_partial_config_parameters"
-SERVICE_CLEAR_LOCK_USERCODE = "clear_lock_usercode"
-SERVICE_INVOKE_CC_API = "invoke_cc_api"
-SERVICE_MULTICAST_SET_VALUE = "multicast_set_value"
-SERVICE_PING = "ping"
-SERVICE_REFRESH_NOTIFICATIONS = "refresh_notifications"
-SERVICE_REFRESH_VALUE = "refresh_value"
-SERVICE_RESET_METER = "reset_meter"
-SERVICE_SET_CONFIG_PARAMETER = "set_config_parameter"
-SERVICE_SET_LOCK_USERCODE = "set_lock_usercode"
-SERVICE_SET_LOCK_CONFIGURATION = "set_lock_configuration"
-SERVICE_SET_VALUE = "set_value"
+# credential type string values
+CREDENTIAL_TYPE_BLE = "ble"
+CREDENTIAL_TYPE_DESFIRE = "desfire"
+CREDENTIAL_TYPE_EYE_BIOMETRIC = "eye_biometric"
+CREDENTIAL_TYPE_FACE_BIOMETRIC = "face_biometric"
+CREDENTIAL_TYPE_FINGER_BIOMETRIC = "finger_biometric"
+CREDENTIAL_TYPE_HAND_BIOMETRIC = "hand_biometric"
+CREDENTIAL_TYPE_NFC = "nfc"
+CREDENTIAL_TYPE_PASSWORD = "password"
+CREDENTIAL_TYPE_PIN_CODE = "pin_code"
+CREDENTIAL_TYPE_RFID_CODE = "rfid_code"
+CREDENTIAL_TYPE_UNSPECIFIED_BIOMETRIC = "unspecified_biometric"
+CREDENTIAL_TYPE_UWB = "uwb"
 
-ATTR_NODES = "nodes"
+# writable credential types (for set/clear services)
+WRITABLE_CREDENTIAL_TYPES = {CREDENTIAL_TYPE_PIN_CODE, CREDENTIAL_TYPE_PASSWORD}
+
+# user type string values
+USER_TYPE_GENERAL = "general"
+USER_TYPE_PROGRAMMING = "programming"
+USER_TYPE_NON_ACCESS = "non_access"
+USER_TYPE_DURESS = "duress"
+USER_TYPE_DISPOSABLE = "disposable"
+USER_TYPE_EXPIRING = "expiring"
+USER_TYPE_REMOTE_ONLY = "remote_only"
+
+# credential rule string values
+CREDENTIAL_RULE_SINGLE = "single"
+CREDENTIAL_RULE_DUAL = "dual"
+CREDENTIAL_RULE_TRIPLE = "triple"
+
 # config parameter
 ATTR_CONFIG_PARAMETER = "parameter"
 ATTR_CONFIG_PARAMETER_BITMASK = "bitmask"
-ATTR_CONFIG_VALUE = "value"
-ATTR_VALUE_SIZE = "value_size"
-ATTR_VALUE_FORMAT = "value_format"
 # refresh value
 ATTR_REFRESH_ALL_VALUES = "refresh_all_values"
-# multicast
-ATTR_BROADCAST = "broadcast"
 # meter reset
 ATTR_METER_TYPE = "meter_type"
 ATTR_METER_TYPE_NAME = "meter_type_name"
 # invoke CC API
 ATTR_METHOD_NAME = "method_name"
 ATTR_PARAMETERS = "parameters"
-# lock set configuration
-ATTR_AUTO_RELOCK_TIME = "auto_relock_time"
-ATTR_BLOCK_TO_BLOCK = "block_to_block"
-ATTR_HOLD_AND_RELEASE_TIME = "hold_and_release_time"
-ATTR_LOCK_TIMEOUT = "lock_timeout"
-ATTR_OPERATION_TYPE = "operation_type"
-ATTR_TWIST_ASSIST = "twist_assist"
-
 ADDON_SLUG = "core_zwave_js"
 
+NODE_STATUSES = ["asleep", "awake", "dead", "alive"]
+
 # Sensor entity description constants
-ENTITY_DESC_KEY_BATTERY_LEVEL = "battery_level"
 ENTITY_DESC_KEY_BATTERY_LIST_STATE = "battery_list_state"
 ENTITY_DESC_KEY_BATTERY_MAXIMUM_CAPACITY = "battery_maximum_capacity"
 ENTITY_DESC_KEY_BATTERY_TEMPERATURE = "battery_temperature"
@@ -155,13 +159,11 @@ ENTITY_DESC_KEY_HUMIDITY = "humidity"
 ENTITY_DESC_KEY_ILLUMINANCE = "illuminance"
 ENTITY_DESC_KEY_PRESSURE = "pressure"
 ENTITY_DESC_KEY_SIGNAL_STRENGTH = "signal_strength"
-ENTITY_DESC_KEY_TEMPERATURE = "temperature"
 ENTITY_DESC_KEY_TARGET_TEMPERATURE = "target_temperature"
 ENTITY_DESC_KEY_UV_INDEX = "uv_index"
 ENTITY_DESC_KEY_MEASUREMENT = "measurement"
 ENTITY_DESC_KEY_TOTAL_INCREASING = "total_increasing"
 
-ENTITY_DESC_KEY_ENERGY_PRODUCTION_POWER = "energy_production_power"
 ENTITY_DESC_KEY_ENERGY_PRODUCTION_TIME = "energy_production_time"
 ENTITY_DESC_KEY_ENERGY_PRODUCTION_TOTAL = "energy_production_total"
 ENTITY_DESC_KEY_ENERGY_PRODUCTION_TODAY = "energy_production_today"
@@ -203,3 +205,72 @@ COVER_TILT_PROPERTY_KEYS: set[str | int | None] = {
     WindowCoveringPropertyKey.VERTICAL_SLATS_ANGLE,
     WindowCoveringPropertyKey.VERTICAL_SLATS_ANGLE_NO_POSITION,
 }
+
+# notification
+NOTIFICATION_ACCESS_CONTROL_PROPERTY = "Access Control"
+OPENING_STATE_PROPERTY_KEY = "Opening state"
+
+
+class ZWaveJSService(StrEnum):
+    """Store keys for Z-Wave services."""
+
+    CLEAR_LOCK_USERCODE = "clear_lock_usercode"
+    GET_LOCK_USERCODE = "get_lock_usercode"
+    SET_LOCK_USERCODE = "set_lock_usercode"
+    SET_LOCK_CONFIGURATION = "set_lock_configuration"
+    SET_USER = "set_user"
+    DELETE_USER = "delete_user"
+    DELETE_ALL_USERS = "delete_all_users"
+    GET_CREDENTIAL_CAPABILITIES = "get_credential_capabilities"
+    GET_USERS = "get_users"
+    SET_CREDENTIAL = "set_credential"
+    DELETE_CREDENTIAL = "delete_credential"
+    DELETE_ALL_CREDENTIALS = "delete_all_credentials"
+    SET_CONFIG_PARAMETER = "set_config_parameter"
+    BULK_SET_PARTIAL_CONFIG_PARAMETERS = "bulk_set_partial_config_parameters"
+    REFRESH_VALUE = "refresh_value"
+    SET_VALUE = "set_value"
+    MULTICAST_SET_VALUE = "multicast_set_value"
+    PING = "ping"
+    RESET_METER = "reset_meter"
+    INVOKE_CC_API = "invoke_cc_api"
+    REFRESH_NOTIFICATIONS = "refresh_notifications"
+
+
+class ZWaveJSServiceArgument(StrEnum):
+    """Store keys for Z-Wave service arguments."""
+
+    CODE_SLOT = "code_slot"
+    USERCODE = "usercode"
+    OPERATION_TYPE = "operation_type"
+    LOCK_TIMEOUT = "lock_timeout"
+    AUTO_RELOCK_TIME = "auto_relock_time"
+    HOLD_AND_RELEASE_TIME = "hold_and_release_time"
+    TWIST_ASSIST = "twist_assist"
+    BLOCK_TO_BLOCK = "block_to_block"
+    USER_ID = "user_id"
+    USER_NAME = "user_name"
+    USER_TYPE = "user_type"
+    CREDENTIAL_RULE = "credential_rule"
+    ACTIVE = "active"
+    CREDENTIAL_TYPE = "credential_type"
+    CREDENTIAL_SLOT = "credential_slot"
+    CREDENTIAL_DATA = "credential_data"
+    ENDPOINT = "endpoint"
+    PARAMETER = "parameter"
+    BITMASK = "bitmask"
+    VALUE = "value"
+    VALUE_SIZE = "value_size"
+    VALUE_FORMAT = "value_format"
+    REFRESH_ALL_VALUES = "refresh_all_values"
+    COMMAND_CLASS = "command_class"
+    PROPERTY = "property"
+    PROPERTY_KEY = "property_key"
+    OPTIONS = "options"
+    WAIT_FOR_RESULT = "wait_for_result"
+    BROADCAST = "broadcast"
+    METER_TYPE = "meter_type"
+    METHOD_NAME = "method_name"
+    PARAMETERS = "parameters"
+    NOTIFICATION_TYPE = "notification_type"
+    NOTIFICATION_EVENT = "notification_event"
